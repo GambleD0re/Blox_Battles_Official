@@ -1,6 +1,4 @@
 // backend/routes/history.js
-// This new file provides a dedicated endpoint for fetching a user's transaction history.
-
 const express = require('express');
 const db = require('../database/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -21,13 +19,12 @@ router.get('/', authenticateToken, async (req, res) => {
                 reference_id,
                 created_at
             FROM transaction_history
-            WHERE user_id = ?
+            WHERE user_id = $1
             ORDER BY created_at DESC
             LIMIT 100; -- Limit to the last 100 transactions for performance
         `;
 
-        const history = await db.all(sql, [userId]);
-
+        const { rows: history } = await db.query(sql, [userId]);
         res.status(200).json(history);
 
     } catch (err) {
