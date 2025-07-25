@@ -92,8 +92,7 @@ app.use(express.json());
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: `${process.env.SERVER_URL}/api/auth/google/callback`,
-    // [CORRECTED] Added the missing 'scope' property.
+    callbackURL: `${process.env.BACKEND_URL}/api/auth/google/callback`,
     scope: ['profile', 'email']
   },
   async function(accessToken, refreshToken, profile, done) {
