@@ -1,3 +1,6 @@
+# render.yaml - A Render Blueprint for the Blox Battles Application (v9 - Final Path Correction)
+# This version corrects the staticPublishPath for the frontend service.
+
 databases:
   - name: blox-battles-db
     plan: basic-256mb
@@ -41,7 +44,7 @@ services:
         sync: false
       - key: ALCHEMY_POLYGON_URL
         sync: false
-      - key: ALchemy_API_KEY
+      - key: ALCHEMY_API_KEY
         sync: false
       - key: MASTER_XPUB
         sync: false
@@ -60,7 +63,8 @@ services:
     runtime: static
     rootDir: ./frontend
     buildCommand: "npm install && npm run build"
-    staticPublishPath: ./dist
+    # [CORRECTED] The path must be relative to the repository root, not the rootDir.
+    staticPublishPath: frontend/dist
     routes:
       - type: rewrite
         source: /api/:path*
@@ -71,7 +75,6 @@ services:
     envVars:
       - key: VITE_STRIPE_PUBLISHABLE_KEY
         sync: false
-      # [NEW] This gives our React code access to the backend's public URL.
       - key: VITE_API_BASE_URL
         value: https://blox-battles-backend.onrender.com
 
