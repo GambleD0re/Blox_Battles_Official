@@ -1,17 +1,13 @@
 // backend/services/transactionListenerService.js
-// This service establishes a persistent WebSocket connection to Alchemy
-// to monitor the blockchain for incoming user deposits in real-time.
-
 const { Alchemy, Network, AlchemySubscription } = require("alchemy-sdk");
 const { ethers } = require("ethers");
+// [CORRECTED] This path now correctly points up one level and into the database folder.
 const db = require('../database/database');
 
-// --- Configuration ---
 const alchemySettings = {
     apiKey: process.env.ALCHEMY_API_KEY,
     network: Network.MATIC_MAINNET,
 };
-
 const alchemy = new Alchemy(alchemySettings);
 
 const SUPPORTED_TOKENS = {
@@ -20,15 +16,11 @@ const SUPPORTED_TOKENS = {
     'USDT': { contractAddress: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f', decimals: 6 }
 };
 
-// --- Service State ---
 let monitoredAddresses = new Set();
 
-/**
- * Fetches all user deposit addresses from the database and populates the in-memory set.
- */
 async function loadMonitoredAddresses() {
     try {
-        const users = await db.all('SELECT crypto_deposit_address FROM users WHERE crypto_deposit_address IS NOT NULL');
+        const { rows: users } = await db.query('SELECT crypto_deposit_address FROM users WHERE crypto_deposit_address IS NOT NULL');
         const addresses = users.map(u => u.crypto_deposit_address.toLowerCase());
         monitoredAddresses = new Set(addresses);
         console.log(`[Listener] Monitoring ${monitoredAddresses.size} user deposit addresses.`);
@@ -37,23 +29,18 @@ async function loadMonitoredAddresses() {
     }
 }
 
-/**
- * Handles a detected transaction by creating a pending record in the database.
- */
 async function handleDetectedTransaction({ hash, to, tokenType, value }) {
     const toAddress = to.toLowerCase();
-    if (!monitoredAddresses.has(toAddress)) {
-        return;
-    }
+    if (!monitoredAddresses.has(toAddress)) return;
 
     try {
-        const user = await db.get('SELECT id FROM users WHERE crypto_deposit_address = ?', [toAddress]);
+        const { rows: [user] } = await db.query('SELECT id FROM users WHERE crypto_deposit_address = $1', [toAddress]);
         if (!user) {
             console.warn(`[Listener] Detected transaction to an unassociated address: ${toAddress}`);
             return;
         }
 
-        const existingDeposit = await db.get('SELECT id FROM crypto_deposits WHERE tx_hash = ?', [hash]);
+        const { rows: [existingDeposit] } = await db.query('SELECT id FROM crypto_deposits WHERE tx_hash = $1', [hash]);
         if (existingDeposit) {
             console.log(`[Listener] Ignoring duplicate transaction: ${hash}`);
             return;
@@ -64,34 +51,34 @@ async function handleDetectedTransaction({ hash, to, tokenType, value }) {
 
         console.log(`[Listener] Detected pending deposit: ${amountCrypto} ${tokenType} to user ${user.id} (TX: ${hash})`);
 
-        await db.run(
+        await db.query(
             `INSERT INTO crypto_deposits (user_id, tx_hash, token_type, amount_crypto, gem_package_id, gem_amount, status)
-             VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+             VALUES ($1, $2, $3, $4, $5, $6, 'pending')`,
             [user.id, hash, tokenType, amountCrypto, 'crypto_placeholder', 0]
         );
 
     } catch (error) {
-        console.error(`[Listener] Error handling transaction ${hash}:`, error);
+        if (error.code === '23505') {
+             console.log(`[Listener] Ignoring duplicate transaction via race condition: ${hash}`);
+        } else {
+             console.error(`[Listener] Error handling transaction ${hash}:`, error);
+        }
     }
 }
 
-
-/**
- * Starts the WebSocket listeners for both native POL and ERC-20 tokens.
- */
 function startTransactionListener() {
     console.log("[Listener] Starting WebSocket transaction listeners...");
+    loadMonitoredAddresses();
 
     alchemy.ws.on(AlchemySubscription.PENDING_TRANSACTIONS, (tx) => {
-        const toAddress = tx.to ? tx.to.toLowerCase() : null;
-        if (toAddress && monitoredAddresses.has(toAddress) && tx.data === '0x') {
+        if (tx.to && monitoredAddresses.has(tx.to.toLowerCase()) && tx.data === '0x') {
              handleDetectedTransaction({ hash: tx.hash, to: tx.to, tokenType: 'POL', value: tx.value });
         }
     });
     console.log("[Listener] Native POL transfer listener is active.");
 
     const erc20TransferFilter = {
-        method: 'alchemy_pendingTransactions',
+        method: AlchemySubscription.PENDING_TRANSACTIONS,
         toAddress: [SUPPORTED_TOKENS.USDC.contractAddress, SUPPORTED_TOKENS.USDT.contractAddress],
         hashesOnly: false
     };
@@ -99,7 +86,7 @@ function startTransactionListener() {
     alchemy.ws.on(erc20TransferFilter, (tx) => {
         const iface = new ethers.Interface(["function transfer(address to, uint256 amount)"]);
         try {
-            const decodedData = iface.parseTransaction({ data: tx.data });
+            const decodedData = iface.parseTransaction({ data: tx.data, value: tx.value });
             if (decodedData && decodedData.name === 'transfer') {
                 const recipientAddress = decodedData.args.to.toLowerCase();
                 if (monitoredAddresses.has(recipientAddress)) {
@@ -112,9 +99,6 @@ function startTransactionListener() {
     console.log("[Listener] ERC-20 (USDC/USDT) transfer listener is active.");
 }
 
-/**
- * Adds a new address to the live monitoring set.
- */
 function addAddressToMonitor(address) {
     const lowerCaseAddress = address.toLowerCase();
     if (address && !monitoredAddresses.has(lowerCaseAddress)) {
@@ -123,11 +107,4 @@ function addAddressToMonitor(address) {
     }
 }
 
-
-// Initial load of addresses when the service starts.
-loadMonitoredAddresses();
-
-module.exports = {
-    startTransactionListener,
-    addAddressToMonitor
-};
+module.exports = { startTransactionListener, addAddressToMonitor };
