@@ -1,61 +1,70 @@
-// backend/cron-tasks.js
-// This file is dedicated to being run by the Render Cron Job service.
+// backend/routes/tasks.js
+const express = require('express');
+const db = require('../database/database'); // CORRECTED PATH
+const { param } = require('express-validator');
+const { handleValidationErrors, authenticateBot } = require('../middleware/auth');
 
-require('dotenv').config();
-const db = require('./database/database');
+const router = express.Router();
 
-const DUEL_EXPIRATION_HOURS = 1;
-const DUEL_FORFEIT_MINUTES = 10;
+// Endpoint for the bot to fetch pending tasks for a specific region
+router.get('/:region', 
+    authenticateBot,
+    param('region').isIn(['Oceania', 'Europe', 'North America']).withMessage('Invalid region specified.'),
+    handleValidationErrors,
+    async (req, res) => {
+        const { region } = req.params;
+        const client = await db.getPool().connect();
+        try {
+            await client.query('BEGIN');
+            
+            const sql = `
+                SELECT t.id, t.task_type, t.payload
+                FROM tasks t
+                JOIN duels d ON (t.payload->>'websiteDuelId')::int = d.id
+                WHERE t.status = 'pending' AND t.task_type = 'REFEREE_DUEL' AND d.region = $1
+                FOR UPDATE of t, d;
+            `;
+            const { rows: tasksForBot } = await client.query(sql, [region]);
 
-// This is the same function from your server.js, now isolated for the cron job.
-async function runScheduledTasks() {
-    console.log(`[CRON] Running scheduled tasks at ${new Date().toISOString()}`);
-    const pool = db.getPool();
-    
-    // Task 1: Cancel old 'accepted' duels
-    const client1 = await pool.connect();
-    try {
-        const acceptedSql = `
-            SELECT id, challenger_id, opponent_id, pot 
-            FROM duels 
-            WHERE status = 'accepted' AND accepted_at <= NOW() - INTERVAL '${DUEL_EXPIRATION_HOURS} hours'
-        `;
-        const { rows: expiredAcceptedDuels } = await client1.query(acceptedSql);
-        for (const duel of expiredAcceptedDuels) {
-            const clientTx = await pool.connect();
-            try {
-                await clientTx.query('BEGIN');
-                const refundAmount = duel.pot / 2;
-                await clientTx.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.challenger_id]);
-                await clientTx.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.opponent_id]);
-                await clientTx.query("UPDATE duels SET status = 'canceled' WHERE id = $1", [duel.id]);
-                await clientTx.query('COMMIT');
-                console.log(`[CRON] Canceled expired 'accepted' duel ID ${duel.id}. Pot of ${duel.pot} refunded.`);
-            } catch (txError) {
-                await clientTx.query('ROLLBACK');
-                console.error(`[CRON] Rolled back transaction for duel ${duel.id}:`, txError);
-            } finally {
-                clientTx.release();
+            if (tasksForBot.length > 0) {
+                const idsToUpdate = tasksForBot.map(t => t.id);
+                await client.query(`UPDATE tasks SET status = 'processing' WHERE id = ANY($1::int[])`, [idsToUpdate]);
             }
-        }
-    } catch (error) {
-        console.error('[CRON] Error canceling old accepted duels:', error);
-    } finally {
-        client1.release();
-    }
-    
-    // Task 2 can be added here following the same pattern.
-    // To keep it simple, we'll focus on the first task for now.
-    console.log('[CRON] Finished scheduled tasks.');
-}
 
-// Run the tasks and then exit, as Render expects the cron command to terminate.
-runScheduledTasks()
-    .then(() => {
-        console.log("Cron job finished successfully.");
-        process.exit(0);
-    })
-    .catch(err => {
-        console.error("Cron job failed:", err);
-        process.exit(1);
-    });
+            await client.query('COMMIT');
+            res.json(tasksForBot);
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('Task Fetch Error:', err);
+            res.status(500).json({ message: 'Failed to fetch tasks.' });
+        } finally {
+            client.release();
+        }
+});
+
+// Endpoint for the bot to mark a task as completed
+router.post('/:id/complete', 
+    authenticateBot,
+    param('id').isInt().withMessage('Invalid task ID.'),
+    handleValidationErrors,
+    async (req, res) => {
+        const taskId = req.params.id;
+        try {
+            const { rowCount } = await db.query(
+                "UPDATE tasks SET status = 'completed', completed_at = NOW() WHERE id = $1 AND status = 'processing'",
+                [taskId]
+            );
+            
+            if (rowCount > 0) {
+                res.status(200).json({ message: `Task ${taskId} marked as completed.` });
+            } else {
+                res.status(404).json({ message: 'Task not found or not in processing state.' });
+            }
+        } catch (err) {
+            console.error(`Error completing task ${taskId}:`, err.message);
+            res.status(500).json({ message: 'Failed to complete task.' });
+        }
+    }
+);
+
+module.exports = router;
