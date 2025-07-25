@@ -1,5 +1,5 @@
-# render.yaml - A Render Blueprint for the Blox Battles Application (v5 - Corrected)
-# This version removes the region from the static site and corrects the SERVER_URL reference.
+# render.yaml - A Render Blueprint for the Blox Battles Application (v6 - Final)
+# This version uses the final, non-conflicting '/healthz' health check path.
 
 databases:
   - name: blox-battles-db
@@ -19,14 +19,13 @@ services:
     buildCommand: "npm install"
     preDeployCommand: "./setup-database.sh"
     startCommand: "node server.js"
-    healthCheckPath: /api/status
+    # [CORRECTED] Pointing the health check to the new, non-conflicting route.
+    healthCheckPath: /healthz
     envVars:
       - key: DATABASE_URL
         fromDatabase:
           name: blox-battles-db
           property: connectionString
-      # [CORRECTED] Replaced the invalid 'fromService' reference with a hardcoded 'value'.
-      # Render URLs are predictable, so we can construct the frontend URL here.
       - key: SERVER_URL
         value: https://blox-battles-frontend.onrender.com
       # --- SECRETS ---
@@ -65,7 +64,6 @@ services:
   - type: web
     name: blox-battles-frontend
     runtime: static
-    # [CORRECTED] Removed the 'region' key as it's not applicable to static sites.
     rootDir: ./frontend
     buildCommand: "npm install && npm run build"
     staticPublishPath: ./dist
