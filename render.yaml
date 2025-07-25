@@ -1,5 +1,5 @@
-# render.yaml - A Render Blueprint for the Blox Battles Application (v7 - Production Routing)
-# This version adds a production-grade API rewrite rule for the frontend.
+# render.yaml - A Render Blueprint for the Blox Battles Application (v13 - Final Cron Job Fix)
+# This version adds the build command to the cron job service.
 
 databases:
   - name: blox-battles-db
@@ -25,9 +25,8 @@ services:
         fromDatabase:
           name: blox-battles-db
           property: connectionString
-      - key: SERVER_URL # This is for CORS and frontend redirects
+      - key: SERVER_URL
         value: https://blox-battles-frontend.onrender.com
-      # [NEW] This is specifically for the Google OAuth callback URL.
       - key: BACKEND_URL
         value: https://blox-battles-backend.onrender.com
       # --- SECRETS (sync: false) ---
@@ -77,7 +76,6 @@ services:
     envVars:
       - key: VITE_STRIPE_PUBLISHABLE_KEY
         sync: false
-      # This is still needed for the frontend to know where to link to for Google Auth.
       - key: VITE_API_BASE_URL
         value: https://blox-battles-backend.onrender.com
 
@@ -88,8 +86,12 @@ services:
     name: blox-battles-cron
     runtime: node
     region: oregon
+    # [CORRECTED] Added rootDir and buildCommand to install dependencies for the cron job.
+    rootDir: ./backend
+    buildCommand: "npm install"
     schedule: "*/1 * * * *"
-    startCommand: "node backend/cron-tasks.js"
+    # [CORRECTED] Path is now relative to the rootDir.
+    startCommand: "node cron-tasks.js"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
