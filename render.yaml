@@ -1,3 +1,8 @@
+databases:
+  - name: blox-battles-db
+    plan: starter
+    region: oregon
+
 services:
   # ---------------------
   # 1. The Backend Web Service (Node.js/Express)
