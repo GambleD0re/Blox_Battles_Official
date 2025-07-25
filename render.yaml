@@ -1,13 +1,11 @@
-# render.yaml - A Render Blueprint for the Blox Battles Application (v4 - Corrected)
-# This version uses the correct 'startCommand' key for the Cron Job.
+# render.yaml - A Render Blueprint for the Blox Battles Application (v5 - Corrected)
+# This version removes the region from the static site and corrects the SERVER_URL reference.
 
-# Define all PostgreSQL databases in this top-level 'databases' section.
 databases:
   - name: blox-battles-db
     plan: starter
     region: oregon
 
-# Define all other application services (web servers, static sites, etc.) here.
 services:
   # ---------------------
   # 1. The Backend Web Service (Node.js/Express)
@@ -27,11 +25,10 @@ services:
         fromDatabase:
           name: blox-battles-db
           property: connectionString
+      # [CORRECTED] Replaced the invalid 'fromService' reference with a hardcoded 'value'.
+      # Render URLs are predictable, so we can construct the frontend URL here.
       - key: SERVER_URL
-        fromService:
-          type: web
-          name: blox-battles-frontend
-          property: url
+        value: https://blox-battles-frontend.onrender.com
       # --- SECRETS ---
       - key: JWT_SECRET
         sync: false
@@ -68,7 +65,7 @@ services:
   - type: web
     name: blox-battles-frontend
     runtime: static
-    region: oregon
+    # [CORRECTED] Removed the 'region' key as it's not applicable to static sites.
     rootDir: ./frontend
     buildCommand: "npm install && npm run build"
     staticPublishPath: ./dist
@@ -88,7 +85,6 @@ services:
     runtime: node
     region: oregon
     schedule: "*/1 * * * *"
-    # [CORRECTED] Renamed 'command' to 'startCommand' to match Render's spec.
     startCommand: "node backend/cron-tasks.js"
     envVars:
       - key: DATABASE_URL
