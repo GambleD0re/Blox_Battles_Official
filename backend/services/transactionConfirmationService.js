@@ -1,5 +1,6 @@
 // backend/services/transactionConfirmationService.js
 const { Alchemy, Network } = require("alchemy-sdk");
+// [CORRECTED] This path now correctly points up one level and into the database folder.
 const db = require('../database/database');
 const { getLatestPrice } = require('./priceFeedService');
 
@@ -38,14 +39,12 @@ async function processPendingDeposits() {
             try {
                 const txReceipt = await alchemy.core.getTransactionReceipt(deposit.tx_hash);
                 if (!txReceipt || !txReceipt.blockNumber) {
-                    // Release client if we are skipping this iteration
                     client.release();
                     continue;
                 }
 
                 if (txReceipt.status === 0) {
                     await client.query("UPDATE crypto_deposits SET status = 'failed' WHERE id = $1", [deposit.id]);
-                    // Release client after the update
                     client.release();
                     continue;
                 }
@@ -76,13 +75,9 @@ async function processPendingDeposits() {
                 }
 
             } catch (error) {
-                // Ensure rollback is attempted only if a transaction might have started
-                if (error.message.includes("Could not fetch a valid price")) {
-                     await client.query('ROLLBACK');
-                }
+                await client.query('ROLLBACK').catch(console.error);
                 console.error(`[Confirmer] Error processing deposit ID ${deposit.id} (TX: ${deposit.tx_hash}):`, error);
             } finally {
-                // Always release the client
                 client.release();
             }
         }
