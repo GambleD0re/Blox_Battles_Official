@@ -37,20 +37,22 @@ app.use(cookieParser());
 app.use(passport.initialize());
 app.use(morgan('dev'));
 
+// [CORRECTED] A dedicated, non-conflicting, public health check route for Render.
+app.get('/healthz', (req, res) => {
+    res.status(200).json({ status: 'ok', message: 'Health check passed' });
+});
+
 // --- Stripe Webhook Handler ---
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
     let event;
-
     try {
         event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
     } catch (err) {
         console.error(`Webhook signature verification failed.`, err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
-
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
         const { userId, gemAmount } = session.metadata;
@@ -58,7 +60,6 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
         const amountPaid = session.amount_total;
         const currency = session.currency;
         const gemAmountInt = parseInt(gemAmount, 10);
-
         const pool = db.getPool();
         const client = await pool.connect();
         try {
@@ -67,19 +68,11 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
                 console.log(`Webhook Info: Received duplicate event for session ${sessionId}. Ignoring.`);
                 return res.status(200).json({ received: true, message: 'Duplicate event.' });
             }
-
             await client.query('BEGIN');
             await client.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [gemAmountInt, userId]);
-            await client.query(
-                'INSERT INTO gem_purchases (user_id, stripe_session_id, gem_amount, amount_paid, currency, status) VALUES ($1, $2, $3, $4, $5, $6)',
-                [userId, sessionId, gemAmountInt, amountPaid, currency, 'completed']
-            );
-            await client.query(
-                'INSERT INTO transaction_history (user_id, type, amount_gems, description) VALUES ($1, $2, $3, $4)',
-                [userId, 'deposit_stripe', gemAmountInt, `${gemAmountInt} Gems purchased via Card`]
-            );
+            await client.query('INSERT INTO gem_purchases (user_id, stripe_session_id, gem_amount, amount_paid, currency, status) VALUES ($1, $2, $3, $4, $5, $6)', [userId, sessionId, gemAmountInt, amountPaid, currency, 'completed']);
+            await client.query('INSERT INTO transaction_history (user_id, type, amount_gems, description) VALUES ($1, $2, $3, $4)', [userId, 'deposit_stripe', gemAmountInt, `${gemAmountInt} Gems purchased via Card`]);
             await client.query('COMMIT');
-
             console.log(`Gems awarded successfully for session ${sessionId}. User: ${userId}, Gems: ${gemAmount}`);
         } catch (dbError) {
             await client.query('ROLLBACK');
@@ -89,7 +82,6 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
             client.release();
         }
     }
-
     res.status(200).json({ received: true });
 });
 
@@ -100,7 +92,6 @@ app.use(express.json());
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    // [MODIFIED] Use the absolute SERVER_URL from environment variables for the callback
     callbackURL: `${process.env.SERVER_URL}/api/auth/google/callback`
   },
   async function(accessToken, refreshToken, profile, done) {
@@ -109,14 +100,12 @@ passport.use(new GoogleStrategy({
     try {
         let { rows: [user] } = await db.query('SELECT * FROM users WHERE google_id = $1', [googleId]);
         if (user) { return done(null, user); }
-
         ({ rows: [user] } = await db.query('SELECT * FROM users WHERE email = $1', [email]));
         if (user) {
             await db.query('UPDATE users SET google_id = $1 WHERE id = $2', [googleId, user.id]);
             const { rows: [updatedUser] } = await db.query('SELECT * FROM users WHERE id = $1', [user.id]);
             return done(null, updatedUser);
         }
-        
         const newUserId = crypto.randomUUID();
         await db.query('INSERT INTO users (id, google_id, email, is_admin) VALUES ($1, $2, $3, false)', [newUserId, googleId, email]);
         const { rows: [newUser] } = await db.query('SELECT * FROM users WHERE id = $1', [newUserId]);
@@ -128,27 +117,13 @@ passport.use(new GoogleStrategy({
   }
 ));
 
-// --- Scheduled Task (To be moved to a Render Cron Job) ---
-const DUEL_EXPIRATION_HOURS = 1;
-const DUEL_FORFEIT_MINUTES = 10;
-const CHECK_INTERVAL_MINUTES = 1;
-
-async function runScheduledTasks() {
-    // This function's logic remains the same as the previously refactored version
-}
-
 // --- API Routes (Authenticated) ---
 const apiRoutes = require('./routes');
 app.use('/api', botLogger, apiRoutes);
 
 // --- Server Startup ---
 app.listen(PORT, () => {
-    console.log(`Backend API server listening on http://localhost:${PORT}`);
-    
-    // NOTE: The cron job is handled by the render.yaml. This can be safely removed.
-    // setInterval(runScheduledTasks, CHECK_INTERVAL_MINUTES * 60 * 1000);
-    // runScheduledTasks();
-
+    console.log(`Backend API server started and listening on internal port: ${PORT}`);
     startTransactionListener();
     startConfirmationService();
 });
