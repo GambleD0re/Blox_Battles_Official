@@ -1,18 +1,20 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+// frontend/vite.config.js
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3000,
+    // This proxy is the key. It tells Vite's development server
+    // to forward any requests to /api to your backend.
+    // This same logic is respected in the production build.
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        // We will set this URL in an environment variable on Render
+        target: process.env.VITE_API_BASE_URL || 'http://localhost:3001',
         changeOrigin: true,
-        // This line is added to prevent potential SSL verification issues
-        secure: false, 
-      }
-    }
-  }
-})
+        secure: false,
+      },
+    },
+  },
+});
