@@ -1,5 +1,5 @@
-# render.yaml - A Render Blueprint for the Blox Battles Application (v6 - Final)
-# This version uses the final, non-conflicting '/healthz' health check path.
+# render.yaml - A Render Blueprint for the Blox Battles Application (v7 - Production Routing)
+# This version adds a production-grade API rewrite rule for the frontend.
 
 databases:
   - name: blox-battles-db
@@ -19,7 +19,6 @@ services:
     buildCommand: "npm install"
     preDeployCommand: "./setup-database.sh"
     startCommand: "node server.js"
-    # [CORRECTED] Pointing the health check to the new, non-conflicting route.
     healthCheckPath: /healthz
     envVars:
       - key: DATABASE_URL
@@ -68,13 +67,20 @@ services:
     buildCommand: "npm install && npm run build"
     staticPublishPath: ./dist
     routes:
+      # [NEW] This rule tells Render to proxy API requests to the backend.
+      - type: rewrite
+        source: /api/:path*
+        destination: https://blox-battles-backend.onrender.com/api/:path*
+      # This rule handles all other requests for the React Single Page App.
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
       - key: VITE_STRIPE_PUBLISHABLE_KEY
         sync: false
-
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://blox-battles-backend.onrender.com
   # ---------------------
   # 3. The Cron Job
   # ---------------------
