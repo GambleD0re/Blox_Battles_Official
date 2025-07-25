@@ -1,0 +1,104 @@
+# render.yaml - A Render Blueprint for the Blox Battles Application
+
+services:
+  # ---------------------
+  # 1. The PostgreSQL Database
+  # This is the foundation. It will be created first.
+  # ---------------------
+  - type: psql
+    name: blox-battles-db
+    plan: starter # From your paid plan
+    region: oregon # IMPORTANT: Use the same region for all services
+
+  # ---------------------
+  # 2. The Backend Web Service (Node.js/Express)
+  # This service runs your API.
+  # ---------------------
+  - type: web
+    name: blox-battles-backend
+    env: node
+    plan: starter # From your paid plan
+    region: oregon # IMPORTANT: Use the same region
+    rootDir: ./backend
+    buildCommand: "npm install"
+    startCommand: "node server.js"
+    # The preDeployCommand is the perfect place for your database setup script.
+    # It runs after a successful build but before the new version goes live.
+    preDeployCommand: "./setup-database.sh"
+    healthCheckPath: /api/status # We will add this small route for Render health checks
+    envVars:
+      # This 'magic' line automatically gets the connection string from the database service above
+      # and sets it as the DATABASE_URL environment variable for this service.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: blox-battles-db
+          property: connectionString
+      # --- Your Environment Variables ---
+      # For security, secret keys will not be stored in this file.
+      # Render will ask you to paste these in the UI on the first deploy.
+      - key: JWT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: BOT_API_KEY
+        sync: false
+      - key: ADMIN_TEST_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: ALCHEMY_POLYGON_URL
+        sync: false
+      - key: ALCHEMY_API_KEY
+        sync: false
+      - key: MASTER_XPUB
+        sync: false
+      - key: PAYOUT_WALLET_PRIVATE_KEY
+        sync: false
+      # The SERVER_URL should be the public URL of your frontend service.
+      # Render automatically creates this for you.
+      - key: SERVER_URL
+        fromService:
+          type: static
+          name: blox-battles-frontend
+          property: url
+
+  # ---------------------
+  # 3. The Frontend Static Site (React/Vite)
+  # This service hosts your user-facing website.
+  # ---------------------
+  - type: static
+    name: blox-battles-frontend
+    region: oregon # IMPORTANT: Use the same region
+    rootDir: ./frontend
+    buildCommand: "npm install && npm run build"
+    publishDir: ./dist
+    # This rewrite rule is essential for Single Page Applications (SPAs) like React Router.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_STRIPE_PUBLISHABLE_KEY
+        sync: false
+
+  # ---------------------
+  # 4. The Cron Job
+  # This runs your scheduled tasks for duel expiration and forfeits.
+  # ---------------------
+  - type: cron
+    name: blox-battles-cron
+    env: node
+    region: oregon # IMPORTANT: Use the same region
+    schedule: "*/1 * * * *" # Runs every minute
+    command: "node backend/cron-tasks.js" # A dedicated file for the cron job
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: blox-battles-db
+          property: connectionString
