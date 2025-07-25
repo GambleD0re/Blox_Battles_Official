@@ -10,19 +10,15 @@ const { addAddressToMonitor } = require('../services/transactionListenerService'
 
 const router = express.Router();
 
-// --- GEM PACKAGES (Defined on the server to prevent client-side manipulation) ---
-// [MODIFIED] Removed the 100 gem package and added a 1500 gem package.
+// GEM PACKAGES are defined on the server to prevent client-side manipulation.
 const GEM_PACKAGES = {
     '500_gems': { name: '500 Gems', usdValue: 500, gem_amount: 500 },
     '1000_gems': { name: '1,000 Gems', usdValue: 1000, gem_amount: 1000 },
-    '1500_gems': { name: '1,500 Gems', usdValue: 1500, gem_amount: 1500 }, // New Package
+    '1500_gems': { name: '1,500 Gems', usdValue: 1500, gem_amount: 1500 },
     '2500_gems': { name: '2,500 Gems', usdValue: 2500, gem_amount: 2500 },
     '5000_gems': { name: '5,000 Gems', usdValue: 5000, gem_amount: 5000 },
     '10000_gems': { name: '10,000 Gems', usdValue: 10000, gem_amount: 10000 },
 };
-
-
-// --- ROUTES ---
 
 // Create a Stripe Checkout session
 router.post('/create-checkout-session',
@@ -40,9 +36,7 @@ router.post('/create-checkout-session',
                 line_items: [{
                     price_data: {
                         currency: 'usd',
-                        product_data: {
-                            name: selectedPackage.name,
-                        },
+                        product_data: { name: selectedPackage.name },
                         unit_amount: selectedPackage.usdValue,
                     },
                     quantity: 1,
@@ -68,10 +62,8 @@ router.post('/create-checkout-session',
 // Get or generate a unique crypto deposit address for a user.
 router.get('/crypto-address', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
-
     try {
-        const user = await db.get('SELECT user_index, crypto_deposit_address FROM users WHERE id = ?', [userId]);
-
+        const { rows: [user] } = await db.query('SELECT user_index, crypto_deposit_address FROM users WHERE id = $1', [userId]);
         if (!user) {
             return res.status(404).json({ message: 'User not found.' });
         }
@@ -83,10 +75,9 @@ router.get('/crypto-address', authenticateToken, async (req, res) => {
         const userIndex = user.user_index;
         const newAddress = getUserDepositAddress(userIndex);
 
-        await db.run('UPDATE users SET crypto_deposit_address = ? WHERE id = ?', [newAddress, userId]);
+        await db.query('UPDATE users SET crypto_deposit_address = $1 WHERE id = $2', [newAddress, userId]);
         
         addAddressToMonitor(newAddress);
-
         res.status(200).json({ address: newAddress });
 
     } catch (error) {
@@ -105,7 +96,6 @@ router.post('/crypto-quote',
     handleValidationErrors,
     async (req, res) => {
         const { packageId, tokenType } = req.body;
-        
         try {
             const selectedPackage = GEM_PACKAGES[packageId];
             const packageUsdValue = selectedPackage.usdValue / 100; // Convert cents to dollars
@@ -123,7 +113,7 @@ router.post('/crypto-quote',
                 packageId: packageId,
                 tokenType: tokenType,
                 usdValue: packageUsdValue,
-                cryptoAmount: cryptoAmount.toFixed(6),
+                cryptoAmount: cryptoAmount.toFixed(6), // Keep precision for crypto
                 quoteExpiration: Date.now() + 15 * 60 * 1000
             });
 
@@ -133,6 +123,5 @@ router.post('/crypto-quote',
         }
     }
 );
-
 
 module.exports = router;
