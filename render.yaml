@@ -17,7 +17,8 @@ services:
     region: oregon
     rootDir: ./backend
     buildCommand: "npm install"
-    preDeployCommand: "./setup-database.sh"
+    # [CORRECTED] Chained the new seed script to run after schema setup.
+    preDeployCommand: "./setup-database.sh && node seed-admin.js"
     startCommand: "node server.js"
     healthCheckPath: /healthz
     envVars:
@@ -30,6 +31,9 @@ services:
       - key: BACKEND_URL
         value: https://blox-battles-backend.onrender.com
       # --- SECRETS (sync: false) ---
+      # [NEW] Added the secure password for the default admin account.
+      - key: DEFAULT_ADMIN_PASSWORD
+        sync: false
       - key: JWT_SECRET
         sync: false
       - key: GOOGLE_CLIENT_ID
@@ -86,11 +90,9 @@ services:
     name: blox-battles-cron
     runtime: node
     region: oregon
-    # [CORRECTED] Added rootDir and buildCommand to install dependencies for the cron job.
     rootDir: ./backend
     buildCommand: "npm install"
     schedule: "*/1 * * * *"
-    # [CORRECTED] Path is now relative to the rootDir.
     startCommand: "node cron-tasks.js"
     envVars:
       - key: DATABASE_URL
