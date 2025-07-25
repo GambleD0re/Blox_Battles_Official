@@ -1,11 +1,11 @@
-# render.yaml - A Render Blueprint for the Blox Battles Application (v2 - Corrected)
-# This version adheres to the official Render Blueprint specification.
+# render.yaml - A Render Blueprint for the Blox Battles Application (v3 - Corrected)
+# This version uses the correct type and runtime for the Static Site.
 
 # Define all PostgreSQL databases in this top-level 'databases' section.
 databases:
   - name: blox-battles-db
-    plan: starter      # From your paid plan
-    region: oregon     # IMPORTANT: Use the same region for all services
+    plan: starter
+    region: oregon
 
 # Define all other application services (web servers, static sites, etc.) here.
 services:
@@ -14,33 +14,27 @@ services:
   # ---------------------
   - type: web
     name: blox-battles-backend
-    env: node
+    # 'env' is a valid but discouraged alias for 'runtime'. Let's use 'runtime'.
+    runtime: node
     plan: starter
     region: oregon
     rootDir: ./backend
-    # The build command remains the same.
     buildCommand: "npm install"
-    # The preDeployCommand is the correct place for database migrations.
-    # It runs after a successful build but before the new version goes live.
     preDeployCommand: "./setup-database.sh"
-    # The start command remains the same.
     startCommand: "node server.js"
-    # This path will be used by Render to verify your service has started successfully.
     healthCheckPath: /api/status
     envVars:
-      # This correctly references the database defined in the 'databases' block above.
       - key: DATABASE_URL
         fromDatabase:
           name: blox-battles-db
           property: connectionString
-      # This correctly references the URL of the frontend service defined below.
+      # This reference now correctly points to the 'web' type service named 'blox-battles-frontend'.
       - key: SERVER_URL
         fromService:
-          type: static
+          type: web # The type of the service being referenced
           name: blox-battles-frontend
           property: url
       # --- SECRETS ---
-      # These values will be entered securely in the Render dashboard on first deploy.
       - key: JWT_SECRET
         sync: false
       - key: SESSION_SECRET
@@ -72,14 +66,16 @@ services:
 
   # ---------------------
   # 2. The Frontend Static Site (React/Vite)
+  # [CORRECTED] The 'type' must be 'web' and 'runtime' specifies it's a static site.
   # ---------------------
-  - type: static
+  - type: web # CORRECTED: The type for a static site is 'web'.
     name: blox-battles-frontend
+    runtime: static # CORRECTED: This field specifies it's a static site.
     region: oregon
     rootDir: ./frontend
     buildCommand: "npm install && npm run build"
-    publishDir: ./dist
-    # This rewrite rule is essential for React Router to work correctly.
+    # 'staticPublishPath' is the correct key for the output directory.
+    staticPublishPath: ./dist
     routes:
       - type: rewrite
         source: /*
@@ -93,10 +89,9 @@ services:
   # ---------------------
   - type: cron
     name: blox-battles-cron
-    env: node
+    runtime: node
     region: oregon
-    schedule: "*/1 * * * *" # Runs every minute
-    # Ensure you have created this dedicated file for the cron job's logic.
+    schedule: "*/1 * * * *"
     command: "node backend/cron-tasks.js"
     envVars:
       - key: DATABASE_URL
