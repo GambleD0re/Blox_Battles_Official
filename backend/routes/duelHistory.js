@@ -1,6 +1,4 @@
 // backend/routes/duelHistory.js
-// This new file provides a dedicated endpoint for fetching a user's detailed duel history.
-
 const express = require('express');
 const db = require('../database/database');
 const { authenticateToken } = require('../middleware/auth');
@@ -31,21 +29,16 @@ router.get('/', authenticateToken, async (req, res) => {
             JOIN users challenger ON d.challenger_id = challenger.id
             JOIN users opponent ON d.opponent_id = opponent.id
             WHERE 
-                (d.challenger_id = ? OR d.opponent_id = ?) 
+                (d.challenger_id = $1 OR d.opponent_id = $1) 
                 AND d.status IN ('completed', 'canceled', 'declined', 'cheater_forfeit', 'under_review')
             ORDER BY d.created_at DESC
             LIMIT 100;
         `;
 
-        const history = await db.all(sql, [userId, userId]);
-
-        // Parse the JSON transcript for each duel
-        const processedHistory = history.map(duel => ({
-            ...duel,
-            transcript: JSON.parse(duel.transcript || '[]')
-        }));
-
-        res.status(200).json(processedHistory);
+        const { rows: history } = await db.query(sql, [userId]);
+        
+        // No need to parse JSONB from the database, it's handled by the driver
+        res.status(200).json(history);
 
     } catch (err) {
         console.error("Fetch Detailed Duel History Error:", err.message);
