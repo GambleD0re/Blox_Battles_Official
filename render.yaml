@@ -63,8 +63,8 @@ services:
     runtime: static
     rootDir: ./frontend
     buildCommand: "npm install && npm run build"
-    # [CORRECTED] The path must be relative to the repository root, not the rootDir.
-    staticPublishPath: frontend/dist
+    # [CORRECTED] This path is now relative to the rootDir, not the repo root.
+    staticPublishPath: dist
     routes:
       - type: rewrite
         source: /api/:path*
