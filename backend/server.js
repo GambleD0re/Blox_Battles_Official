@@ -37,7 +37,7 @@ app.use(cookieParser());
 app.use(passport.initialize());
 app.use(morgan('dev'));
 
-// [CORRECTED] A dedicated, non-conflicting, public health check route for Render.
+// Public health check route for Render.
 app.get('/healthz', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'Health check passed' });
 });
@@ -92,7 +92,9 @@ app.use(express.json());
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: `${process.env.SERVER_URL}/api/auth/google/callback`
+    callbackURL: `${process.env.SERVER_URL}/api/auth/google/callback`,
+    // [CORRECTED] Added the missing 'scope' property.
+    scope: ['profile', 'email']
   },
   async function(accessToken, refreshToken, profile, done) {
     const googleId = profile.id;
