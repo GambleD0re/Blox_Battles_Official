@@ -1,13 +1,7 @@
 // backend/middleware/auth.js
-// This file contains middleware functions for authentication and validation.
-
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const db = require('../database/database');
-const util = require('util');
-
-db.get = util.promisify(db.get);
-db.run = util.promisify(db.run);
 
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret) {
@@ -48,7 +42,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 /**
- * [NEW] Middleware to authenticate the bot via its API key.
+ * Middleware to authenticate the bot via its API key.
  */
 const authenticateBot = (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
@@ -97,6 +91,7 @@ const validatePassword = (password) => {
 
 /**
  * Middleware to check if the authenticated user is an administrator.
+ * [REFACTORED FOR PG]
  */
 const isAdmin = async (req, res, next) => {
     if (req.user && req.user.isAdmin) {
@@ -107,7 +102,9 @@ const isAdmin = async (req, res, next) => {
         if (!req.user || !req.user.userId) {
              return res.status(403).json({ message: 'Forbidden: Invalid user token.' });
         }
-        const user = await db.get('SELECT is_admin FROM users WHERE id = ?', [req.user.userId]);
+        const { rows } = await db.query('SELECT is_admin FROM users WHERE id = $1', [req.user.userId]);
+        const user = rows[0];
+
         if (user && user.is_admin) {
             next();
         } else {
@@ -124,5 +121,5 @@ module.exports = {
     handleValidationErrors,
     validatePassword,
     isAdmin,
-    authenticateBot // [NEW] Export the bot authenticator
+    authenticateBot
 };
