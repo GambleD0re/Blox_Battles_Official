@@ -1,6 +1,4 @@
 // backend/routes/auth.js
-// This file handles user authentication, registration, and session management.
-
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
@@ -14,15 +12,12 @@ const crypto = require('crypto');
 const jwtSecret = process.env.JWT_SECRET;
 
 // --- Local Registration ---
-// [MODIFIED] Added a check to prevent re-registration of terminated accounts.
 router.post('/register',
     [
         body('email').isEmail().withMessage('Please enter a valid email.').normalizeEmail(),
         body('password').custom(value => {
             const validation = validatePassword(value);
-            if (!validation.valid) {
-                throw new Error(validation.message);
-            }
+            if (!validation.valid) throw new Error(validation.message);
             return true;
         })
     ],
@@ -30,13 +25,12 @@ router.post('/register',
     async (req, res) => {
         const { email, password } = req.body;
         try {
-            const existingUser = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+            const { rows } = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+            const existingUser = rows[0];
             
-            // [NEW] If a user exists and is terminated, block the registration permanently.
             if (existingUser && existingUser.status === 'terminated') {
                 return res.status(403).json({ message: 'This email is associated with a terminated account and cannot be used again.' });
             }
-
             if (existingUser) {
                 return res.status(409).json({ message: 'An account with this email already exists.' });
             }
@@ -44,9 +38,11 @@ router.post('/register',
             const hashedPassword = await bcrypt.hash(password, 10);
             const newUserId = crypto.randomUUID();
             
-            await db.run('INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)', [newUserId, email, hashedPassword]);
-            
-            const newUser = await db.get('SELECT * FROM users WHERE id = ?', [newUserId]);
+            const { rows: newRows } = await db.query(
+                'INSERT INTO users (id, email, password_hash, is_admin) VALUES ($1, $2, $3, $4) RETURNING *', 
+                [newUserId, email, hashedPassword, false]
+            );
+            const newUser = newRows[0];
 
             const payload = {
                 userId: newUser.id,
@@ -54,7 +50,6 @@ router.post('/register',
                 username: newUser.email,
                 isAdmin: newUser.is_admin
             };
-
             const token = jwt.sign(payload, jwtSecret, { expiresIn: '1d' });
             
             res.status(201).json({ message: 'User registered successfully!', token: token });
@@ -67,7 +62,6 @@ router.post('/register',
 );
 
 // --- Local Login ---
-// [MODIFIED] Added a check to prevent banned or terminated users from logging in.
 router.post('/login',
     [
         body('email').isEmail().normalizeEmail(),
@@ -77,19 +71,16 @@ router.post('/login',
     async (req, res) => {
         const { email, password } = req.body;
         try {
-            const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+            const { rows } = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+            const user = rows[0];
+
             if (!user || !user.password_hash) {
                 return res.status(401).json({ message: 'Incorrect email or password.' });
             }
 
-            // [NEW] Check the user's status before proceeding with login.
             if (user.status !== 'active') {
-                if (user.status === 'banned') {
-                    return res.status(403).json({ message: 'This account is currently banned.' });
-                }
-                if (user.status === 'terminated') {
-                    return res.status(403).json({ message: 'This account has been terminated.' });
-                }
+                if (user.status === 'banned') return res.status(403).json({ message: 'This account is currently banned.' });
+                if (user.status === 'terminated') return res.status(403).json({ message: 'This account has been terminated.' });
                 return res.status(403).json({ message: 'This account is not active.' });
             }
 
@@ -104,8 +95,8 @@ router.post('/login',
                 username: user.linked_roblox_username || user.email,
                 isAdmin: user.is_admin
             };
-
             const token = jwt.sign(payload, jwtSecret, { expiresIn: '1d' });
+
             res.json({ token, username: payload.username });
         } catch (error) {
             console.error('Login error:', error);
@@ -115,23 +106,20 @@ router.post('/login',
 );
 
 // --- Google OAuth Routes ---
-router.get('/google',
-    passport.authenticate('google', { scope: ['profile', 'email'] })
-);
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 router.get('/google/callback',
     passport.authenticate('google', { failureRedirect: '/', session: false }),
     (req, res) => {
-        // Successful authentication
         const payload = {
             userId: req.user.id,
             email: req.user.email,
             username: req.user.linked_roblox_username || req.user.email,
             isAdmin: req.user.is_admin
         };
-
         const token = jwt.sign(payload, jwtSecret, { expiresIn: '1d' });
 
+        // Redirect to the frontend with the token in the URL
         const frontendUrl = process.env.SERVER_URL || 'http://localhost:3000';
         res.redirect(`${frontendUrl}/?token=${token}`);
     }
