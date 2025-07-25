@@ -19,6 +19,9 @@ const { startConfirmationService } = require('./services/transactionConfirmation
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust the proxy to get the correct 'https' protocol from Render's router.
+app.set('trust proxy', 1);
+
 // --- Web Push Configuration ---
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     webpush.setVapidDetails(
