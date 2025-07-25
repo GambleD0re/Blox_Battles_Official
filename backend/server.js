@@ -7,13 +7,12 @@ const passport = require('passport');
 const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const webpush = require('web-push');
-const db = require('./database/database'); // This now imports the pg pool
+const db = require('./database/database');
 const crypto = require('crypto');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { botLogger } = require('./middleware/botLogger');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-// Import the new services for crypto deposits
 const { startTransactionListener } = require('./services/transactionListenerService');
 const { startConfirmationService } = require('./services/transactionConfirmationService');
 
@@ -23,7 +22,7 @@ const PORT = process.env.PORT || 3001;
 // --- Web Push Configuration ---
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     webpush.setVapidDetails(
-        'mailto:youremail@example.com', // Replace with your actual email
+        'mailto:youremail@example.com',
         process.env.VAPID_PUBLIC_KEY,
         process.env.VAPID_PRIVATE_KEY
     );
@@ -33,7 +32,6 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
 }
 
 // --- Middleware Setup ---
-// [MODIFIED] Use the SERVER_URL from environment variables for CORS
 app.use(cors({ origin: process.env.SERVER_URL, credentials: true }));
 app.use(cookieParser());
 app.use(passport.initialize());
@@ -139,7 +137,7 @@ async function runScheduledTasks() {
     // This function's logic remains the same as the previously refactored version
 }
 
-// --- API Routes ---
+// --- API Routes (Authenticated) ---
 const apiRoutes = require('./routes');
 app.use('/api', botLogger, apiRoutes);
 
@@ -147,11 +145,10 @@ app.use('/api', botLogger, apiRoutes);
 app.listen(PORT, () => {
     console.log(`Backend API server listening on http://localhost:${PORT}`);
     
-    // NOTE: This will be replaced by a Render Cron Job. You can comment it out after deploying.
+    // NOTE: The cron job is handled by the render.yaml. This can be safely removed.
     // setInterval(runScheduledTasks, CHECK_INTERVAL_MINUTES * 60 * 1000);
     // runScheduledTasks();
 
-    // Start the crypto deposit monitoring services
     startTransactionListener();
     startConfirmationService();
 });
