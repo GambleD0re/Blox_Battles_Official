@@ -1,5 +1,5 @@
-# render.yaml - A Render Blueprint for the Blox Battles Application (v3 - Corrected)
-# This version uses the correct type and runtime for the Static Site.
+# render.yaml - A Render Blueprint for the Blox Battles Application (v4 - Corrected)
+# This version uses the correct 'startCommand' key for the Cron Job.
 
 # Define all PostgreSQL databases in this top-level 'databases' section.
 databases:
@@ -14,7 +14,6 @@ services:
   # ---------------------
   - type: web
     name: blox-battles-backend
-    # 'env' is a valid but discouraged alias for 'runtime'. Let's use 'runtime'.
     runtime: node
     plan: starter
     region: oregon
@@ -28,10 +27,9 @@ services:
         fromDatabase:
           name: blox-battles-db
           property: connectionString
-      # This reference now correctly points to the 'web' type service named 'blox-battles-frontend'.
       - key: SERVER_URL
         fromService:
-          type: web # The type of the service being referenced
+          type: web
           name: blox-battles-frontend
           property: url
       # --- SECRETS ---
@@ -66,15 +64,13 @@ services:
 
   # ---------------------
   # 2. The Frontend Static Site (React/Vite)
-  # [CORRECTED] The 'type' must be 'web' and 'runtime' specifies it's a static site.
   # ---------------------
-  - type: web # CORRECTED: The type for a static site is 'web'.
+  - type: web
     name: blox-battles-frontend
-    runtime: static # CORRECTED: This field specifies it's a static site.
+    runtime: static
     region: oregon
     rootDir: ./frontend
     buildCommand: "npm install && npm run build"
-    # 'staticPublishPath' is the correct key for the output directory.
     staticPublishPath: ./dist
     routes:
       - type: rewrite
@@ -92,7 +88,8 @@ services:
     runtime: node
     region: oregon
     schedule: "*/1 * * * *"
-    command: "node backend/cron-tasks.js"
+    # [CORRECTED] Renamed 'command' to 'startCommand' to match Render's spec.
+    startCommand: "node backend/cron-tasks.js"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
