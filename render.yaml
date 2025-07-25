@@ -1,5 +1,5 @@
-# render.yaml - A Render Blueprint for the Blox Battles Application (v9 - Final Path Correction)
-# This version corrects the staticPublishPath for the frontend service.
+# render.yaml - A Render Blueprint for the Blox Battles Application (v7 - Production Routing)
+# This version adds a production-grade API rewrite rule for the frontend.
 
 databases:
   - name: blox-battles-db
@@ -27,8 +27,10 @@ services:
           property: connectionString
       - key: SERVER_URL
         value: https://blox-battles-frontend.onrender.com
-      # --- SECRETS (sync: false) ---
+      # --- SECRETS ---
       - key: JWT_SECRET
+        sync: false
+      - key: SESSION_SECRET
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
@@ -63,20 +65,19 @@ services:
     runtime: static
     rootDir: ./frontend
     buildCommand: "npm install && npm run build"
-    # [CORRECTED] This path is now relative to the rootDir, not the repo root.
-    staticPublishPath: dist
+    staticPublishPath: ./dist
     routes:
+      # [NEW] This rule tells Render to proxy API requests to the backend.
       - type: rewrite
         source: /api/:path*
         destination: https://blox-battles-backend.onrender.com/api/:path*
+      # This rule handles all other requests for the React Single Page App.
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
       - key: VITE_STRIPE_PUBLISHABLE_KEY
         sync: false
-      - key: VITE_API_BASE_URL
-        value: https://blox-battles-backend.onrender.com
 
   # ---------------------
   # 3. The Cron Job
