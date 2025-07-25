@@ -13,6 +13,7 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { botLogger } = require('./middleware/botLogger');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
+// Import the services for crypto deposits
 const { startTransactionListener } = require('./services/transactionListenerService');
 const { startConfirmationService } = require('./services/transactionConfirmationService');
 
@@ -121,13 +122,15 @@ passport.use(new GoogleStrategy({
   }
 ));
 
-// --- API Routes (Authenticated) ---
+// --- API Routes ---
 const apiRoutes = require('./routes');
 app.use('/api', botLogger, apiRoutes);
 
 // --- Server Startup ---
 app.listen(PORT, () => {
     console.log(`Backend API server started and listening on internal port: ${PORT}`);
+    
+    // Start the crypto deposit monitoring services
     startTransactionListener();
     startConfirmationService();
 });
