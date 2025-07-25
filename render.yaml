@@ -25,12 +25,13 @@ services:
         fromDatabase:
           name: blox-battles-db
           property: connectionString
-      - key: SERVER_URL
+      - key: SERVER_URL # This is for CORS and frontend redirects
         value: https://blox-battles-frontend.onrender.com
-      # --- SECRETS ---
+      # [NEW] This is specifically for the Google OAuth callback URL.
+      - key: BACKEND_URL
+        value: https://blox-battles-backend.onrender.com
+      # --- SECRETS (sync: false) ---
       - key: JWT_SECRET
-        sync: false
-      - key: SESSION_SECRET
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
@@ -65,19 +66,20 @@ services:
     runtime: static
     rootDir: ./frontend
     buildCommand: "npm install && npm run build"
-    staticPublishPath: ./dist
+    staticPublishPath: dist
     routes:
-      # [NEW] This rule tells Render to proxy API requests to the backend.
       - type: rewrite
         source: /api/:path*
         destination: https://blox-battles-backend.onrender.com/api/:path*
-      # This rule handles all other requests for the React Single Page App.
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
       - key: VITE_STRIPE_PUBLISHABLE_KEY
         sync: false
+      # This is still needed for the frontend to know where to link to for Google Auth.
+      - key: VITE_API_BASE_URL
+        value: https://blox-battles-backend.onrender.com
 
   # ---------------------
   # 3. The Cron Job
