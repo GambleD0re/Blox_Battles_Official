@@ -78,9 +78,7 @@ services:
     envVars:
       - key: VITE_STRIPE_PUBLISHABLE_KEY
         sync: false
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: https://blox-battles-backend.onrender.com
+
   # ---------------------
   # 3. The Cron Job
   # ---------------------
