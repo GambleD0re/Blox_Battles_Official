@@ -1,41 +1,46 @@
-# render.yaml - A Render Blueprint for the Blox Battles Application
+# render.yaml - A Render Blueprint for the Blox Battles Application (v2 - Corrected)
+# This version adheres to the official Render Blueprint specification.
 
+# Define all PostgreSQL databases in this top-level 'databases' section.
+databases:
+  - name: blox-battles-db
+    plan: starter      # From your paid plan
+    region: oregon     # IMPORTANT: Use the same region for all services
+
+# Define all other application services (web servers, static sites, etc.) here.
 services:
   # ---------------------
-  # 1. The PostgreSQL Database
-  # This is the foundation. It will be created first.
-  # ---------------------
-  - type: psql
-    name: blox-battles-db
-    plan: starter # From your paid plan
-    region: oregon # IMPORTANT: Use the same region for all services
-
-  # ---------------------
-  # 2. The Backend Web Service (Node.js/Express)
-  # This service runs your API.
+  # 1. The Backend Web Service (Node.js/Express)
   # ---------------------
   - type: web
     name: blox-battles-backend
     env: node
-    plan: starter # From your paid plan
-    region: oregon # IMPORTANT: Use the same region
+    plan: starter
+    region: oregon
     rootDir: ./backend
+    # The build command remains the same.
     buildCommand: "npm install"
-    startCommand: "node server.js"
-    # The preDeployCommand is the perfect place for your database setup script.
+    # The preDeployCommand is the correct place for database migrations.
     # It runs after a successful build but before the new version goes live.
     preDeployCommand: "./setup-database.sh"
-    healthCheckPath: /api/status # We will add this small route for Render health checks
+    # The start command remains the same.
+    startCommand: "node server.js"
+    # This path will be used by Render to verify your service has started successfully.
+    healthCheckPath: /api/status
     envVars:
-      # This 'magic' line automatically gets the connection string from the database service above
-      # and sets it as the DATABASE_URL environment variable for this service.
+      # This correctly references the database defined in the 'databases' block above.
       - key: DATABASE_URL
         fromDatabase:
           name: blox-battles-db
           property: connectionString
-      # --- Your Environment Variables ---
-      # For security, secret keys will not be stored in this file.
-      # Render will ask you to paste these in the UI on the first deploy.
+      # This correctly references the URL of the frontend service defined below.
+      - key: SERVER_URL
+        fromService:
+          type: static
+          name: blox-battles-frontend
+          property: url
+      # --- SECRETS ---
+      # These values will be entered securely in the Render dashboard on first deploy.
       - key: JWT_SECRET
         sync: false
       - key: SESSION_SECRET
@@ -60,25 +65,21 @@ services:
         sync: false
       - key: PAYOUT_WALLET_PRIVATE_KEY
         sync: false
-      # The SERVER_URL should be the public URL of your frontend service.
-      # Render automatically creates this for you.
-      - key: SERVER_URL
-        fromService:
-          type: static
-          name: blox-battles-frontend
-          property: url
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
 
   # ---------------------
-  # 3. The Frontend Static Site (React/Vite)
-  # This service hosts your user-facing website.
+  # 2. The Frontend Static Site (React/Vite)
   # ---------------------
   - type: static
     name: blox-battles-frontend
-    region: oregon # IMPORTANT: Use the same region
+    region: oregon
     rootDir: ./frontend
     buildCommand: "npm install && npm run build"
     publishDir: ./dist
-    # This rewrite rule is essential for Single Page Applications (SPAs) like React Router.
+    # This rewrite rule is essential for React Router to work correctly.
     routes:
       - type: rewrite
         source: /*
@@ -88,15 +89,15 @@ services:
         sync: false
 
   # ---------------------
-  # 4. The Cron Job
-  # This runs your scheduled tasks for duel expiration and forfeits.
+  # 3. The Cron Job
   # ---------------------
   - type: cron
     name: blox-battles-cron
     env: node
-    region: oregon # IMPORTANT: Use the same region
+    region: oregon
     schedule: "*/1 * * * *" # Runs every minute
-    command: "node backend/cron-tasks.js" # A dedicated file for the cron job
+    # Ensure you have created this dedicated file for the cron job's logic.
+    command: "node backend/cron-tasks.js"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
