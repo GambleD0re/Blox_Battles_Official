@@ -15,6 +15,24 @@ router.get('/status', (req, res) => {
     res.status(200).json({ status: 'ok' });
 });
 
+// Endpoint for the frontend to get the live status of all regional bots
+router.get('/', authenticateToken, (req, res) => {
+    const regions = ['North America', 'Europe', 'Oceania'];
+    const now = Date.now();
+
+    const statuses = regions.map(region => {
+        const lastHeartbeat = botStatus.get(region);
+        const isOnline = lastHeartbeat && (now - lastHeartbeat < BOT_OFFLINE_THRESHOLD);
+        
+        return {
+            region: region,
+            status: isOnline ? 'online' : 'offline'
+        };
+    });
+
+    res.status(200).json(statuses);
+});
+
 router.post('/heartbeat',
     authenticateBot,
     body('region').isIn(['Oceania', 'Europe', 'North America']),
@@ -34,6 +52,8 @@ router.get('/', authenticateToken, (req, res) => {
         const isOnline = lastHeartbeat && (now - lastHeartbeat < BOT_OFFLINE_THRESHOLD);
         return { region, status: isOnline ? 'online' : 'offline' };
     });
+
+
     res.status(200).json(statuses);
 });
 
