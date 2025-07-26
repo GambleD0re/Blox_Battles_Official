@@ -50,7 +50,6 @@ const Sidebar = ({ isOpen, onClose }) => {
             <div className={`fixed top-0 left-0 h-full w-64 bg-[#161b22] border-r border-[var(--widget-border)] shadow-2xl z-40 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <div className="p-4">
                     <h2 className="text-xl font-bold text-white mb-6">Navigation</h2>
-                    {/* [MODIFIED] Re-ordered the navigation buttons. */}
                     <nav className="flex flex-col space-y-2">
                         <button onClick={() => handleNavigate('/duel-history')} className="text-left text-gray-300 hover:bg-gray-700/50 hover:text-white p-3 rounded-lg transition-colors">
                             Duel History
@@ -135,22 +134,22 @@ const Dashboard = () => {
         };
         const resultInterval = setInterval(checkForResults, 3000);
         return () => clearInterval(resultInterval);
-    }, [token]);
+    }, [token, unseenResult]);
 
     const handleChallengePlayer = (player) => { setChallengeTarget(player); setChallengeModalOpen(true); };
     const handleChallengeSubmit = async (challengeData) => { try { const r = await api.sendChallenge(challengeData, token); showMessage(r.message, 'success'); setChallengeModalOpen(false); fetchData(); } catch (e) { showMessage(e.message, 'error'); } };
-    const handleViewDetails = (duel) => { setSelectedItem(duel); setDetailsModalOpen(true); };
-    const handleCancelDuelClick = (duel) => { setSelectedItem(duel); setIsCancelDuelModalOpen(true); };
-    const handleConfirmCancelDuel = async () => { if (!selectedItem) return; try { const r = await api.cancelDuel(selectedItem.id, token); showMessage(r.message, 'success'); setIsCancelDuelModalOpen(false); fetchData(); } catch (e) { showMessage(e.message, 'error'); } };
+    const handleViewDetails = (duelNotificationObject) => { setSelectedItem(duelNotificationObject); setDetailsModalOpen(true); };
+    const handleCancelDuelClick = (duelNotificationObject) => { setSelectedItem(duelNotificationObject); setIsCancelDuelModalOpen(true); };
+    const handleConfirmCancelDuel = async () => { if (!selectedItem?.data) return; try { const r = await api.cancelDuel(selectedItem.data.id, token); showMessage(r.message, 'success'); setIsCancelDuelModalOpen(false); fetchData(); } catch (e) { showMessage(e.message, 'error'); } };
     const handleRespondToDuel = async (duelId, response) => { try { const r = await api.respondToDuel({ duel_id: duelId, response }, token); showMessage(r.message, 'success'); setDetailsModalOpen(false); fetchData(); } catch (e) { showMessage(e.message, 'error'); } };
     const handleViewTranscript = async (duelId) => { setTranscript([]); setIsTranscriptModalOpen(true); try { const d = await api.getTranscript(duelId, token); setTranscript(d); } catch (e) { showMessage(e.message, 'error'); } };
     const handleStartDuel = async (duel) => { try { const r = await api.startDuel(duel.id, token); showMessage(r.message, 'success'); if (r.serverLink) { window.open(r.serverLink, '_blank'); } else { showMessage("Server link not found.", "error"); } fetchData(); } catch (e) { showMessage(e.message, 'error'); } };
-    const handleForfeitClick = (duel) => { setSelectedItem(duel); setIsForfeitModalOpen(true); };
-    const handleConfirmForfeit = async () => { if (!selectedItem) return; try { const r = await api.forfeitDuel(selectedItem.id, token); showMessage(r.message, 'success'); setIsForfeitModalOpen(false); fetchData(); } catch (e) { showMessage(e.message, 'error'); setIsForfeitModalOpen(false); } };
+    const handleForfeitClick = (duelNotificationObject) => { setSelectedItem(duelNotificationObject); setIsForfeitModalOpen(true); };
+    const handleConfirmForfeit = async () => { if (!selectedItem?.data) return; try { const r = await api.forfeitDuel(selectedItem.data.id, token); showMessage(r.message, 'success'); setIsForfeitModalOpen(false); fetchData(); } catch (e) { showMessage(e.message, 'error'); setIsForfeitModalOpen(false); } };
     const handleConfirmResult = async (duelId) => { try { await api.confirmDuelResult(duelId, token); setUnseenResult(null); await refreshUser(); fetchData(); } catch (e) { showMessage(e.message, 'error'); setUnseenResult(null); } };
     const handleFileDispute = async (duelId, disputeData) => { try { const r = await api.fileDispute(duelId, disputeData, token); showMessage(r.message, 'success'); setUnseenResult(null); fetchData(); } catch (e) { showMessage(e.message, 'error'); setUnseenResult(null); } };
-    const handleCancelWithdrawalClick = (req) => { setSelectedItem(req); setIsCancelWithdrawalModalOpen(true); };
-    const handleConfirmCancelWithdrawal = async () => { if (!selectedItem) return; try { const r = await api.cancelWithdrawalRequest(selectedItem.id, token); showMessage(r.message, 'success'); setIsCancelWithdrawalModalOpen(false); await refreshUser(); fetchData(); } catch (e) { showMessage(e.message, 'error'); setIsCancelWithdrawalModalOpen(false); } };
+    const handleCancelWithdrawalClick = (req) => { setSelectedItem({ data: req }); setIsCancelWithdrawalModalOpen(true); };
+    const handleConfirmCancelWithdrawal = async () => { if (!selectedItem?.data) return; try { const r = await api.cancelWithdrawalRequest(selectedItem.data.id, token); showMessage(r.message, 'success'); setIsCancelWithdrawalModalOpen(false); await refreshUser(); fetchData(); } catch (e) { showMessage(e.message, 'error'); setIsCancelWithdrawalModalOpen(false); } };
 
     if (isAuthLoading || !user) {
         return <Loader fullScreen />;
@@ -176,10 +175,10 @@ const Dashboard = () => {
             </div>
 
             <ChallengeModal isOpen={isChallengeModalOpen} onClose={() => setChallengeModalOpen(false)} opponent={challengeTarget} currentUser={user} gameData={gameData} onChallengeSubmit={handleChallengeSubmit} onError={showMessage} token={token}/>
-            <DuelDetailsModal isOpen={isDetailsModalOpen} onClose={() => setDetailsModalOpen(false)} duel={selectedItem?.data} onRespond={handleRespondToDuel} />
+            <DuelDetailsModal isOpen={isDetailsModalOpen} onClose={() => setDetailsModalOpen(false)} duel={selectedItem} onRespond={handleRespondToDuel} />
             <ConfirmationModal isOpen={isCancelDuelModalOpen} onClose={() => setIsCancelDuelModalOpen(false)} onConfirm={handleConfirmCancelDuel} title="Cancel Duel?" text="Are you sure you want to cancel this duel?" confirmText="Yes, Cancel"/>
             <ConfirmationModal isOpen={isForfeitModalOpen} onClose={() => setIsForfeitModalOpen(false)} onConfirm={handleConfirmForfeit} title="Forfeit Duel?" text={`You will lose ${selectedItem?.data?.wager || 0} gems.`} confirmText="Yes, Forfeit"/>
-            <ConfirmationModal isOpen={isCancelWithdrawalModalOpen} onClose={() => setIsCancelWithdrawalModalOpen(false)} onConfirm={handleConfirmCancelWithdrawal} title="Cancel Withdrawal?" text={`Your ${selectedItem?.amount_gems || 0} gems will be returned.`} confirmText="Yes, Cancel Request"/>
+            <ConfirmationModal isOpen={isCancelWithdrawalModalOpen} onClose={() => setIsCancelWithdrawalModalOpen(false)} onConfirm={handleConfirmCancelWithdrawal} title="Cancel Withdrawal?" text={`Your ${selectedItem?.data?.amount_gems || 0} gems will be returned.`} confirmText="Yes, Cancel Request"/>
             <TranscriptModal isOpen={isTranscriptModalOpen} onClose={() => setIsTranscriptModalOpen(false)} transcript={transcript} />
             <PostDuelModal isOpen={!!unseenResult} result={unseenResult} currentUser={user} onConfirm={handleConfirmResult} onDispute={handleFileDispute}/>
         </div>
