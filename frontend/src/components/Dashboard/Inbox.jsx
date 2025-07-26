@@ -38,7 +38,7 @@ const DuelNotification = ({ duel, onStartDuel, onViewDuel, onCancelDuel, onForfe
 
 // --- Sub-component for "Under Review" notifications ---
 const DuelUnderReviewNotification = ({ duel }) => {
-    const opponent_username = duel.challenger_id === duel.userId ? duel.opponent_username : duel.challenger_username;
+    const opponent_username = duel.challenger_id.toString() === duel.userId ? duel.opponent_username : duel.challenger_username;
     return (
         <div className="duel-item bg-gray-800/50 border-l-4 border-yellow-500">
             <div className="flex-grow flex items-center gap-3">
@@ -52,7 +52,7 @@ const DuelUnderReviewNotification = ({ duel }) => {
     );
 };
 
-// --- [NEW] Sub-component for Withdrawal Request notifications ---
+// --- Sub-component for Withdrawal Request notifications ---
 const WithdrawalNotification = ({ request, onCancelWithdrawal }) => {
     const isPending = request.status === 'awaiting_approval';
     const isApproved = request.status === 'approved';
@@ -72,19 +72,12 @@ const WithdrawalNotification = ({ request, onCancelWithdrawal }) => {
                 {isPending && (
                     <button onClick={() => onCancelWithdrawal(request)} className="btn btn-secondary">Cancel</button>
                 )}
-                {isApproved && (
-                    <>
-                        {/* These buttons will be wired up in a future step */}
-                        <button className="btn btn-secondary">Change Details</button>
-                        <button className="btn btn-primary">Withdraw</button>
-                    </>
-                )}
             </div>
         </div>
     );
 };
 
-// --- [NEW] Sub-component for Admin Messages (e.g., declined withdrawal) ---
+// --- Sub-component for Admin Messages ---
 const AdminMessageNotification = ({ message }) => {
     return (
         <div className="duel-item bg-red-900/30 border-l-4 border-red-500">
@@ -95,7 +88,6 @@ const AdminMessageNotification = ({ message }) => {
                     <p className="text-sm text-gray-300">{message.message}</p>
                 </div>
             </div>
-             {/* Add a dismiss button later if needed */}
         </div>
     );
 };
@@ -106,7 +98,6 @@ const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeit
     const renderNotification = (notification) => {
         switch (notification.type) {
             case 'duel':
-                // [MODIFIED] Handle 'under_review' status within the 'duel' type
                 if (notification.data.status === 'under_review') {
                     return <DuelUnderReviewNotification key={notification.id} duel={notification.data} />;
                 }
@@ -114,10 +105,11 @@ const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeit
                     <DuelNotification 
                         key={notification.id}
                         duel={notification.data}
-                        onViewDuel={onViewDuel}
-                        onCancelDuel={onCancelDuel}
-                        onStartDuel={onStartDuel}
-                        onForfeitDuel={onForfeitDuel}
+                        // [FIX] Pass the props from Inbox down to the DuelNotification component.
+                        onViewDuel={() => onViewDuel(notification)}
+                        onCancelDuel={() => onCancelDuel(notification)}
+                        onStartDuel={() => onStartDuel(notification.data)}
+                        onForfeitDuel={() => onForfeitDuel(notification)}
                     />
                 );
             case 'withdrawal_request':
@@ -125,7 +117,7 @@ const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeit
                     <WithdrawalNotification 
                         key={notification.id}
                         request={notification.data}
-                        onCancelWithdrawal={onCancelWithdrawal}
+                        onCancelWithdrawal={() => onCancelWithdrawal(notification.data)}
                     />
                 );
             case 'admin_message':
