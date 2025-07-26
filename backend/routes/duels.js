@@ -8,7 +8,6 @@ const GAME_DATA = require('../game-data-store');
 const router = express.Router();
 
 // --- Dispute System Endpoints ---
-
 router.get('/unseen-results', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
@@ -163,13 +162,18 @@ router.post('/challenge', authenticateToken,
     }
 );
 
+// [CORRECTED] The query now only supplies 2 parameters to match the 2 placeholders.
 router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidationErrors, async (req, res) => {
     const duelId = req.params.id;
     const userId = req.user.userId;
     try {
-        const { rows: [duel] } = await db.query('SELECT * FROM duels WHERE id = $1 AND (challenger_id = $2 OR opponent_id = $2)', [duelId, userId, userId]);
+        const { rows: [duel] } = await db.query(
+            'SELECT * FROM duels WHERE id = $1 AND (challenger_id = $2 OR opponent_id = $2)',
+            [duelId, userId] // <-- FIX: Removed the duplicate userId parameter
+        );
         if (!duel) { return res.status(404).json({ message: 'Duel not found or you are not a participant.' }); }
         if (duel.status !== 'accepted') { return res.status(400).json({ message: 'This duel cannot be started.' }); }
+        
         await db.query("UPDATE duels SET status = 'started', started_at = NOW() WHERE id = $1", [duelId]);
         res.status(200).json({ message: 'Duel countdown started!', serverLink: duel.server_invite_link });
     } catch (err) {
@@ -177,6 +181,7 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
         res.status(500).json({ message: 'An internal server error occurred while starting the duel.' });
     }
 });
+
 
 router.post('/:id/forfeit', authenticateToken, param('id').isInt(), handleValidationErrors, async (req, res) => {
     const duelId = req.params.id;
