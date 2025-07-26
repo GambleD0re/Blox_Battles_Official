@@ -17,10 +17,9 @@ router.get('/:region',
         try {
             await client.query('BEGIN');
 
-            // [FIX] Reverting to the original, more robust logic.
             // 1. Get all pending duel tasks from the 'tasks' table.
             const { rows: allPendingTasks } = await client.query(
-                "SELECT id, task_type, payload FROM tasks WHERE status = 'pending' AND task_type = 'REFEREE_DUEL' FOR UPDATE"
+                "SELECT id, task_type, payload FROM tasks WHERE status = 'pending' AND task_type = 'REFEREE_DUEL' FOR UPDATE OF tasks"
             );
 
             if (allPendingTasks.length === 0) {
@@ -28,10 +27,10 @@ router.get('/:region',
                 return res.json([]);
             }
 
-            // 2. Extract the websiteDuelId from each task's payload.
+            // 2. Extract duel IDs from the task payloads
             const duelIdMap = new Map();
             allPendingTasks.forEach(task => {
-                // The payload is already a JS object from the DB driver.
+                // The payload from postgres is already a JS object
                 if (task.payload && task.payload.websiteDuelId) {
                     duelIdMap.set(task.payload.websiteDuelId, task);
                 }
@@ -43,18 +42,19 @@ router.get('/:region',
                 return res.json([]);
             }
             
-            // 3. Find which of those duels match the bot's region from the 'duels' table.
+            // 3. Find which of those duels match the bot's region
+            // Use ANY($1::int[]) to check against an array of IDs
             const sql = `SELECT id FROM duels WHERE id = ANY($1::int[]) AND region = $2`;
             const { rows: regionalDuels } = await client.query(sql, [duelIds, region]);
 
             const regionalDuelIds = new Set(regionalDuels.map(d => d.id));
 
-            // 4. Filter the original tasks to only include those for the correct region.
+            // 4. Filter the original tasks to only include those for the correct region
             const tasksForBot = Array.from(duelIdMap.values()).filter(task => {
                 return regionalDuelIds.has(task.payload.websiteDuelId);
             });
 
-            // 5. Mark only the filtered tasks as 'processing'.
+            // 5. Mark only the filtered tasks as 'processing'
             if (tasksForBot.length > 0) {
                 const idsToUpdate = tasksForBot.map(t => t.id);
                 await client.query(`UPDATE tasks SET status = 'processing' WHERE id = ANY($1::int[])`, [idsToUpdate]);
