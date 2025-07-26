@@ -256,29 +256,37 @@ export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameDat
 };
 
 export const DuelDetailsModal = ({ isOpen, onClose, duel, onRespond }) => {
-    if (!duel) return null;
+    // The 'duel' prop is now the full notification object: { id: 'duel-123', data: {...} }
+    // We only want to render if the inner 'data' object exists.
+    if (!duel?.data) return null;
+
+    // We extract the actual duel details from the 'data' property.
+    const duelDetails = duel.data;
+
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Incoming Challenge!">
             <div id="duel-details-content" className="space-y-2">
-                <p><strong>Challenger:</strong> {duel.challenger_username}</p>
-                <p><strong>Wager:</strong> <span className="font-bold text-[var(--accent-color)]">{duel.wager} Gems</span></p>
-                <p><strong>Map:</strong> {duel.map_name}</p>
+                <p><strong>Challenger:</strong> {duelDetails.challenger_username}</p>
+                <p><strong>Wager:</strong> <span className="font-bold text-[var(--accent-color)]">{duelDetails.wager} Gems</span></p>
+                <p><strong>Map:</strong> {duelDetails.map_name}</p>
                 <div className="banned-weapons-section">
                     <strong>Banned Weapons:</strong>
                     <ul className="banned-weapons-list">
-                        {duel.banned_weapons && duel.banned_weapons.length > 0 ? (
-                            duel.banned_weapons.map(w => <li key={w}>{w}</li>)
+                        {duelDetails.banned_weapons && duelDetails.banned_weapons.length > 0 ? (
+                            duelDetails.banned_weapons.map(w => <li key={w}>{w}</li>)
                         ) : <li>None</li>}
                     </ul>
                 </div>
             </div>
             <div className="modal-actions">
-                <button onClick={() => onRespond(duel.id, 'decline')} className="btn btn-danger">Decline</button>
-                <button onClick={() => onRespond(duel.id, 'accept')} className="btn btn-accept">Accept</button>
+                {/* [FIX] We call onRespond with the correct ID from the inner 'data' object. */}
+                <button onClick={() => onRespond(duelDetails.id, 'decline')} className="btn btn-danger">Decline</button>
+                <button onClick={() => onRespond(duelDetails.id, 'accept')} className="btn btn-accept">Accept</button>
             </div>
         </Modal>
     );
 };
+
 
 export const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, text, confirmText, children }) => {
     if (!isOpen) return null;
