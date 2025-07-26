@@ -2,6 +2,7 @@
 const express = require('express');
 const db = require('../database/database');
 const { authenticateToken } = require('../middleware/auth');
+const GAME_DATA = require('../game-data-store');
 
 const router = express.Router();
 
@@ -11,29 +12,50 @@ router.get('/', authenticateToken, async (req, res) => {
     let allNotifications = [];
 
     try {
-        // 1. Fetch active duel notifications
+        // --- 1. Fetch active duel notifications ---
         const duelSql = `
             SELECT 
-                d.id, d.wager, d.map, d.status, d.banned_weapons, d.challenger_id, d.opponent_id, d.server_invite_link, d.created_at,
+                d.id, d.wager, d.map, d.status, d.banned_weapons, d.challenger_id, d.opponent_id, 
+                d.server_invite_link, d.created_at,
                 challenger.linked_roblox_username as challenger_username,
                 opponent.linked_roblox_username as opponent_username
             FROM duels d
             JOIN users challenger ON d.challenger_id = challenger.id
             JOIN users opponent ON d.opponent_id = opponent.id
-            WHERE (d.opponent_id = $1 OR d.challenger_id = $1) AND d.status IN ('pending', 'accepted', 'started', 'under_review')
+            WHERE (d.opponent_id = $1 OR d.challenger_id = $1) 
+            AND d.status IN ('pending', 'accepted', 'started', 'under_review')
         `;
         const { rows: activeDuels } = await db.query(duelSql, [userId]);
         
+        // Process each duel to add the necessary context for the frontend
         activeDuels.forEach(duel => {
+            // Find the full map object from the map ID
+            const mapInfo = GAME_DATA.maps.find(m => m.id === duel.map);
+            // Find the full weapon objects from the banned weapon IDs
+            const bannedWeaponsInfo = (duel.banned_weapons || []).map(weaponId => 
+                GAME_DATA.weapons.find(w => w.id === weaponId)?.name || weaponId
+            );
+
+            // [FIX] Determine if the duel is incoming or outgoing
+            const duelType = duel.challenger_id.toString() === userId ? 'outgoing' : 'incoming';
+
+            const processedDuelData = {
+                ...duel,
+                map_name: mapInfo ? mapInfo.name : duel.map, // Add the map name
+                banned_weapons: bannedWeaponsInfo, // Add the full weapon names
+                type: duelType, // Add the duel type ('incoming' or 'outgoing')
+                userId: userId // Pass the current user's ID for context
+            };
+            
             allNotifications.push({
                 id: `duel-${duel.id}`,
                 type: 'duel',
                 timestamp: duel.created_at,
-                data: duel 
+                data: processedDuelData
             });
         });
 
-        // 2. Fetch pending and approved withdrawal requests
+        // --- 2. Fetch pending and approved withdrawal requests ---
         const payoutSql = `
             SELECT id, amount_gems, type, status, created_at 
             FROM payout_requests 
@@ -50,7 +72,7 @@ router.get('/', authenticateToken, async (req, res) => {
             });
         });
 
-        // 3. Fetch static messages
+        // --- 3. Fetch static messages (like declined withdrawal notifications) ---
         const messageSql = `
             SELECT id, title, message, reference_id, created_at 
             FROM inbox_messages 
@@ -67,7 +89,7 @@ router.get('/', authenticateToken, async (req, res) => {
             });
         });
 
-        // 4. Sort all notifications by timestamp, newest first
+        // --- 4. Sort all notifications by timestamp, newest first ---
         allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
         res.status(200).json(allNotifications);
