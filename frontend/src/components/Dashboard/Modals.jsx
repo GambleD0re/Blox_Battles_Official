@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import * as api from '../../services/api'; // Import the api service
+import * as api from '../../services/api';
 
 // --- Base Modal Component ---
 const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
@@ -127,9 +127,8 @@ export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameDat
     const [selectedMap, setSelectedMap] = useState('');
     const [bannedWeapons, setBannedWeapons] = useState([]);
     const [selectedRegion, setSelectedRegion] = useState('North America');
-    const [botStatuses, setBotStatuses] = useState([]); // [NEW] State for bot statuses
+    const [botStatuses, setBotStatuses] = useState([]);
 
-    // [NEW] Fetch bot statuses when the modal opens and poll for updates
     useEffect(() => {
         if (isOpen) {
             const fetchStatus = async () => {
@@ -141,10 +140,10 @@ export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameDat
                 }
             };
 
-            fetchStatus(); // Fetch immediately
-            const interval = setInterval(fetchStatus, 10000); // Poll every 10 seconds
+            fetchStatus();
+            const interval = setInterval(fetchStatus, 10000);
 
-            return () => clearInterval(interval); // Cleanup on close
+            return () => clearInterval(interval);
         }
     }, [isOpen, token]);
 
@@ -256,11 +255,8 @@ export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameDat
 };
 
 export const DuelDetailsModal = ({ isOpen, onClose, duel, onRespond }) => {
-    // The 'duel' prop is now the full notification object: { id: 'duel-123', data: {...} }
-    // We only want to render if the inner 'data' object exists.
     if (!duel?.data) return null;
 
-    // We extract the actual duel details from the 'data' property.
     const duelDetails = duel.data;
 
     return (
@@ -279,14 +275,12 @@ export const DuelDetailsModal = ({ isOpen, onClose, duel, onRespond }) => {
                 </div>
             </div>
             <div className="modal-actions">
-                {/* [FIX] We call onRespond with the correct ID from the inner 'data' object. */}
                 <button onClick={() => onRespond(duelDetails.id, 'decline')} className="btn btn-danger">Decline</button>
                 <button onClick={() => onRespond(duelDetails.id, 'accept')} className="btn btn-accept">Accept</button>
             </div>
         </Modal>
     );
 };
-
 
 export const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, text, confirmText, children }) => {
     if (!isOpen) return null;
