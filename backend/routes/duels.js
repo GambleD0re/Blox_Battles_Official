@@ -46,16 +46,20 @@ router.get('/unseen-results', authenticateToken, async (req, res) => {
     }
 });
 
+// [FIXED] This endpoint has been rewritten to be atomic and race-condition-proof.
 router.post('/:id/confirm-result', authenticateToken, param('id').isInt(), handleValidationErrors, async (req, res) => {
     const duelId = req.params.id;
     const userId = req.user.userId;
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
+        
+        // Step 1: Lock the duel row and determine which player is confirming.
         const { rows: [duel] } = await client.query("SELECT * FROM duels WHERE id = $1 FOR UPDATE", [duelId]);
+        
         if (!duel) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Duel not found.' }); }
         if (duel.status === 'under_review') { await client.query('ROLLBACK'); return res.status(200).json({ message: 'This duel is now under review by an admin.' }); }
-        if (duel.status !== 'completed_unseen') { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Duel result has already been processed.' }); }
+        if (duel.status !== 'completed_unseen') { await client.query('ROLLBACK'); return res.status(400).json({ message: 'Duel result has already been processed.' }); }
 
         let columnToUpdate;
         if (duel.challenger_id.toString() === userId) {
@@ -66,16 +70,23 @@ router.post('/:id/confirm-result', authenticateToken, param('id').isInt(), handl
             await client.query('ROLLBACK');
             return res.status(403).json({ message: 'You are not a participant in this duel.' });
         }
-        await client.query(`UPDATE duels SET ${columnToUpdate} = TRUE WHERE id = $1`, [duelId]);
 
-        const { rows: [updatedDuel] } = await client.query('SELECT * FROM duels WHERE id = $1', [duelId]);
+        // Step 2: Atomically update the flag and return the new state of the row.
+        const updateSql = `UPDATE duels SET ${columnToUpdate} = TRUE WHERE id = $1 RETURNING *`;
+        const { rows: [updatedDuel] } = await client.query(updateSql, [duelId]);
+
+        // Step 3: Check if both players have now confirmed.
         if (updatedDuel.challenger_seen_result && updatedDuel.opponent_seen_result) {
+            // If so, finalize the duel by paying out the winner.
             const loserId = (updatedDuel.winner_id.toString() === updatedDuel.challenger_id.toString()) ? updatedDuel.opponent_id : updatedDuel.challenger_id;
+            
             await client.query('UPDATE users SET gems = gems + $1, wins = wins + 1 WHERE id = $2', [updatedDuel.pot, updatedDuel.winner_id]);
             await client.query('UPDATE users SET losses = losses + 1 WHERE id = $1', [loserId]);
             await client.query("UPDATE duels SET status = 'completed' WHERE id = $1", [duelId]);
+            
             console.log(`Duel ${duelId} finalized and pot of ${updatedDuel.pot} paid out to winner ${updatedDuel.winner_id}.`);
         }
+        
         await client.query('COMMIT');
         res.status(200).json({ message: 'Result confirmed.' });
     } catch (err) {
@@ -86,6 +97,7 @@ router.post('/:id/confirm-result', authenticateToken, param('id').isInt(), handl
         client.release();
     }
 });
+
 
 router.post('/:id/dispute', authenticateToken, param('id').isInt(), body('reason').trim().notEmpty(), body('has_video_evidence').isBoolean(), handleValidationErrors, async (req, res) => {
     const duelId = req.params.id;
@@ -219,7 +231,6 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
 
         await client.query('UPDATE game_servers SET player_count = player_count + 2 WHERE server_id = $1', [availableServer.server_id]);
         
-        // [FIXED] Corrected the SQL UPDATE syntax.
         const updateSql = `
             UPDATE duels 
             SET status = 'started', 
