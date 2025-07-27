@@ -1,7 +1,7 @@
 -- This script defines the PostgreSQL-compatible structure of the database.
 
 -- Drop tables if they exist to ensure a clean slate. The CASCADE keyword will also drop dependent objects.
-DROP TABLE IF EXISTS users, duels, tasks, push_subscriptions, region_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages CASCADE;
+DROP TABLE IF EXISTS users, duels, tasks, push_subscriptions, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages CASCADE;
 
 -- Create the 'users' table. 'SERIAL' is the PostgreSQL equivalent of AUTOINCREMENT.
 -- 'UUID' is a better type for your unique 'id' column.
@@ -108,6 +108,7 @@ CREATE TABLE duels (
     challenger_seen_result BOOLEAN DEFAULT FALSE,
     opponent_seen_result BOOLEAN DEFAULT FALSE,
     server_invite_link TEXT,
+    assigned_server_id VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     accepted_at TIMESTAMP WITH TIME ZONE,
     started_at TIMESTAMP WITH TIME ZONE,
@@ -145,10 +146,11 @@ CREATE TABLE push_subscriptions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE region_servers (
-    id SERIAL PRIMARY KEY,
-    region VARCHAR(50) NOT NULL CHECK(region IN ('Oceania', 'North America', 'Europe')),
-    server_link TEXT NOT NULL UNIQUE,
-    is_active BOOLEAN DEFAULT TRUE,
-    last_used TIMESTAMP WITH TIME ZONE
+-- [MODIFIED] This table is now managed by the bots themselves via the heartbeat endpoint.
+CREATE TABLE game_servers (
+    server_id VARCHAR(255) PRIMARY KEY,
+    region VARCHAR(50) NOT NULL,
+    join_link TEXT NOT NULL,
+    player_count INTEGER NOT NULL DEFAULT 0,
+    last_heartbeat TIMESTAMP WITH TIME ZONE NOT NULL
 );
