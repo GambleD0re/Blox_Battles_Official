@@ -219,10 +219,17 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
 
         await client.query('UPDATE game_servers SET player_count = player_count + 2 WHERE server_id = $1', [availableServer.server_id]);
         
-        await client.query(
-            "UPDATE duels SET status = 'started', started_at = NOW(), last_activity_at = NOW(), server_invite_link = $1, assigned_server_id = $2 WHERE id = $3", 
-            [availableServer.join_link, availableServer.server_id, duelId]
-        );
+        // [FIXED] Corrected the SQL UPDATE syntax.
+        const updateSql = `
+            UPDATE duels 
+            SET status = 'started', 
+                started_at = NOW(), 
+                last_activity_at = NOW(), 
+                server_invite_link = $1, 
+                assigned_server_id = $2 
+            WHERE id = $3
+        `;
+        await client.query(updateSql, [availableServer.join_link, availableServer.server_id, duelId]);
 
         const { rows: [challengerInfo] } = await client.query('SELECT linked_roblox_username FROM users WHERE id = $1', [duel.challenger_id]);
         const { rows: [opponentInfo] } = await client.query('SELECT linked_roblox_username FROM users WHERE id = $1', [duel.opponent_id]);
