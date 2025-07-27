@@ -218,8 +218,9 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
         }
 
         await client.query('UPDATE game_servers SET player_count = player_count + 2 WHERE server_id = $1', [availableServer.server_id]);
+        
         await client.query(
-            "UPDATE duels SET status = 'started', started_at = NOW(), server_invite_link = $1, assigned_server_id = $2 WHERE id = $3", 
+            "UPDATE duels SET status = 'started', started_at = NOW(), last_activity_at = NOW(), server_invite_link = $1, assigned_server_id = $2 WHERE id = $3", 
             [availableServer.join_link, availableServer.server_id, duelId]
         );
 
@@ -334,10 +335,8 @@ router.post('/respond', authenticateToken, body('duel_id').isInt(), body('respon
         await client.query('UPDATE users SET gems = gems - $1 WHERE id = $2', [duel.wager, opponentId]);
         await client.query('UPDATE users SET gems = gems - $1 WHERE id = $2', [duel.wager, duel.challenger_id]);
         
-        // [MODIFIED] Implement the 1% duel tax, rounding up.
         const totalPot = parseInt(duel.wager) * 2;
         let taxCollected = 0;
-        // Only apply tax to pots over 100 gems to avoid taxing small amounts.
         if (totalPot > 100) {
             taxCollected = Math.ceil(totalPot * 0.01);
         }
