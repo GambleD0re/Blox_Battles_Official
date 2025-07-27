@@ -165,7 +165,6 @@ router.get('/disputes', authenticateToken, isAdmin, async (req, res) => {
     }
 });
 
-// [MODIFIED] Added player count decrementation on dispute resolution.
 router.post('/disputes/:id/resolve', authenticateToken, isAdmin, param('id').isInt(), body('resolutionType').isIn(['uphold_winner', 'overturn_to_reporter', 'void_refund']), handleValidationErrors, async (req, res) => {
     const disputeId = req.params.id;
     const adminId = req.user.userId;
@@ -194,10 +193,13 @@ router.post('/disputes/:id/resolve', authenticateToken, isAdmin, param('id').isI
                 resolutionMessage = `Result overturned. Pot of ${duel.pot} paid to reporter.`;
                 break;
             case 'void_refund':
-                const refundAmount = duel.pot / 2;
+                // [MODIFIED] Refund the original wager, not half the taxed pot.
+                const refundAmount = duel.wager;
                 await client.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.challenger_id]);
                 await client.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.opponent_id]);
-                resolutionMessage = `Duel voided. Pot of ${duel.pot} refunded to both players.`;
+                // [MODIFIED] Manually set tax_collected to 0 for voided duels.
+                await client.query('UPDATE duels SET tax_collected = 0 WHERE id = $1', [duel.id]);
+                resolutionMessage = `Duel voided. Pot of ${duel.wager * 2} refunded to both players.`;
                 break;
         }
         await client.query("UPDATE duels SET status = 'completed' WHERE id = $1", [duel.id]);
@@ -300,7 +302,6 @@ router.post('/users/:id/ban', authenticateToken, isAdmin,
                     const opponentId = duel.challenger_id.toString() === id ? duel.opponent_id : duel.challenger_id;
                     await client.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [duel.wager, opponentId]);
                 }
-                 // If the duel had started, decrement the player count as it's being canceled.
                 if(duel.status === 'started' || duel.status === 'accepted'){
                     await decrementPlayerCount(client, duel.id);
                 }
