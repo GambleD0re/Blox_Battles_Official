@@ -7,6 +7,20 @@ const GAME_DATA = require('../game-data-store');
 
 const router = express.Router();
 
+// A helper function to decrement a server's player count.
+const decrementPlayerCount = async (client, duelId) => {
+    try {
+        const { rows: [duel] } = await client.query('SELECT assigned_server_id FROM duels WHERE id = $1', [duelId]);
+        if (duel && duel.assigned_server_id) {
+            await client.query('UPDATE game_servers SET player_count = GREATEST(0, player_count - 2) WHERE server_id = $1', [duel.assigned_server_id]);
+            console.log(`[PlayerCount] Decremented player count for server ${duel.assigned_server_id} from duel ${duelId}.`);
+        }
+    } catch (err) {
+        console.error(`[PlayerCount] Failed to decrement player count for duel ${duelId}:`, err);
+        // Do not throw, as this should not block the main logic.
+    }
+};
+
 // --- Dispute System Endpoints ---
 router.get('/unseen-results', authenticateToken, async (req, res) => {
     try {
@@ -120,7 +134,6 @@ router.get('/find-player', authenticateToken, query('roblox_username').trim().es
     }
 });
 
-// [MODIFIED] Use the new regions from GAME_DATA for validation.
 const validRegions = GAME_DATA.regions.map(r => r.id);
 router.post('/challenge', authenticateToken,
     body('opponent_id').isUUID(), body('wager').isInt({ gt: 0 }), body('map').trim().escape().notEmpty(),
@@ -164,7 +177,6 @@ router.post('/challenge', authenticateToken,
     }
 );
 
-// [MODIFIED] The /start endpoint now contains the critical server assignment logic.
 router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidationErrors, async (req, res) => {
     const duelId = req.params.id;
     const userId = req.user.userId;
@@ -187,7 +199,6 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
             return res.status(400).json({ message: 'This duel cannot be started because it is not in the "accepted" state.' });
         }
 
-        // Find an available server
         const BOT_OFFLINE_THRESHOLD_SECONDS = 60;
         const serverSql = `
             SELECT server_id, join_link
@@ -206,21 +217,19 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
             return res.status(400).json({ message: `All servers for the ${duel.region} region are currently full. Please try again shortly.` });
         }
 
-        // Assign server and update player count
         await client.query('UPDATE game_servers SET player_count = player_count + 2 WHERE server_id = $1', [availableServer.server_id]);
         await client.query(
             "UPDATE duels SET status = 'started', started_at = NOW(), server_invite_link = $1, assigned_server_id = $2 WHERE id = $3", 
             [availableServer.join_link, availableServer.server_id, duelId]
         );
 
-        // Notify the specific bot assigned to the duel
         const { rows: [challengerInfo] } = await client.query('SELECT linked_roblox_username FROM users WHERE id = $1', [duel.challenger_id]);
         const { rows: [opponentInfo] } = await client.query('SELECT linked_roblox_username FROM users WHERE id = $1', [duel.opponent_id]);
         const mapInfo = GAME_DATA.maps.find(m => m.id === duel.map);
         
         const taskPayload = {
             websiteDuelId: duel.id,
-            serverId: availableServer.server_id, // Include the specific server ID
+            serverId: availableServer.server_id,
             serverLink: availableServer.join_link,
             challenger: challengerInfo.linked_roblox_username,
             opponent: opponentInfo.linked_roblox_username,
@@ -259,6 +268,9 @@ router.post('/:id/forfeit', authenticateToken, param('id').isInt(), handleValida
         await client.query('UPDATE users SET losses = losses + 1 WHERE id = $1', [forfeitingUserId]);
         await client.query("UPDATE duels SET status = 'completed', winner_id = $1 WHERE id = $2", [winnerId, duel.id]);
         
+        // [NEW] Decrement player count on forfeit.
+        await decrementPlayerCount(client, duel.id);
+
         await client.query('COMMIT');
         res.status(200).json({ message: 'You have forfeited the duel.' });
     } catch (err) {
@@ -295,7 +307,6 @@ router.get('/history', authenticateToken, async(req, res) => {
     }
 });
 
-// [MODIFIED] The /respond endpoint is now much simpler. It only handles escrow and status change.
 router.post('/respond', authenticateToken, body('duel_id').isInt(), body('response').isIn(['accept', 'decline']), handleValidationErrors, async (req, res) => {
     const { duel_id, response } = req.body;
     const opponentId = req.user.userId;
@@ -321,17 +332,14 @@ router.post('/respond', authenticateToken, body('duel_id').isInt(), body('respon
         if (!opponent || parseInt(opponent.gems) < parseInt(duel.wager)) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'You do not have enough gems.' }); }
         if (!challenger || parseInt(challenger.gems) < parseInt(duel.wager)) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'The challenger no longer has enough gems.' }); }
 
-        // Escrow gems from both players
         await client.query('UPDATE users SET gems = gems - $1 WHERE id = $2', [duel.wager, opponentId]);
         await client.query('UPDATE users SET gems = gems - $1 WHERE id = $2', [duel.wager, duel.challenger_id]);
         
-        // Calculate pot and tax
         const totalPot = parseInt(duel.wager) * 2;
         let taxCollected = 0;
         if (totalPot > 100) { taxCollected = Math.ceil(totalPot * 0.01); }
         const finalPot = totalPot - taxCollected;
         
-        // Update duel status, pot, and tax. No server is assigned here.
         await client.query('UPDATE duels SET status = $1, accepted_at = NOW(), pot = $2, tax_collected = $3 WHERE id = $4', ['accepted', finalPot, taxCollected, duel_id]);
         
         await client.query('COMMIT');
