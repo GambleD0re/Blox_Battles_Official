@@ -2,59 +2,67 @@
 const express = require('express');
 const { body } = require('express-validator');
 const { authenticateToken, authenticateBot, handleValidationErrors } = require('../middleware/auth');
+const db = require('../database/database');
 
 const router = express.Router();
 
-const botStatus = new Map();
-const BOT_OFFLINE_THRESHOLD = 45 * 1000;
-
-// [NEW] Health check route for Render
-// This is a public route that does not require authentication.
-router.get('/status', (req, res) => {
-    // A 200 OK response tells Render that the server is up and running.
+// Public health check route for Render
+router.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
 });
 
-// Endpoint for the frontend to get the live status of all regional bots
-router.get('/', authenticateToken, (req, res) => {
-    const regions = ['North America', 'Europe', 'Oceania'];
-    const now = Date.now();
-
-    const statuses = regions.map(region => {
-        const lastHeartbeat = botStatus.get(region);
-        const isOnline = lastHeartbeat && (now - lastHeartbeat < BOT_OFFLINE_THRESHOLD);
-        
-        return {
-            region: region,
-            status: isOnline ? 'online' : 'offline'
-        };
-    });
-
-    res.status(200).json(statuses);
+// [MODIFIED] Endpoint for the frontend to get the live status of all registered bots.
+// This is now purely informational for the user.
+router.get('/', authenticateToken, async (req, res) => {
+    try {
+        const BOT_OFFLINE_THRESHOLD_SECONDS = 45;
+        const sql = `
+            SELECT server_id, region, player_count, last_heartbeat 
+            FROM game_servers
+            WHERE last_heartbeat >= NOW() - INTERVAL '${BOT_OFFLINE_THRESHOLD_SECONDS} seconds'
+            ORDER BY region, server_id
+        `;
+        const { rows: servers } = await db.query(sql);
+        res.status(200).json(servers);
+    } catch (err) {
+        console.error("[STATUS] Error fetching active servers:", err);
+        res.status(500).json({ message: 'An internal server error occurred.' });
+    }
 });
 
+
+// [MODIFIED] The heartbeat endpoint now registers the bot's serverId and joinLink in the database.
 router.post('/heartbeat',
     authenticateBot,
-    body('region').isIn(['Oceania', 'Europe', 'North America']),
+    [
+        // Regex validates formats like "NA-East_1", "EU_1", "OCE_12", etc.
+        body('serverId').matches(/^[A-Z]{2,3}(?:-[A-Za-z]+)?_[0-9]+$/).withMessage('Invalid serverId format (e.g., NA-East_1, EU_1).'),
+        body('joinLink').isURL().withMessage('A valid joinLink URL is required.')
+    ],
     handleValidationErrors,
-    (req, res) => {
-        const { region } = req.body;
-        botStatus.set(region, Date.now());
-        res.status(200).json({ message: 'Heartbeat received.' });
+    async (req, res) => {
+        const { serverId, joinLink } = req.body;
+        
+        // Extract region from serverId (e.g., "NA-East_1" -> "NA-East")
+        const region = serverId.substring(0, serverId.lastIndexOf('_'));
+
+        try {
+            // This query performs an "UPSERT": it inserts a new server if it doesn't exist,
+            // or updates the existing one's join link and heartbeat if it does.
+            const sql = `
+                INSERT INTO game_servers (server_id, region, join_link, last_heartbeat)
+                VALUES ($1, $2, $3, NOW())
+                ON CONFLICT (server_id) DO UPDATE SET
+                    join_link = EXCLUDED.join_link,
+                    last_heartbeat = NOW();
+            `;
+            await db.query(sql, [serverId, region, joinLink]);
+            res.status(200).json({ message: `Heartbeat received and processed for ${serverId}.` });
+        } catch (err) {
+            console.error(`[HEARTBEAT] Error processing heartbeat for ${serverId}:`, err);
+            res.status(500).json({ message: 'An internal server error occurred while processing the heartbeat.' });
+        }
     }
 );
-
-router.get('/', authenticateToken, (req, res) => {
-    const regions = ['North America', 'Europe', 'Oceania'];
-    const now = Date.now();
-    const statuses = regions.map(region => {
-        const lastHeartbeat = botStatus.get(region);
-        const isOnline = lastHeartbeat && (now - lastHeartbeat < BOT_OFFLINE_THRESHOLD);
-        return { region, status: isOnline ? 'online' : 'offline' };
-    });
-
-
-    res.status(200).json(statuses);
-});
 
 module.exports = router;
