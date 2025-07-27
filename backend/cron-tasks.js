@@ -7,6 +7,19 @@ const db = require('./database/database');
 const DUEL_EXPIRATION_HOURS = 1;
 const DUEL_FORFEIT_MINUTES = 10;
 
+// A helper function to decrement a server's player count.
+const decrementPlayerCount = async (client, duelId) => {
+    try {
+        const { rows: [duel] } = await client.query('SELECT assigned_server_id FROM duels WHERE id = $1', [duelId]);
+        if (duel && duel.assigned_server_id) {
+            await client.query('UPDATE game_servers SET player_count = GREATEST(0, player_count - 2) WHERE server_id = $1', [duel.assigned_server_id]);
+            console.log(`[PlayerCount][CRON] Decremented player count for server ${duel.assigned_server_id} from duel ${duelId}.`);
+        }
+    } catch (err) {
+        console.error(`[PlayerCount][CRON] Failed to decrement player count for duel ${duelId}:`, err);
+    }
+};
+
 async function runScheduledTasks() {
     console.log(`[CRON] Running scheduled tasks at ${new Date().toISOString()}`);
     const pool = db.getPool();
@@ -29,6 +42,7 @@ async function runScheduledTasks() {
                 await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.challenger_id]);
                 await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.opponent_id]);
                 await txClient.query("UPDATE duels SET status = 'canceled' WHERE id = $1", [duel.id]);
+                // No need to decrement player count here, as an 'accepted' duel was never assigned a server.
                 await txClient.query('COMMIT');
                 console.log(`[CRON] Canceled expired 'accepted' duel ID ${duel.id}. Pot of ${duel.pot} refunded.`);
             } catch (txError) {
@@ -76,18 +90,21 @@ async function runScheduledTasks() {
                     await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.challenger_id]);
                     await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.opponent_id]);
                     await txClient.query("UPDATE duels SET status = 'canceled', winner_id = NULL WHERE id = $1", [duel.id]);
+                    await decrementPlayerCount(txClient, duel.id); // Decrement count
                     console.log(`[CRON] Duel ID ${duel.id} canceled (no-show from both). Pot of ${duel.pot} refunded.`);
                 } 
                 else if (challengerJoined && !opponentJoined) {
                     await txClient.query('UPDATE users SET gems = gems + $1, wins = wins + 1 WHERE id = $2', [duel.pot, duel.challenger_id]);
                     await txClient.query('UPDATE users SET losses = losses + 1 WHERE id = $1', [duel.opponent_id]);
                     await txClient.query("UPDATE duels SET status = 'completed', winner_id = $1 WHERE id = $2", [duel.challenger_id, duel.id]);
+                    await decrementPlayerCount(txClient, duel.id); // Decrement count
                     console.log(`[CRON] Duel ID ${duel.id} forfeited by ${opponent.linked_roblox_username}.`);
                 } 
                 else if (!challengerJoined && opponentJoined) {
                     await txClient.query('UPDATE users SET gems = gems + $1, wins = wins + 1 WHERE id = $2', [duel.pot, duel.opponent_id]);
                     await txClient.query('UPDATE users SET losses = losses + 1 WHERE id = $1', [duel.challenger_id]);
                     await txClient.query("UPDATE duels SET status = 'completed', winner_id = $1 WHERE id = $2", [duel.opponent_id, duel.id]);
+                    await decrementPlayerCount(txClient, duel.id); // Decrement count
                     console.log(`[CRON] Duel ID ${duel.id} forfeited by ${challenger.linked_roblox_username}.`);
                 }
                 else {
