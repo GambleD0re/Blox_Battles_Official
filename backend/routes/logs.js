@@ -53,10 +53,10 @@ router.post('/',
                 if (duel) {
                     let transcript = duel.transcript || [];
                     transcript.push(event);
-                    await client.query('UPDATE duels SET transcript = $1 WHERE id = $2', [JSON.stringify(transcript), duel.id]);
+                    // [MODIFIED] Update last_activity_at whenever a new log comes in. This keeps the duel "alive".
+                    await client.query('UPDATE duels SET transcript = $1, last_activity_at = NOW() WHERE id = $2', [JSON.stringify(transcript), duel.id]);
 
                     if (event.eventType === 'PARSED_DUEL_ENDED') {
-                        // Only process the end event if the duel is still in a state that can be ended.
                         if (duel.status === 'started' || duel.status === 'under_review') {
                             const { winner_username } = event.data;
                             if (winner_username) {
@@ -65,14 +65,11 @@ router.post('/',
                                     await client.query("UPDATE duels SET status = 'completed_unseen', winner_id = $1 WHERE id = $2", [winnerUser.id, duel.id]);
                                     console.log(`Duel ${duel.id} result recorded. Winner: ${winner_username}.`);
                                 } else {
-                                    // If winner can't be found, cancel the duel (refund handled by cron if needed).
                                     await client.query("UPDATE duels SET status = 'canceled' WHERE id = $1", [duel.id]);
                                 }
                             } else {
-                                // No winner reported, cancel the duel.
                                 await client.query("UPDATE duels SET status = 'canceled' WHERE id = $1", [duel.id]);
                             }
-                             // [MODIFIED] Decrement player count when duel ends.
                             await decrementPlayerCount(client, duel.id);
                         }
                     }
