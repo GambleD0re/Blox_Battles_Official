@@ -101,8 +101,6 @@ export const banUser = (userId, reason, duration_hours, token) => apiRequest(`/a
 export const unbanUser = (userId, token) => apiRequest(`/admin/users/${userId}/ban`, 'DELETE', null, token);
 export const deleteUserAccount = (userId, token) => apiRequest(`/admin/users/${userId}`, 'DELETE', null, token);
 export const getAdminServers = (token) => apiRequest('/admin/servers', 'GET', null, token);
-export const addAdminServer = (serverData, token) => apiRequest('/admin/servers', 'POST', serverData, token);
-export const deleteAdminServer = (serverId, token) => apiRequest(`/admin/servers/${serverId}`, 'DELETE', null, token);
 export const getPendingDisputes = (token) => apiRequest('/admin/disputes', 'GET', null, token);
 export const resolveDispute = (disputeId, resolutionType, token) => apiRequest(`/admin/disputes/${disputeId}/resolve`, 'POST', { resolutionType }, token);
 export const getAdminPayoutRequests = (token) => apiRequest('/admin/payout-requests', 'GET', null, token);
