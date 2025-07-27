@@ -6,6 +6,20 @@ const { authenticateBot } = require('../middleware/auth');
 
 const router = express.Router();
 
+// A helper function to decrement a server's player count.
+const decrementPlayerCount = async (client, duelId) => {
+    try {
+        const { rows: [duel] } = await client.query('SELECT assigned_server_id FROM duels WHERE id = $1', [duelId]);
+        if (duel && duel.assigned_server_id) {
+            await client.query('UPDATE game_servers SET player_count = GREATEST(0, player_count - 2) WHERE server_id = $1', [duel.assigned_server_id]);
+            console.log(`[PlayerCount] Decremented player count for server ${duel.assigned_server_id} from duel ${duelId}.`);
+        }
+    } catch (err) {
+        console.error(`[PlayerCount] Failed to decrement player count for duel ${duelId}:`, err);
+        // Do not throw, as this should not block the main logic.
+    }
+};
+
 // Endpoint for the bot to post duel logs
 router.post('/', 
     authenticateBot, 
@@ -28,15 +42,13 @@ router.post('/',
             try {
                 await client.query('BEGIN');
                 
-                // [FIX] The duelId from the bot IS the websiteDuelId.
                 const websiteDuelId = event.duelId;
 
-                // This event is now purely informational and for appending to the transcript.
                 if (event.eventType === 'DUEL_STARTED') {
                     console.log(`Received DUEL_STARTED event for duel ${websiteDuelId}. Appending to transcript.`);
                 }
                 
-                const { rows: [duel] } = await client.query('SELECT id, transcript FROM duels WHERE id = $1 FOR UPDATE', [websiteDuelId]);
+                const { rows: [duel] } = await client.query('SELECT id, transcript, status FROM duels WHERE id = $1 FOR UPDATE', [websiteDuelId]);
                 
                 if (duel) {
                     let transcript = duel.transcript || [];
@@ -44,21 +56,27 @@ router.post('/',
                     await client.query('UPDATE duels SET transcript = $1 WHERE id = $2', [JSON.stringify(transcript), duel.id]);
 
                     if (event.eventType === 'PARSED_DUEL_ENDED') {
-                        const { winner_username } = event.data;
-                        if (winner_username) {
-                            const { rows: [winnerUser] } = await client.query('SELECT id FROM users WHERE linked_roblox_username = $1', [winner_username]);
-                            if (winnerUser) {
-                                await client.query("UPDATE duels SET status = 'completed_unseen', winner_id = $1 WHERE id = $2", [winnerUser.id, duel.id]);
-                                console.log(`Duel ${duel.id} result recorded. Winner: ${winner_username}.`);
+                        // Only process the end event if the duel is still in a state that can be ended.
+                        if (duel.status === 'started' || duel.status === 'under_review') {
+                            const { winner_username } = event.data;
+                            if (winner_username) {
+                                const { rows: [winnerUser] } = await client.query('SELECT id FROM users WHERE linked_roblox_username = $1', [winner_username]);
+                                if (winnerUser) {
+                                    await client.query("UPDATE duels SET status = 'completed_unseen', winner_id = $1 WHERE id = $2", [winnerUser.id, duel.id]);
+                                    console.log(`Duel ${duel.id} result recorded. Winner: ${winner_username}.`);
+                                } else {
+                                    // If winner can't be found, cancel the duel (refund handled by cron if needed).
+                                    await client.query("UPDATE duels SET status = 'canceled' WHERE id = $1", [duel.id]);
+                                }
                             } else {
+                                // No winner reported, cancel the duel.
                                 await client.query("UPDATE duels SET status = 'canceled' WHERE id = $1", [duel.id]);
                             }
-                        } else {
-                            await client.query("UPDATE duels SET status = 'canceled' WHERE id = $1", [duel.id]);
+                             // [MODIFIED] Decrement player count when duel ends.
+                            await decrementPlayerCount(client, duel.id);
                         }
                     }
                 } else {
-                    // This is the log message you are seeing. It now correctly reports the website ID.
                     console.warn(`Received log for an unknown website_duel_id: ${websiteDuelId}`);
                 }
                 
