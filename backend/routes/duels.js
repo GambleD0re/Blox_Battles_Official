@@ -120,9 +120,11 @@ router.get('/find-player', authenticateToken, query('roblox_username').trim().es
     }
 });
 
+// [MODIFIED] Use the new regions from GAME_DATA for validation.
+const validRegions = GAME_DATA.regions.map(r => r.id);
 router.post('/challenge', authenticateToken,
     body('opponent_id').isUUID(), body('wager').isInt({ gt: 0 }), body('map').trim().escape().notEmpty(),
-    body('banned_weapons').isArray(), body('region').isIn(['Oceania', 'Europe', 'North America']),
+    body('banned_weapons').isArray(), body('region').isIn(validRegions),
     handleValidationErrors,
     async (req, res) => {
         const challenger_id = req.user.userId;
@@ -162,23 +164,81 @@ router.post('/challenge', authenticateToken,
     }
 );
 
-// [CORRECTED] The query now only supplies 2 parameters to match the 2 placeholders.
+// [MODIFIED] The /start endpoint now contains the critical server assignment logic.
 router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidationErrors, async (req, res) => {
     const duelId = req.params.id;
     const userId = req.user.userId;
+    const client = await db.getPool().connect();
+    
     try {
-        const { rows: [duel] } = await db.query(
-            'SELECT * FROM duels WHERE id = $1 AND (challenger_id = $2 OR opponent_id = $2)',
-            [duelId, userId] // <-- FIX: Removed the duplicate userId parameter
+        await client.query('BEGIN');
+
+        const { rows: [duel] } = await client.query(
+            'SELECT * FROM duels WHERE id = $1 AND (challenger_id = $2 OR opponent_id = $2) FOR UPDATE',
+            [duelId, userId]
         );
-        if (!duel) { return res.status(404).json({ message: 'Duel not found or you are not a participant.' }); }
-        if (duel.status !== 'accepted') { return res.status(400).json({ message: 'This duel cannot be started.' }); }
+
+        if (!duel) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Duel not found or you are not a participant.' });
+        }
+        if (duel.status !== 'accepted') {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'This duel cannot be started because it is not in the "accepted" state.' });
+        }
+
+        // Find an available server
+        const BOT_OFFLINE_THRESHOLD_SECONDS = 60;
+        const serverSql = `
+            SELECT server_id, join_link
+            FROM game_servers
+            WHERE region = $1
+              AND player_count < 40
+              AND last_heartbeat >= NOW() - INTERVAL '${BOT_OFFLINE_THRESHOLD_SECONDS} seconds'
+            ORDER BY player_count ASC
+            LIMIT 1
+            FOR UPDATE
+        `;
+        const { rows: [availableServer] } = await client.query(serverSql, [duel.region]);
+
+        if (!availableServer) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: `All servers for the ${duel.region} region are currently full. Please try again shortly.` });
+        }
+
+        // Assign server and update player count
+        await client.query('UPDATE game_servers SET player_count = player_count + 2 WHERE server_id = $1', [availableServer.server_id]);
+        await client.query(
+            "UPDATE duels SET status = 'started', started_at = NOW(), server_invite_link = $1, assigned_server_id = $2 WHERE id = $3", 
+            [availableServer.join_link, availableServer.server_id, duelId]
+        );
+
+        // Notify the specific bot assigned to the duel
+        const { rows: [challengerInfo] } = await client.query('SELECT linked_roblox_username FROM users WHERE id = $1', [duel.challenger_id]);
+        const { rows: [opponentInfo] } = await client.query('SELECT linked_roblox_username FROM users WHERE id = $1', [duel.opponent_id]);
+        const mapInfo = GAME_DATA.maps.find(m => m.id === duel.map);
         
-        await db.query("UPDATE duels SET status = 'started', started_at = NOW() WHERE id = $1", [duelId]);
-        res.status(200).json({ message: 'Duel countdown started!', serverLink: duel.server_invite_link });
+        const taskPayload = {
+            websiteDuelId: duel.id,
+            serverId: availableServer.server_id, // Include the specific server ID
+            serverLink: availableServer.join_link,
+            challenger: challengerInfo.linked_roblox_username,
+            opponent: opponentInfo.linked_roblox_username,
+            map: mapInfo ? mapInfo.name : duel.map,
+            bannedWeapons: (duel.banned_weapons || []).map(id => GAME_DATA.weapons.find(w => w.id === id)?.name || id),
+            wager: duel.wager,
+        };
+        await client.query("INSERT INTO tasks (task_type, payload) VALUES ($1, $2)", ['REFEREE_DUEL', JSON.stringify(taskPayload)]);
+        
+        await client.query('COMMIT');
+        res.status(200).json({ message: 'Duel started! Server assigned.', serverLink: availableServer.join_link });
+
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(`[DUEL START] Error starting duel ${duelId}:`, err);
         res.status(500).json({ message: 'An internal server error occurred while starting the duel.' });
+    } finally {
+        client.release();
     }
 });
 
@@ -235,6 +295,7 @@ router.get('/history', authenticateToken, async(req, res) => {
     }
 });
 
+// [MODIFIED] The /respond endpoint is now much simpler. It only handles escrow and status change.
 router.post('/respond', authenticateToken, body('duel_id').isInt(), body('response').isIn(['accept', 'decline']), handleValidationErrors, async (req, res) => {
     const { duel_id, response } = req.body;
     const opponentId = req.user.userId;
@@ -260,36 +321,21 @@ router.post('/respond', authenticateToken, body('duel_id').isInt(), body('respon
         if (!opponent || parseInt(opponent.gems) < parseInt(duel.wager)) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'You do not have enough gems.' }); }
         if (!challenger || parseInt(challenger.gems) < parseInt(duel.wager)) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'The challenger no longer has enough gems.' }); }
 
+        // Escrow gems from both players
         await client.query('UPDATE users SET gems = gems - $1 WHERE id = $2', [duel.wager, opponentId]);
         await client.query('UPDATE users SET gems = gems - $1 WHERE id = $2', [duel.wager, duel.challenger_id]);
         
-        const { rows: servers } = await client.query('SELECT server_link FROM region_servers WHERE region = $1 AND is_active = TRUE', [duel.region]);
-        if (!servers || servers.length === 0) { await client.query('ROLLBACK'); return res.status(400).json({ message: `No available servers for the selected region (${duel.region}).` }); }
-        
-        const selectedServer = servers[Math.floor(Math.random() * servers.length)];
-        const serverLink = selectedServer.server_link;
+        // Calculate pot and tax
         const totalPot = parseInt(duel.wager) * 2;
         let taxCollected = 0;
         if (totalPot > 100) { taxCollected = Math.ceil(totalPot * 0.01); }
         const finalPot = totalPot - taxCollected;
         
-        await client.query('UPDATE duels SET status = $1, server_invite_link = $2, accepted_at = NOW(), pot = $3, tax_collected = $4 WHERE id = $5', ['accepted', serverLink, finalPot, taxCollected, duel_id]);
-        
-        const { rows: [challengerInfo] } = await client.query('SELECT linked_roblox_username FROM users WHERE id = $1', [duel.challenger_id]);
-        const { rows: [opponentInfo] } = await client.query('SELECT linked_roblox_username FROM users WHERE id = $1', [duel.opponent_id]);
-        const mapInfo = GAME_DATA.maps.find(m => m.id === duel.map);
-        
-        const taskPayload = {
-            websiteDuelId: duel.id, serverLink: serverLink,
-            challenger: challengerInfo.linked_roblox_username, opponent: opponentInfo.linked_roblox_username,
-            map: mapInfo ? mapInfo.name : duel.map,
-            bannedWeapons: (duel.banned_weapons || []).map(id => GAME_DATA.weapons.find(w => w.id === id)?.name || id),
-            wager: duel.wager,
-        };
-        await client.query("INSERT INTO tasks (task_type, payload) VALUES ($1, $2)", ['REFEREE_DUEL', JSON.stringify(taskPayload)]);
+        // Update duel status, pot, and tax. No server is assigned here.
+        await client.query('UPDATE duels SET status = $1, accepted_at = NOW(), pot = $2, tax_collected = $3 WHERE id = $4', ['accepted', finalPot, taxCollected, duel_id]);
         
         await client.query('COMMIT');
-        res.status(200).json({ message: 'Duel accepted! The bot has been notified.' });
+        res.status(200).json({ message: 'Duel accepted! You can now start the match from your inbox.' });
     } catch(err) {
         await client.query('ROLLBACK');
         console.error("Respond to Duel Error:", err.message);
