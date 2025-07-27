@@ -200,38 +200,15 @@ router.post('/disputes/:id/resolve', authenticateToken, isAdmin, param('id').isI
 });
 
 
-// --- SERVER LINK MANAGEMENT ---
+// --- [MODIFIED] SERVER MANAGEMENT IS NOW READ-ONLY ---
 router.get('/servers', authenticateToken, isAdmin, async (req, res) => {
     try {
-        const { rows: servers } = await db.query('SELECT * FROM region_servers ORDER BY region');
+        // Fetches all servers, including recently offline ones, for a complete admin view.
+        const { rows: servers } = await db.query('SELECT server_id, region, join_link, player_count, last_heartbeat FROM game_servers ORDER BY region, server_id');
         res.status(200).json(servers);
     } catch (err) {
         console.error("Admin fetch servers error:", err);
-        res.status(500).json({ message: 'Failed to fetch server links.' });
-    }
-});
-
-router.post('/servers', authenticateToken, isAdmin, body('region').isIn(['Oceania', 'Europe', 'North America']), body('server_link').isURL(), handleValidationErrors, async (req, res) => {
-    try {
-        const { region, server_link } = req.body;
-        await db.query('INSERT INTO region_servers (region, server_link) VALUES ($1, $2)', [region, server_link]);
-        res.status(201).json({ message: 'Server link added successfully.' });
-    } catch (err) {
-        if (err.code === '23505') { // 23505 is the code for unique_violation in PostgreSQL
-            return res.status(409).json({ message: 'That server link is already in the database.' });
-        }
-        console.error("Admin add server error:", err);
-        res.status(500).json({ message: 'Failed to add server link.' });
-    }
-});
-
-router.delete('/servers/:id', authenticateToken, isAdmin, param('id').isInt(), handleValidationErrors, async (req, res) => {
-    try {
-        await db.query('DELETE FROM region_servers WHERE id = $1', [req.params.id]);
-        res.status(200).json({ message: 'Server link deleted successfully.' });
-    } catch (err) {
-        console.error("Admin delete server error:", err);
-        res.status(500).json({ message: 'Failed to delete server link.' });
+        res.status(500).json({ message: 'Failed to fetch game servers.' });
     }
 });
 
