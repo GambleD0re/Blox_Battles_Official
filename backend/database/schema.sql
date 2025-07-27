@@ -112,6 +112,7 @@ CREATE TABLE duels (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     accepted_at TIMESTAMP WITH TIME ZONE,
     started_at TIMESTAMP WITH TIME ZONE,
+    last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- [MODIFIED] Added a default value.
     bot_duel_id VARCHAR(255) UNIQUE,
     transcript JSONB
 );
@@ -146,7 +147,6 @@ CREATE TABLE push_subscriptions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- [MODIFIED] This table is now managed by the bots themselves via the heartbeat endpoint.
 CREATE TABLE game_servers (
     server_id VARCHAR(255) PRIMARY KEY,
     region VARCHAR(50) NOT NULL,
