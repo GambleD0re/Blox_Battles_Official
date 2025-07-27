@@ -16,7 +16,6 @@ const StatCard = ({ title, value, icon }) => (
     </div>
 );
 
-// [MODIFIED] UserRow now displays the new status and ban info, including the ban application date for permanent bans.
 const UserRow = ({ user, onSelectUser }) => {
     const statusStyles = {
         active: 'bg-green-800 text-green-200',
@@ -24,7 +23,6 @@ const UserRow = ({ user, onSelectUser }) => {
         terminated: 'bg-gray-700 text-gray-300',
     };
 
-    // Function to calculate days since the ban was applied
     const daysSince = (dateString) => {
         if (!dateString) return '';
         const banDate = new Date(dateString);
@@ -71,7 +69,7 @@ const DisputeResolutionModal = ({ isOpen, onClose, dispute, onResolve, onViewTra
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
             <div className="widget w-full max-w-2xl">
-                <header className="p-4 border-b border-gray-700 flex justify-between items-center"><h2 className="text-xl font-bold text-gray-100">Review Dispute #{dispute.id}</h2><button onClick={onClose} className="text-gray-400 hover:text-white">&times;</button></header>
+                <header className="p-4 border-b border-gray-700 flex justify-between items-center"><h2 className="text-xl font-bold text-gray-100">Review Dispute #{dispute.id}</h2><button onClick={onClose} className="text-gray-400 hover:text-white">×</button></header>
                 <div className="p-6 space-y-4">
                     <div><strong>Reporter:</strong> {dispute.reporter_username}</div>
                     <div><strong>Reported Player:</strong> {dispute.reported_username}</div>
@@ -94,7 +92,7 @@ const AdminPayoutDetailModal = ({ isOpen, onClose, requestDetails, onApprove, on
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
             <div className="widget w-full max-w-4xl max-h-[90vh] flex flex-col">
-                <header className="p-4 border-b border-gray-700 flex justify-between items-center"><h2 className="text-xl font-bold">Review Payout for {user.linked_roblox_username}</h2><button onClick={onClose} className="text-gray-400 hover:text-white">&times;</button></header>
+                <header className="p-4 border-b border-gray-700 flex justify-between items-center"><h2 className="text-xl font-bold">Review Payout for {user.linked_roblox_username}</h2><button onClick={onClose} className="text-gray-400 hover:text-white">×</button></header>
                 <div className="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-1 space-y-4">
                         <div className="p-4 bg-gray-900/50 rounded-lg"><h4 className="font-bold text-lg mb-2">User Info</h4><p><strong>Email:</strong> {user.email}</p><p><strong>Member Since:</strong> {new Date(user.created_at).toLocaleDateString()}</p><p><strong>W/L:</strong> {user.wins} / {user.losses}</p></div>
@@ -152,9 +150,6 @@ const AdminDashboard = () => {
     const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
     const [message, setMessage] = useState({ text: '', type: '' });
 
-    const [newServerRegion, setNewServerRegion] = useState('North America');
-    const [newServerLink, setNewServerLink] = useState('');
-
     const showMessage = (text, type = 'success') => { setMessage({ text, type }); setTimeout(() => setMessage({ text: '', type: '' }), 5000); };
     
     const fetchData = useCallback(async () => {
@@ -180,8 +175,6 @@ const AdminDashboard = () => {
 
     const handleSearch = (e) => { e.preventDefault(); fetchData(); };
     const handleActionComplete = (msg, type) => { showMessage(msg, type); setSelectedUser(null); fetchData(); };
-    const handleAddServer = async (e) => { e.preventDefault(); try { const r = await api.addAdminServer({ region: newServerRegion, server_link: newServerLink }, token); showMessage(r.message, 'success'); setNewServerLink(''); fetchData(); } catch (e) { showMessage(e.message, 'error'); } };
-    const handleDeleteServer = async (id) => { if (window.confirm('Are you sure?')) { try { const r = await api.deleteAdminServer(id, token); showMessage(r.message, 'success'); fetchData(); } catch (e) { showMessage(e.message, 'error'); } } };
     const handleResolveDispute = async (id, type) => { try { const r = await api.resolveDispute(id, type, token); showMessage(r.message, 'success'); setSelectedDispute(null); fetchData(); } catch (e) { showMessage(e.message, 'error'); } };
     const handleViewTranscript = async (id) => { setTranscript([]); setIsTranscriptModalOpen(true); try { const d = await api.getTranscript(id, token); setTranscript(d); } catch (e) { showMessage(e.message, 'error'); } };
     const handleReviewPayout = async (request) => { try { const d = await api.getAdminUserDetailsForPayout(request.user_id, request.id, token); setPayoutRequestDetails({ request, ...d }); setIsPayoutDetailModalOpen(true); } catch (e) { showMessage(e.message, 'error'); } };
@@ -260,9 +253,37 @@ const AdminDashboard = () => {
                     </div>
                 </div>
                 <div className="widget">
-                    <h2 className="widget-title">Server Management</h2>
-                    <form onSubmit={handleAddServer} className="space-y-4"><div className="form-group"><label>Region</label><select value={newServerRegion} onChange={e => setNewServerRegion(e.target.value)} className="form-input"><option>North America</option><option>Europe</option><option>Oceania</option></select></div><div className="form-group"><label>Server Link</label><input type="text" value={newServerLink} onChange={e => setNewServerLink(e.target.value)} placeholder="https://www.roblox.com/games/..." required className="form-input" /></div><button type="submit" className="btn btn-primary w-full">Add Server</button></form>
-                    <div className="mt-6 space-y-2">{servers.map(server => (<div key={server.id} className="flex justify-between items-center bg-gray-900/50 p-2 rounded"><div><div className="font-semibold">{server.region}</div><div className="text-xs text-gray-400 truncate w-48" title={server.server_link}>{server.server_link}</div></div><button onClick={() => handleDeleteServer(server.id)} className="text-red-500 hover:text-red-400 font-bold text-xl">&times;</button></div>))}</div>
+                    <h2 className="widget-title">Live Game Servers</h2>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="text-left text-xs text-gray-400 uppercase">
+                                    <th className="p-2">Server ID</th>
+                                    <th className="p-2 text-center">Players</th>
+                                    <th className="p-2 text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {servers.length > 0 ? servers.map(server => {
+                                    const lastBeat = new Date(server.last_heartbeat);
+                                    const isOnline = (new Date() - lastBeat) < 60000; // 60 seconds threshold
+                                    return (
+                                        <tr key={server.server_id} className="border-t border-gray-800">
+                                            <td className="p-2 font-mono font-semibold">{server.server_id}</td>
+                                            <td className="p-2 text-center">{server.player_count}</td>
+                                            <td className="p-2 text-center">
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${isOnline ? 'bg-green-800 text-green-200' : 'bg-red-800 text-red-200'}`}>
+                                                    {isOnline ? 'ONLINE' : 'OFFLINE'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                }) : (
+                                    <tr><td colSpan="3" className="p-8 text-center text-gray-500">No active servers.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
