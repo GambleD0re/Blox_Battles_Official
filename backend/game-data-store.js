@@ -2,6 +2,13 @@
 // This file acts as a central repository for static game data.
 
 const GAME_DATA = {
+    // [NEW] Added a regions array for the new server locations.
+    regions: [
+        { id: 'NA-West', name: 'NA-West' },
+        { id: 'NA-East', name: 'NA-East' },
+        { id: 'EU', name: 'EU' },
+        { id: 'OCE', name: 'OCE' },
+    ],
     maps: [
         { id: 'arena', name: 'Arena' },
         { id: 'backrooms', name: 'Backrooms' },
