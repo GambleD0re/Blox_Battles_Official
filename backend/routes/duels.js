@@ -268,7 +268,6 @@ router.post('/:id/forfeit', authenticateToken, param('id').isInt(), handleValida
         await client.query('UPDATE users SET losses = losses + 1 WHERE id = $1', [forfeitingUserId]);
         await client.query("UPDATE duels SET status = 'completed', winner_id = $1 WHERE id = $2", [winnerId, duel.id]);
         
-        // [NEW] Decrement player count on forfeit.
         await decrementPlayerCount(client, duel.id);
 
         await client.query('COMMIT');
@@ -335,9 +334,13 @@ router.post('/respond', authenticateToken, body('duel_id').isInt(), body('respon
         await client.query('UPDATE users SET gems = gems - $1 WHERE id = $2', [duel.wager, opponentId]);
         await client.query('UPDATE users SET gems = gems - $1 WHERE id = $2', [duel.wager, duel.challenger_id]);
         
+        // [MODIFIED] Implement the 1% duel tax, rounding up.
         const totalPot = parseInt(duel.wager) * 2;
         let taxCollected = 0;
-        if (totalPot > 100) { taxCollected = Math.ceil(totalPot * 0.01); }
+        // Only apply tax to pots over 100 gems to avoid taxing small amounts.
+        if (totalPot > 100) {
+            taxCollected = Math.ceil(totalPot * 0.01);
+        }
         const finalPot = totalPot - taxCollected;
         
         await client.query('UPDATE duels SET status = $1, accepted_at = NOW(), pot = $2, tax_collected = $3 WHERE id = $4', ['accepted', finalPot, taxCollected, duel_id]);
