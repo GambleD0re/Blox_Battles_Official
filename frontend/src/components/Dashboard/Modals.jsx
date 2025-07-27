@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as api from '../../services/api';
 
 // --- Base Modal Component ---
-const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
+const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
 
 const Modal = ({ children, isOpen, onClose, title }) => {
     if (!isOpen) return null;
@@ -122,37 +122,20 @@ export const PostDuelModal = ({ isOpen, result, currentUser, onConfirm, onDisput
 
 // --- Existing Modals ---
 
-export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameData, onChallengeSubmit, onError, token }) => {
+export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameData, onChallengeSubmit, onError }) => {
     const [wager, setWager] = useState(100);
     const [selectedMap, setSelectedMap] = useState('');
     const [bannedWeapons, setBannedWeapons] = useState([]);
-    const [selectedRegion, setSelectedRegion] = useState('North America');
-    const [botStatuses, setBotStatuses] = useState([]);
+    // [MODIFIED] Default region is now NA-West.
+    const [selectedRegion, setSelectedRegion] = useState('NA-West');
 
     useEffect(() => {
         if (isOpen) {
-            const fetchStatus = async () => {
-                try {
-                    const statuses = await api.getBotStatus(token);
-                    setBotStatuses(statuses);
-                } catch (error) {
-                    console.error("Failed to fetch bot statuses:", error);
-                }
-            };
-
-            fetchStatus();
-            const interval = setInterval(fetchStatus, 10000);
-
-            return () => clearInterval(interval);
-        }
-    }, [isOpen, token]);
-
-    useEffect(() => {
-        if (isOpen) {
+            // Reset state when modal opens
             setWager(100);
             setSelectedMap('');
             setBannedWeapons([]);
-            setSelectedRegion('North America');
+            setSelectedRegion('NA-West');
         }
     }, [isOpen]);
 
@@ -167,6 +150,7 @@ export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameDat
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!selectedMap) { onError("Please select a map.", "error"); return; }
+        if (!selectedRegion) { onError("Please select a region.", "error"); return; }
         if (wager > currentUser.gems) { onError("You do not have enough gems for this wager.", "error"); return; }
         
         onChallengeSubmit({
@@ -193,27 +177,20 @@ export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameDat
                     </div>
                 </div>
                 
+                {/* [MODIFIED] Region selection now uses the new regions from gameData and removes the status dots. */}
                 <div className="form-group">
                     <label>Select a Region</label>
                     <div className="flex items-center gap-2">
-                        {['North America', 'Europe', 'Oceania'].map(region => {
-                            const statusInfo = botStatuses.find(s => s.region === region);
-                            const isOnline = statusInfo?.status === 'online';
-                            return (
-                                <button 
-                                    key={region} 
-                                    type="button" 
-                                    onClick={() => setSelectedRegion(region)} 
-                                    className={`flex-1 p-3 rounded-md border-2 font-semibold transition-all flex items-center justify-center gap-2 ${selectedRegion === region ? 'border-blue-500 bg-blue-500/20' : 'border-transparent bg-gray-700/50 hover:bg-gray-600/50'}`}
-                                >
-                                    <span 
-                                        className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}
-                                        title={isOnline ? 'Online' : 'Offline'}
-                                    ></span>
-                                    {region}
-                                </button>
-                            );
-                        })}
+                        {(gameData.regions || []).map(region => (
+                            <button 
+                                key={region.id} 
+                                type="button" 
+                                onClick={() => setSelectedRegion(region.id)} 
+                                className={`flex-1 p-3 rounded-md border-2 font-semibold transition-all flex items-center justify-center gap-2 ${selectedRegion === region.id ? 'border-blue-500 bg-blue-500/20' : 'border-transparent bg-gray-700/50 hover:bg-gray-600/50'}`}
+                            >
+                                {region.name}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
