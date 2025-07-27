@@ -6,6 +6,7 @@ const db = require('./database/database');
 
 const DUEL_EXPIRATION_HOURS = 1;
 const DUEL_FORFEIT_MINUTES = 10;
+const DUEL_INACTIVITY_MINUTES = 3; // [NEW] Inactivity threshold
 
 // A helper function to decrement a server's player count.
 const decrementPlayerCount = async (client, duelId) => {
@@ -25,7 +26,6 @@ async function runScheduledTasks() {
     const pool = db.getPool();
 
     // --- Task 1: Cancel old 'accepted' duels that were never started ---
-    // (No change here, these duels did not occupy a server slot, so a full refund is correct)
     const expirationClient = await pool.connect();
     try {
         const acceptedSql = `
@@ -62,11 +62,13 @@ async function runScheduledTasks() {
     // --- Task 2: Handle 'started' duels that timed out (forfeit logic) ---
     const forfeitClient = await pool.connect();
     try {
-        // [MODIFIED] Added tax_collected to the query
+        // [MODIFIED] The query now also checks for inactivity.
         const startedSql = `
             SELECT id, challenger_id, opponent_id, pot, wager, transcript, tax_collected 
             FROM duels 
-            WHERE status = 'started' AND started_at <= NOW() - INTERVAL '${DUEL_FORFEIT_MINUTES} minutes'
+            WHERE status = 'started' 
+              AND started_at <= NOW() - INTERVAL '${DUEL_FORFEIT_MINUTES} minutes'
+              AND last_activity_at <= NOW() - INTERVAL '${DUEL_INACTIVITY_MINUTES} minutes'
         `;
         const { rows: expiredStartedDuels } = await forfeitClient.query(startedSql);
 
@@ -88,16 +90,11 @@ async function runScheduledTasks() {
                 const opponentJoined = joinedPlayers.has(opponent.linked_roblox_username);
 
                 if (!challengerJoined && !opponentJoined) {
-                    // [MODIFIED] If both players are no-shows, apply the tax before refunding.
                     let adjustedTax = parseInt(duel.tax_collected);
                     if (adjustedTax % 2 !== 0) {
-                        adjustedTax++; // Round up to the next even number
+                        adjustedTax++;
                     }
-
-                    // Update the duel with the adjusted tax for accurate records
                     await txClient.query('UPDATE duels SET tax_collected = $1 WHERE id = $2', [adjustedTax, duel.id]);
-                    
-                    // Refund the original wager minus half of the adjusted tax
                     const refundAmount = parseInt(duel.wager) - (adjustedTax / 2);
                     
                     await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.challenger_id]);
@@ -121,7 +118,20 @@ async function runScheduledTasks() {
                     console.log(`[CRON] Duel ID ${duel.id} forfeited by ${challenger.linked_roblox_username}.`);
                 }
                 else {
-                    console.log(`[CRON] Duel ID ${duel.id} is still considered active (both players joined). No action taken.`);
+                    console.log(`[CRON] Duel ID ${duel.id} timed out after both players joined. Voiding with tax.`);
+                    
+                    let adjustedTax = parseInt(duel.tax_collected);
+                    if (adjustedTax % 2 !== 0) {
+                        adjustedTax++;
+                    }
+                    await txClient.query('UPDATE duels SET tax_collected = $1 WHERE id = $2', [adjustedTax, duel.id]);
+                    const refundAmount = parseInt(duel.wager) - (adjustedTax / 2);
+                    
+                    await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.challenger_id]);
+                    await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.opponent_id]);
+                    await txClient.query("UPDATE duels SET status = 'canceled', winner_id = NULL WHERE id = $1", [duel.id]);
+                    await decrementPlayerCount(txClient, duel.id);
+                    console.log(`[CRON] Duel ID ${duel.id} voided. Tax of ${adjustedTax} applied. Refunded ${refundAmount} to each player.`);
                 }
 
                 await txClient.query('COMMIT');
