@@ -21,6 +21,7 @@ const Modal = ({ children, isOpen, onClose, title }) => {
 
 
 // --- Post Duel Result & Dispute Modal ---
+// [MODIFIED] The countdown timer is now server-authoritative.
 export const PostDuelModal = ({ isOpen, result, currentUser, onConfirm, onDispute }) => {
     const [view, setView] = useState('result');
     const [reason, setReason] = useState('');
@@ -31,26 +32,30 @@ export const PostDuelModal = ({ isOpen, result, currentUser, onConfirm, onDisput
     const opponentUsername = isWinner ? result?.loser_username : result?.winner_username;
 
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && result?.result_posted_at) {
             setView('result');
             setReason('');
             setHasVideo(false);
-            setCountdown(120);
+
+            // Calculate the exact time the confirmation window ends.
+            const endTime = new Date(result.result_posted_at).getTime() + (2 * 60 * 1000);
 
             const timer = setInterval(() => {
-                setCountdown(prev => {
-                    if (prev <= 1) {
-                        clearInterval(timer);
-                        onConfirm(result.id);
-                        return 0;
-                    }
-                    return prev - 1;
-                });
+                const now = Date.now();
+                const remainingSeconds = Math.max(0, Math.floor((endTime - now) / 1000));
+                setCountdown(remainingSeconds);
+
+                if (remainingSeconds <= 0) {
+                    clearInterval(timer);
+                    // The server-side cron job will handle the auto-confirmation.
+                    // The client doesn't need to do anything, the modal will just close
+                    // when the `unseenResult` state becomes null after the next fetch.
+                }
             }, 1000);
 
             return () => clearInterval(timer);
         }
-    }, [isOpen, result, onConfirm]);
+    }, [isOpen, result]);
 
     if (!isOpen || !result) return null;
 
@@ -126,12 +131,10 @@ export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameDat
     const [wager, setWager] = useState(100);
     const [selectedMap, setSelectedMap] = useState('');
     const [bannedWeapons, setBannedWeapons] = useState([]);
-    // [MODIFIED] Default region is now NA-West.
     const [selectedRegion, setSelectedRegion] = useState('NA-West');
 
     useEffect(() => {
         if (isOpen) {
-            // Reset state when modal opens
             setWager(100);
             setSelectedMap('');
             setBannedWeapons([]);
@@ -177,7 +180,6 @@ export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameDat
                     </div>
                 </div>
                 
-                {/* [MODIFIED] Region selection now uses the new regions from gameData and removes the status dots. */}
                 <div className="form-group">
                     <label>Select a Region</label>
                     <div className="flex items-center gap-2">
