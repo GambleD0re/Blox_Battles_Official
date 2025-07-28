@@ -103,7 +103,7 @@ CREATE TABLE duels (
     banned_weapons JSONB,
     map TEXT,
     region TEXT,
-    status VARCHAR(50) DEFAULT 'pending',
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'started', 'in_progress', 'completed_unseen', 'under_review', 'completed', 'canceled', 'declined', 'cheater_forfeit')), -- [MODIFIED] Added 'in_progress' status
     winner_id UUID REFERENCES users(id) ON DELETE SET NULL,
     challenger_seen_result BOOLEAN DEFAULT FALSE,
     opponent_seen_result BOOLEAN DEFAULT FALSE,
@@ -112,7 +112,7 @@ CREATE TABLE duels (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     accepted_at TIMESTAMP WITH TIME ZONE,
     started_at TIMESTAMP WITH TIME ZONE,
-    last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- [MODIFIED] Added a default value.
+    result_posted_at TIMESTAMP WITH TIME ZONE, -- [NEW] Tracks when the bot reported a result, starting the 2-min timer.
     bot_duel_id VARCHAR(255) UNIQUE,
     transcript JSONB
 );
