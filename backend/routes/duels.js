@@ -2,7 +2,7 @@
 const express = require('express');
 const { body, query, param } = require('express-validator');
 const db = require('../database/database');
-const { authenticateToken, handleValidationErrors } = require('../middleware/auth');
+const { authenticateToken, handleValidationErrors, authenticateBot } = require('../middleware/auth');
 const GAME_DATA = require('../game-data-store');
 
 const router = express.Router();
@@ -17,17 +17,17 @@ const decrementPlayerCount = async (client, duelId) => {
         }
     } catch (err) {
         console.error(`[PlayerCount] Failed to decrement player count for duel ${duelId}:`, err);
-        // Do not throw, as this should not block the main logic.
     }
 };
 
 // --- Dispute System Endpoints ---
+// [MODIFIED] This endpoint now returns the result_posted_at timestamp.
 router.get('/unseen-results', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
         const sql = `
             SELECT 
-                d.id, d.wager, d.winner_id, d.challenger_id, d.opponent_id,
+                d.id, d.wager, d.winner_id, d.challenger_id, d.opponent_id, d.result_posted_at,
                 w.linked_roblox_username as winner_username,
                 l.linked_roblox_username as loser_username
             FROM duels d
@@ -46,7 +46,6 @@ router.get('/unseen-results', authenticateToken, async (req, res) => {
     }
 });
 
-// [FIXED] This endpoint has been rewritten to be atomic and race-condition-proof.
 router.post('/:id/confirm-result', authenticateToken, param('id').isInt(), handleValidationErrors, async (req, res) => {
     const duelId = req.params.id;
     const userId = req.user.userId;
@@ -54,7 +53,6 @@ router.post('/:id/confirm-result', authenticateToken, param('id').isInt(), handl
     try {
         await client.query('BEGIN');
         
-        // Step 1: Lock the duel row and determine which player is confirming.
         const { rows: [duel] } = await client.query("SELECT * FROM duels WHERE id = $1 FOR UPDATE", [duelId]);
         
         if (!duel) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Duel not found.' }); }
@@ -71,13 +69,10 @@ router.post('/:id/confirm-result', authenticateToken, param('id').isInt(), handl
             return res.status(403).json({ message: 'You are not a participant in this duel.' });
         }
 
-        // Step 2: Atomically update the flag and return the new state of the row.
         const updateSql = `UPDATE duels SET ${columnToUpdate} = TRUE WHERE id = $1 RETURNING *`;
         const { rows: [updatedDuel] } = await client.query(updateSql, [duelId]);
 
-        // Step 3: Check if both players have now confirmed.
         if (updatedDuel.challenger_seen_result && updatedDuel.opponent_seen_result) {
-            // If so, finalize the duel by paying out the winner.
             const loserId = (updatedDuel.winner_id.toString() === updatedDuel.challenger_id.toString()) ? updatedDuel.opponent_id : updatedDuel.challenger_id;
             
             await client.query('UPDATE users SET gems = gems + $1, wins = wins + 1 WHERE id = $2', [updatedDuel.pot, updatedDuel.winner_id]);
@@ -235,7 +230,6 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
             UPDATE duels 
             SET status = 'started', 
                 started_at = NOW(), 
-                last_activity_at = NOW(), 
                 server_invite_link = $1, 
                 assigned_server_id = $2 
             WHERE id = $3
@@ -271,6 +265,29 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
 });
 
 
+// [NEW] New endpoint for the bot to confirm it has matched a duel in-game.
+router.post('/:id/bot-confirm', authenticateBot, param('id').isInt(), handleValidationErrors, async (req, res) => {
+    const duelId = req.params.id;
+    try {
+        const { rowCount } = await db.query(
+            "UPDATE duels SET status = 'in_progress' WHERE id = $1 AND status = 'started'",
+            [duelId]
+        );
+
+        if (rowCount === 0) {
+            return res.status(404).json({ message: 'Duel not found or was not in "started" state.' });
+        }
+        
+        console.log(`[BOT-CONFIRM] Duel ${duelId} has been matched in-game and is now in progress.`);
+        res.status(200).json({ message: `Duel ${duelId} confirmed as in-progress.` });
+
+    } catch (err) {
+        console.error(`[BOT-CONFIRM] Error confirming duel ${duelId}:`, err);
+        res.status(500).json({ message: 'An internal server error occurred.' });
+    }
+});
+
+
 router.post('/:id/forfeit', authenticateToken, param('id').isInt(), handleValidationErrors, async (req, res) => {
     const duelId = req.params.id;
     const forfeitingUserId = req.user.userId;
@@ -279,7 +296,7 @@ router.post('/:id/forfeit', authenticateToken, param('id').isInt(), handleValida
         await client.query('BEGIN');
         const { rows: [duel] } = await client.query('SELECT * FROM duels WHERE id = $1 FOR UPDATE', [duelId]);
         if (!duel) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Duel not found.' }); }
-        if (duel.status !== 'started') { await client.query('ROLLBACK'); return res.status(400).json({ message: 'You can only forfeit a started duel.' }); }
+        if (duel.status !== 'started' && duel.status !== 'in_progress') { await client.query('ROLLBACK'); return res.status(400).json({ message: 'You can only forfeit a duel that has started.' }); }
         if (duel.challenger_id.toString() !== forfeitingUserId && duel.opponent_id.toString() !== forfeitingUserId) { await client.query('ROLLBACK'); return res.status(403).json({ message: 'You are not a participant in this duel.' }); }
         
         const winnerId = (duel.challenger_id.toString() === forfeitingUserId) ? duel.opponent_id : duel.challenger_id;
