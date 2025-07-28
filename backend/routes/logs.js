@@ -16,7 +16,6 @@ const decrementPlayerCount = async (client, duelId) => {
         }
     } catch (err) {
         console.error(`[PlayerCount] Failed to decrement player count for duel ${duelId}:`, err);
-        // Do not throw, as this should not block the main logic.
     }
 };
 
@@ -44,25 +43,21 @@ router.post('/',
                 
                 const websiteDuelId = event.duelId;
 
-                if (event.eventType === 'DUEL_STARTED') {
-                    console.log(`Received DUEL_STARTED event for duel ${websiteDuelId}. Appending to transcript.`);
-                }
-                
                 const { rows: [duel] } = await client.query('SELECT id, transcript, status FROM duels WHERE id = $1 FOR UPDATE', [websiteDuelId]);
                 
                 if (duel) {
                     let transcript = duel.transcript || [];
                     transcript.push(event);
-                    // [MODIFIED] Update last_activity_at whenever a new log comes in. This keeps the duel "alive".
-                    await client.query('UPDATE duels SET transcript = $1, last_activity_at = NOW() WHERE id = $2', [JSON.stringify(transcript), duel.id]);
+                    await client.query('UPDATE duels SET transcript = $1 WHERE id = $2', [JSON.stringify(transcript), duel.id]);
 
                     if (event.eventType === 'PARSED_DUEL_ENDED') {
-                        if (duel.status === 'started' || duel.status === 'under_review') {
+                        if (duel.status === 'in_progress' || duel.status === 'under_review') {
                             const { winner_username } = event.data;
                             if (winner_username) {
                                 const { rows: [winnerUser] } = await client.query('SELECT id FROM users WHERE linked_roblox_username = $1', [winner_username]);
                                 if (winnerUser) {
-                                    await client.query("UPDATE duels SET status = 'completed_unseen', winner_id = $1 WHERE id = $2", [winnerUser.id, duel.id]);
+                                    // [MODIFIED] Set result_posted_at to start the 2-minute confirmation timer
+                                    await client.query("UPDATE duels SET status = 'completed_unseen', winner_id = $1, result_posted_at = NOW() WHERE id = $2", [winnerUser.id, duel.id]);
                                     console.log(`Duel ${duel.id} result recorded. Winner: ${winner_username}.`);
                                 } else {
                                     await client.query("UPDATE duels SET status = 'canceled' WHERE id = $1", [duel.id]);
