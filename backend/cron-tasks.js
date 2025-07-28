@@ -1,12 +1,9 @@
-// backend/cron-tasks.js
-// This file contains all scheduled tasks and is executed by the Render Cron Job service.
-
 require('dotenv').config({ path: require('path').resolve(__dirname, './.env') });
 const db = require('./database/database');
 
 const DUEL_EXPIRATION_HOURS = 1;
 const DUEL_FORFEIT_MINUTES = 10;
-const DUEL_INACTIVITY_MINUTES = 3; // [NEW] Inactivity threshold
+const RESULT_CONFIRMATION_MINUTES = 2;
 
 // A helper function to decrement a server's player count.
 const decrementPlayerCount = async (client, duelId) => {
@@ -59,16 +56,13 @@ async function runScheduledTasks() {
         expirationClient.release();
     }
 
-    // --- Task 2: Handle 'started' duels that timed out (forfeit logic) ---
+    // --- Task 2: Handle 'started' duels that were never matched in-game by the bot (forfeit logic) ---
     const forfeitClient = await pool.connect();
     try {
-        // [MODIFIED] The query now also checks for inactivity.
         const startedSql = `
             SELECT id, challenger_id, opponent_id, pot, wager, transcript, tax_collected 
             FROM duels 
-            WHERE status = 'started' 
-              AND started_at <= NOW() - INTERVAL '${DUEL_FORFEIT_MINUTES} minutes'
-              AND last_activity_at <= NOW() - INTERVAL '${DUEL_INACTIVITY_MINUTES} minutes'
+            WHERE status = 'started' AND started_at <= NOW() - INTERVAL '${DUEL_FORFEIT_MINUTES} minutes'
         `;
         const { rows: expiredStartedDuels } = await forfeitClient.query(startedSql);
 
@@ -118,8 +112,6 @@ async function runScheduledTasks() {
                     console.log(`[CRON] Duel ID ${duel.id} forfeited by ${challenger.linked_roblox_username}.`);
                 }
                 else {
-                    console.log(`[CRON] Duel ID ${duel.id} timed out after both players joined. Voiding with tax.`);
-                    
                     let adjustedTax = parseInt(duel.tax_collected);
                     if (adjustedTax % 2 !== 0) {
                         adjustedTax++;
@@ -131,7 +123,7 @@ async function runScheduledTasks() {
                     await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.opponent_id]);
                     await txClient.query("UPDATE duels SET status = 'canceled', winner_id = NULL WHERE id = $1", [duel.id]);
                     await decrementPlayerCount(txClient, duel.id);
-                    console.log(`[CRON] Duel ID ${duel.id} voided. Tax of ${adjustedTax} applied. Refunded ${refundAmount} to each player.`);
+                    console.log(`[CRON] Duel ID ${duel.id} timed out after both players joined but never started. Voiding with tax.`);
                 }
 
                 await txClient.query('COMMIT');
@@ -146,6 +138,45 @@ async function runScheduledTasks() {
         console.error('[CRON] Error querying for timed-out started duels:', error);
     } finally {
         forfeitClient.release();
+    }
+    
+    // --- [NEW] Task 3: Finalize duels where the 2-minute confirmation timer has expired ---
+    const confirmationClient = await pool.connect();
+    try {
+        const confirmationSql = `
+            SELECT id, pot, winner_id, challenger_id, opponent_id
+            FROM duels
+            WHERE status = 'completed_unseen'
+              AND result_posted_at <= NOW() - INTERVAL '${RESULT_CONFIRMATION_MINUTES} minutes'
+        `;
+        const { rows: expiredConfirmations } = await confirmationClient.query(confirmationSql);
+
+        for (const duel of expiredConfirmations) {
+            const txClient = await pool.connect();
+            try {
+                await txClient.query('BEGIN');
+
+                console.log(`[CRON] Auto-confirming duel ID ${duel.id} after 2-minute timeout.`);
+                
+                const loserId = (duel.winner_id.toString() === duel.challenger_id.toString()) ? duel.opponent_id : duel.challenger_id;
+                
+                await txClient.query('UPDATE users SET gems = gems + $1, wins = wins + 1 WHERE id = $2', [duel.pot, duel.winner_id]);
+                await txClient.query('UPDATE users SET losses = losses + 1 WHERE id = $1', [loserId]);
+                await txClient.query("UPDATE duels SET status = 'completed' WHERE id = $1", [duel.id]);
+
+                await txClient.query('COMMIT');
+                console.log(`[CRON] Duel ${duel.id} finalized and pot of ${duel.pot} paid out to winner ${duel.winner_id}.`);
+            } catch (txError) {
+                await txClient.query('ROLLBACK');
+                console.error(`[CRON] Error auto-confirming duel ID ${duel.id}:`, txError);
+            } finally {
+                txClient.release();
+            }
+        }
+    } catch (error) {
+        console.error('[CRON] Error querying for expired confirmations:', error);
+    } finally {
+        confirmationClient.release();
     }
 }
 
