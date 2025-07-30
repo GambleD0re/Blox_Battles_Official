@@ -75,7 +75,7 @@ const WithdrawPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="widget text-center">
                     <p className="text-sm text-gray-400">Current Balance</p>
-                    <p className="text-3xl font-bold text-cyan-400">{user?.gems.toLocaleString() || 0} Gems</p>
+                    <p className="text-3xl font-bold text-fuchsia-400">{user?.gems.toLocaleString() || 0} Gems</p>
                 </div>
                 <div className="widget text-center">
                     <p className="text-sm text-gray-400">Conversion Rate</p>
@@ -87,7 +87,6 @@ const WithdrawPage = () => {
                 </div>
             </div>
 
-            {/* [MODIFIED] The tab system has been completely removed. */}
             <div>
                 <InfoCard title="Request Crypto Withdrawal">
                     <p>Withdraw your gems as USDC or USDT on the Polygon network. Ensure your wallet address is correct and supports Polygon to avoid loss of funds.</p>
@@ -98,7 +97,7 @@ const WithdrawPage = () => {
                         <label className="text-gray-300">Select Currency</label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {supportedWithdrawalTokens.map(token => (
-                                <label key={token.symbol} className={`p-4 rounded-lg border-2 transition-all cursor-pointer flex items-center justify-center text-center transform hover:scale-105 hover:shadow-2xl ${selectedToken === token.symbol ? 'border-cyan-400 bg-cyan-500/20 shadow-lg shadow-cyan-500/20' : 'border-gray-700 bg-gray-800/50'}`}>
+                                <label key={token.symbol} className={`p-4 rounded-lg border-2 transition-all cursor-pointer flex items-center justify-center text-center transform hover:scale-105 hover:shadow-2xl ${selectedToken === token.symbol ? 'border-fuchsia-500 bg-fuchsia-500/20 shadow-lg shadow-fuchsia-500/20' : 'border-gray-700 bg-gray-800/50'}`}>
                                     <input
                                         type="radio"
                                         name="tokenType"
@@ -107,7 +106,7 @@ const WithdrawPage = () => {
                                         onChange={() => setSelectedToken(token.symbol)}
                                         className="hidden"
                                     />
-                                    <span className={`text-2xl font-extrabold tracking-widest transition-colors ${selectedToken === token.symbol ? 'bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent' : 'text-gray-500'}`}>
+                                    <span className={`text-2xl font-extrabold tracking-widest transition-colors ${selectedToken === token.symbol ? 'bg-gradient-to-r from-fuchsia-400 to-purple-500 bg-clip-text text-transparent' : 'text-gray-500'}`}>
                                         {token.symbol}
                                     </span>
                                 </label>
