@@ -9,9 +9,9 @@ const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = STRIPE_PUBLISHABLE_KEY ? loadStripe(STRIPE_PUBLISHABLE_KEY) : null;
 
 // --- Helper Components ---
-const GemIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-fuchsia-400"><path d="M6 3h12l4 6-10 13L2 9Z"></path><path d="M12 22V9"></path><path d="m3.29 9 8.71 13 8.71-13"></path></svg>;
+const GemIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-400"><path d="M6 3h12l4 6-10 13L2 9Z"></path><path d="M12 22V9"></path><path d="m3.29 9 8.71 13 8.71-13"></path></svg>;
 const TabButton = ({ active, onClick, children }) => (
-    <button onClick={onClick} className={`px-4 py-2 font-semibold rounded-t-lg border-b-2 transition-colors ${active ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'}`}>
+    <button onClick={onClick} className={`px-4 py-2 font-semibold rounded-t-lg border-b-2 transition-colors ${active ? 'border-cyan-400 text-cyan-400' : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'}`}>
         {children}
     </button>
 );
@@ -31,11 +31,13 @@ const DepositPage = () => {
     const [loadingPackage, setLoadingPackage] = useState(null);
     const [activeTab, setActiveTab] = useState('card');
 
+    // State for Crypto Deposits
     const [cryptoAddress, setCryptoAddress] = useState('');
     const [selectedCrypto, setSelectedCrypto] = useState('USDC');
     const [quote, setQuote] = useState(null);
     const [isQuoteLoading, setIsQuoteLoading] = useState(false);
 
+    // [MODIFIED] The packages array has been updated to match the backend.
     const packages = [
         { id: '500_gems', gems: 500, price: 5.00, name: "500 Gems", description: "Small Gem pack"},
         { id: '1000_gems', gems: 1000, price: 10.00, name: "1,000 Gems", description: "Standard Gem pack", bestValue: true },
@@ -45,6 +47,7 @@ const DepositPage = () => {
         { id: '10000_gems', gems: 10000, price: 100.00, name: "10,000 Gems", description: "Mega Gem pack" },
     ];
 
+    // Effect for handling Stripe redirects
     useEffect(() => {
         if (searchParams.get('success')) {
             setMessage({ text: 'Purchase successful! Your gems have been added.', type: 'success' });
@@ -113,12 +116,12 @@ const DepositPage = () => {
     const renderCardContent = () => (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {packages.map((pkg) => (
-                <div key={pkg.id} className={`widget text-center flex flex-col relative ${pkg.bestValue ? 'border-2 border-fuchsia-500 shadow-fuchsia-500/20 shadow-2xl' : ''}`}>
-                    {pkg.bestValue && <div className="bg-fuchsia-500 text-black font-bold text-xs py-1 px-3 rounded-full absolute -top-3 left-1/2 -translate-x-1/2">Most Popular</div>}
+                <div key={pkg.id} className={`widget text-center flex flex-col relative ${pkg.bestValue ? 'border-2 border-cyan-400 shadow-cyan-400/20 shadow-2xl' : ''}`}>
+                    {pkg.bestValue && <div className="bg-cyan-400 text-black font-bold text-xs py-1 px-3 rounded-full absolute -top-3 left-1/2 -translate-x-1/2">Most Popular</div>}
                     <div className="flex-grow">
                         <GemIcon />
                         <h3 className="text-3xl font-bold text-white mt-2">{pkg.gems.toLocaleString()}</h3>
-                        <p className="text-fuchsia-400">Gems</p>
+                        <p className="text-cyan-400">Gems</p>
                         <p className="text-gray-400 text-sm mt-4">{pkg.description}</p>
                     </div>
                     <div className="mt-6">
@@ -142,7 +145,7 @@ const DepositPage = () => {
                         <label className="block text-sm font-medium text-gray-400 mb-2">1. Select Currency</label>
                         <div className="flex gap-2">
                             {['USDC', 'USDT', 'POL'].map(tokenType => (
-                                <button key={tokenType} onClick={() => setSelectedCrypto(tokenType)} className={`flex-1 p-2 rounded-md border-2 font-semibold transition-all ${selectedCrypto === tokenType ? 'border-fuchsia-500 bg-fuchsia-500/10' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}`}>
+                                <button key={tokenType} onClick={() => setSelectedCrypto(tokenType)} className={`flex-1 p-2 rounded-md border-2 font-semibold transition-all ${selectedCrypto === tokenType ? 'border-cyan-400 bg-cyan-500/10' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}`}>
                                     {tokenType}
                                 </button>
                             ))}
@@ -151,7 +154,7 @@ const DepositPage = () => {
                     <div className="widget !p-4">
                          <label className="block text-sm font-medium text-gray-400 mb-2">2. Choose Package to Get Quote</label>
                         {packages.map((pkg) => (
-                            <button key={pkg.id} onClick={() => handleGetQuote(pkg.id)} disabled={isQuoteLoading} className="w-full text-left p-3 mb-2 bg-gray-800/50 rounded-lg border-2 border-gray-700 hover:border-fuchsia-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            <button key={pkg.id} onClick={() => handleGetQuote(pkg.id)} disabled={isQuoteLoading} className="w-full text-left p-3 mb-2 bg-gray-800/50 rounded-lg border-2 border-gray-700 hover:border-cyan-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                 <p className="font-bold text-white">{pkg.name}</p>
                                 <p className="text-sm text-gray-400">${pkg.price.toFixed(2)}</p>
                             </button>
@@ -171,12 +174,12 @@ const DepositPage = () => {
                             <p className="text-gray-400">To purchase <strong>{selectedPackageForQuote.name}</strong>, send the exact amount below to your unique deposit address.</p>
                             
                             <div className="bg-gray-900 p-4 rounded-lg">
-                                <p className="text-sm text-fuchsia-400">Send exactly:</p>
+                                <p className="text-sm text-cyan-400">Send exactly:</p>
                                 <p className="text-2xl font-bold text-white tracking-wider">{quote.cryptoAmount} {quote.tokenType}</p>
                             </div>
 
                             <div className="bg-gray-900 p-4 rounded-lg">
-                                <p className="text-sm text-fuchsia-400">To your Polygon address:</p>
+                                <p className="text-sm text-cyan-400">To your Polygon address:</p>
                                 <p className="text-sm font-mono text-white break-all my-2">{cryptoAddress}</p>
                                 {cryptoAddress && <QRCode address={cryptoAddress} />}
                             </div>
