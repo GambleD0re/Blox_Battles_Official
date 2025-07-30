@@ -5,15 +5,14 @@ import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 
 const style = document.createElement('style');
-// [MODIFIED] The color theme has been updated to use a vibrant fuchsia/purple accent.
+// This CSS is a direct copy from your original main.jsx to ensure a perfect style match.
 style.innerHTML = `
     :root {
         --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         --bg-color: #010409;
         --text-color: #e6edf3;
         --text-muted: #7d8590;
-        /* --accent-color: #58a6ff; */ /* Old blue */
-        --accent-color: #d946ef; /* New Fuchsia */
+        --accent-color: #58a6ff;
         --win-color: #3fb950;
         --loss-color: #f85149;
         --widget-bg: rgba(22, 27, 34, 0.75);
@@ -32,7 +31,7 @@ style.innerHTML = `
     .widget-title { margin-top: 0; margin-bottom: 1.5rem; font-size: 1.25rem; font-weight: 600; padding-bottom: 1rem; border-bottom: 1px solid var(--divider-color); }
     .dashboard-header { background: var(--widget-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--widget-border); box-shadow: var(--widget-shadow); padding: 1.5rem 2rem; border-radius: 1rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
     .player-info { display: flex; align-items: center; gap: 1.5rem; }
-    .player-avatar { width: 80px; height: 80px; border-radius: 50%; border: 4px solid var(--accent-color); box-shadow: 0 0 15px rgba(217, 70, 239, 0.5); object-fit: cover; }
+    .player-avatar { width: 80px; height: 80px; border-radius: 50%; border: 4px solid var(--accent-color); box-shadow: 0 0 15px rgba(88, 166, 255, 0.5); object-fit: cover; }
     .player-name { font-size: 2rem; font-weight: 700; margin: 0; color: #fff; }
     .player-id { font-size: 0.9rem; color: var(--text-muted); margin: 0.25rem 0 0 0; }
     .player-stats { display: flex; align-items: center; gap: 1.5rem; }
@@ -48,7 +47,7 @@ style.innerHTML = `
     .form-group { margin-bottom: 1rem; text-align: left; }
     .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; color: var(--text-muted); }
     input[type="text"], input[type="password"], input[type="email"], input[type="number"] { width: 100%; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 8px; box-sizing: border-box; font-size: 1rem; background-color: var(--input-bg); color: var(--text-color); transition: all 0.2s; }
-    input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(217, 70, 239, 0.2); }
+    input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2); }
     .btn { padding: 0.85rem; border: none; border-radius: 8px; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; transition: all 0.2s; text-decoration: none; display: inline-block; text-align: center; }
     .btn-primary { background-color: var(--btn-primary-bg); }
     .btn-primary:hover { background-color: var(--btn-primary-hover-bg); transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -88,6 +87,7 @@ style.innerHTML = `
     .btn-accept { background-color: var(--win-color); }
     .banned-weapons-list { list-style-type: none; padding-left: 0; margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 8px; }
     .banned-weapons-list li { background-color: var(--bg-color); padding: 5px 10px; border-radius: 6px; font-size: 0.9rem; border: 1px solid var(--input-border); }
+    /* --- NEW MODAL BUTTON STYLES --- */
     .modal-actions .btn { margin-top: 0; font-size: 0.9rem; padding: 0.6rem 1.2rem; }
     .modal-actions .btn-secondary { background-color: var(--btn-secondary-bg); color: var(--text-muted); }
     .modal-actions .btn-secondary:hover { background-color: var(--btn-secondary-hover-bg); color: var(--text-color); }
