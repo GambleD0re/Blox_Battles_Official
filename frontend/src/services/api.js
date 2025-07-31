@@ -69,9 +69,9 @@ export const getGameData = (token) => apiRequest('/gamedata', 'GET', null, token
 export const getBotStatus = (token) => apiRequest('/status', 'GET', null, token);
 
 // --- PAYMENTS & PAYOUTS ---
-export const createCheckoutSession = (packageId, token) => apiRequest('/payments/create-checkout-session', 'POST', { packageId }, token);
+export const createCheckoutSession = (amount, token) => apiRequest('/payments/create-checkout-session', 'POST', { amount }, token);
 export const getCryptoDepositAddress = (token) => apiRequest('/payments/crypto-address', 'GET', null, token);
-export const getCryptoQuote = (packageId, tokenType, token) => apiRequest('/payments/crypto-quote', 'POST', { packageId, tokenType }, token);
+export const getCryptoQuote = (amount, tokenType, token) => apiRequest('/payments/crypto-quote', 'POST', { amount, tokenType }, token);
 export const requestCryptoWithdrawal = (gemAmount, recipientAddress, tokenType, token) => apiRequest('/payouts/request-crypto', 'POST', { gemAmount, recipientAddress, tokenType }, token);
 export const cancelWithdrawalRequest = (requestId, token) => apiRequest(`/payouts/cancel-request/${requestId}`, 'POST', null, token);
 export const updateWithdrawalDetails = (requestId, details, token) => apiRequest(`/payouts/update-request/${requestId}`, 'PUT', details, token);
