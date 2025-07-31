@@ -22,12 +22,12 @@ const QRCode = ({ address }) => {
     return <img src={qrUrl} alt="Deposit Address QR Code" className="rounded-lg border-4 border-white mx-auto" />;
 };
 
-// [NEW] Icon component to match the desired screenshot style
+// [MODIFIED] Icon component updated to exactly match the desired screenshot style.
 const CryptoTokenIcon = ({ mainSrc, networkSrc, alt }) => (
     <div className="relative w-10 h-10 shrink-0">
-        <img src={mainSrc} alt={alt} className="w-10 h-10 rounded-full object-cover" />
+        <img src={mainSrc} alt={alt} className="w-8 h-8 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
         {networkSrc && (
-            <div className="flex items-center justify-center w-5 h-5 rounded-full object-cover overflow-hidden absolute ring-2 ring-[#161b22] -bottom-1 -right-1">
+            <div className="flex items-center justify-center w-4 h-4 rounded-full object-cover overflow-hidden absolute ring-1 ring-gray-800 -top-1 -right-1">
                 <img src={networkSrc} alt="Polygon Network" className="rounded-full" />
             </div>
         )}
@@ -51,7 +51,6 @@ const DepositPage = () => {
     const [quote, setQuote] = useState(null);
     const [isQuoteLoading, setIsQuoteLoading] = useState(false);
     
-    // [MODIFIED] Switched to URL-based icons
     const depositTokens = [
         {
             symbol: 'USDC',
@@ -67,9 +66,9 @@ const DepositPage = () => {
         },
         {
             symbol: 'POL',
-            name: 'Polygon Ecosystem',
+            name: 'Polygon Ecosystem Token',
             mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x0000000000000000000000000000000000000000.png',
-            networkSrc: null // No network icon for POL itself
+            networkSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x0000000000000000000000000000000000000000.png'
         }
     ];
 
@@ -170,13 +169,17 @@ const DepositPage = () => {
                 <div className="widget !p-4">
                     <label className="block text-sm font-medium text-gray-400 mb-2">1. Select Currency</label>
                     <div className="space-y-2">
+                        {/* [MODIFIED] Button structure updated to match screenshots */}
                         {depositTokens.map(tokenItem => (
-                            <button key={tokenItem.symbol} onClick={() => setSelectedCrypto(tokenItem.symbol)} className={`w-full p-3 rounded-lg border-2 flex items-center gap-4 transition-all ${selectedCrypto === tokenItem.symbol ? 'border-cyan-400 bg-cyan-500/10' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}`}>
-                                <CryptoTokenIcon mainSrc={tokenItem.mainSrc} networkSrc={tokenItem.networkSrc} alt={tokenItem.name} />
-                                <div>
-                                    <p className="font-bold text-left text-white">{tokenItem.symbol}</p>
-                                    <p className="text-xs text-left text-gray-400">{tokenItem.name}</p>
+                            <button key={tokenItem.symbol} onClick={() => setSelectedCrypto(tokenItem.symbol)} className={`w-full p-3 rounded-lg border-2 flex items-center justify-between transition-all ${selectedCrypto === tokenItem.symbol ? 'border-cyan-400 bg-cyan-500/10' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}`}>
+                                <div className="flex items-center gap-3">
+                                    <CryptoTokenIcon mainSrc={tokenItem.mainSrc} networkSrc={tokenItem.networkSrc} alt={tokenItem.name} />
+                                    <div>
+                                        <p className="font-bold text-left text-white">{tokenItem.symbol}</p>
+                                        <p className="text-xs text-left text-gray-400">{tokenItem.name}</p>
+                                    </div>
                                 </div>
+                                <span className="bg-gray-700/50 text-gray-300 text-xs font-semibold px-2.5 py-1 rounded-full">POLYGON</span>
                             </button>
                         ))}
                     </div>
