@@ -49,7 +49,7 @@ const WithdrawPage = () => {
             symbol: 'USDC',
             name: 'USDCoin',
             network: 'Polygon Mainnet',
-            mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359.png',
+            mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/59144/0x176211869ca2b568f2a7d4ee941e073a821ee1ff.png',
             networkSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x0000000000000000000000000000000000000000.png'
         },
         {
