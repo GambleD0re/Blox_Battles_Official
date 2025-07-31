@@ -19,9 +19,9 @@ const InfoCard = ({ title, children }) => (
 
 const CryptoTokenIcon = ({ mainSrc, networkSrc, alt }) => (
     <div className="relative w-10 h-10 shrink-0">
-        <img src={mainSrc} alt={alt} className="w-8 h-8 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+        <img src={mainSrc} alt={alt} className="w-8 h-8 rounded-full object-cover min-w-[2rem]" />
         {networkSrc && (
-            <div className="flex items-center justify-center w-4 h-4 rounded-full object-cover overflow-hidden absolute ring-1 ring-gray-800 -top-1 -right-1">
+            <div className="flex items-center justify-center w-4 h-4 rounded-full object-cover overflow-hidden absolute ring-1 ring-[#010409] -top-1 -right-1">
                 <img src={networkSrc} alt="Polygon Network" className="rounded-full" />
             </div>
         )}
@@ -49,7 +49,7 @@ const WithdrawPage = () => {
             symbol: 'USDC',
             name: 'USDCoin',
             network: 'Polygon Mainnet',
-            mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/59144/0x176211869ca2b568f2a7d4ee941e073a821ee1ff.png',
+            mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174.png',
             networkSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x0000000000000000000000000000000000000000.png'
         },
         {
@@ -107,7 +107,6 @@ const WithdrawPage = () => {
                     <p className="font-bold text-yellow-400">Warning: Transactions on the blockchain are irreversible. Double-check your address before submitting.</p>
                 </InfoCard>
                 <form onSubmit={handleCryptoWithdrawalSubmit} className="mt-6 widget">
-                    {/* [MODIFIED] New button structure */}
                     <div className="form-group">
                         <label className="text-gray-300">Select Currency</label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
