@@ -10,41 +10,40 @@ const { addAddressToMonitor } = require('../services/transactionListenerService'
 
 const router = express.Router();
 
-// GEM PACKAGES are defined on the server to prevent client-side manipulation.
-const GEM_PACKAGES = {
-    '500_gems': { name: '500 Gems', usdValue: 500, gem_amount: 500 },
-    '1000_gems': { name: '1,000 Gems', usdValue: 1000, gem_amount: 1000 },
-    '1500_gems': { name: '1,500 Gems', usdValue: 1500, gem_amount: 1500 },
-    '2500_gems': { name: '2,500 Gems', usdValue: 2500, gem_amount: 2500 },
-    '5000_gems': { name: '5,000 Gems', usdValue: 5000, gem_amount: 5000 },
-    '10000_gems': { name: '10,000 Gems', usdValue: 10000, gem_amount: 10000 },
-};
+// --- CONSTANTS ---
+const USD_TO_GEMS_RATE = 100; // 100 gems per $1
+const MINIMUM_USD_DEPOSIT = 4; // $4.00 minimum
 
-// Create a Stripe Checkout session
+// Create a Stripe Checkout session for a custom amount
 router.post('/create-checkout-session',
     authenticateToken,
-    body('packageId').isIn(Object.keys(GEM_PACKAGES)),
+    // [MODIFIED] Validate 'amount' instead of 'packageId'
+    body('amount').isFloat({ gt: MINIMUM_USD_DEPOSIT - 0.01 }).withMessage(`Minimum deposit is $${MINIMUM_USD_DEPOSIT.toFixed(2)}.`),
     handleValidationErrors,
     async (req, res) => {
         try {
-            const { packageId } = req.body;
+            // [MODIFIED] Use 'amount' from the body
+            const { amount } = req.body;
             const user = req.user;
-            const selectedPackage = GEM_PACKAGES[packageId];
+
+            // Calculate gem amount based on the rate
+            const gemAmount = Math.floor(amount * USD_TO_GEMS_RATE);
+            const amountInCents = Math.round(amount * 100);
 
             const session = await stripe.checkout.sessions.create({
                 payment_method_types: ['card'],
                 line_items: [{
                     price_data: {
                         currency: 'usd',
-                        product_data: { name: selectedPackage.name },
-                        unit_amount: selectedPackage.usdValue,
+                        product_data: { name: `${gemAmount.toLocaleString()} Gems` },
+                        unit_amount: amountInCents, // Amount must be in cents
                     },
                     quantity: 1,
                 }],
                 mode: 'payment',
                 metadata: {
                     userId: user.userId,
-                    gemAmount: selectedPackage.gem_amount,
+                    gemAmount: gemAmount, // Store the calculated gem amount
                 },
                 success_url: `${process.env.SERVER_URL}/deposit?success=true`,
                 cancel_url: `${process.env.SERVER_URL}/deposit?canceled=true`,
@@ -86,19 +85,21 @@ router.get('/crypto-address', authenticateToken, async (req, res) => {
     }
 });
 
-// Get a real-time quote for a crypto deposit.
+// Get a real-time quote for a crypto deposit for a custom amount.
 router.post('/crypto-quote',
     authenticateToken,
     [
-        body('packageId').isIn(Object.keys(GEM_PACKAGES)).withMessage('Invalid package ID.'),
+        // [MODIFIED] Validate 'amount' instead of 'packageId'
+        body('amount').isFloat({ gt: MINIMUM_USD_DEPOSIT - 0.01 }).withMessage(`Minimum deposit is $${MINIMUM_USD_DEPOSIT.toFixed(2)}.`),
         body('tokenType').isIn(['USDC', 'USDT', 'POL']).withMessage('Invalid token type.')
     ],
     handleValidationErrors,
     async (req, res) => {
-        const { packageId, tokenType } = req.body;
+        // [MODIFIED] Use 'amount' from the body
+        const { amount, tokenType } = req.body;
         try {
-            const selectedPackage = GEM_PACKAGES[packageId];
-            const packageUsdValue = selectedPackage.usdValue / 100; // Convert cents to dollars
+            const packageUsdValue = parseFloat(amount);
+            const gemAmount = Math.floor(packageUsdValue * USD_TO_GEMS_RATE);
 
             const priceSymbol = `${tokenType}_USD`;
             const currentPrice = await getLatestPrice(priceSymbol);
@@ -110,7 +111,8 @@ router.post('/crypto-quote',
             const cryptoAmount = packageUsdValue / currentPrice;
 
             res.status(200).json({
-                packageId: packageId,
+                // [MODIFIED] Return data based on custom amount
+                gemAmount: gemAmount,
                 tokenType: tokenType,
                 usdValue: packageUsdValue,
                 cryptoAmount: cryptoAmount.toFixed(6), // Keep precision for crypto
