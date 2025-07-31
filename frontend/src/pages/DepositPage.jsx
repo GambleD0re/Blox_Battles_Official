@@ -22,12 +22,12 @@ const QRCode = ({ address }) => {
     return <img src={qrUrl} alt="Deposit Address QR Code" className="rounded-lg border-4 border-white mx-auto" />;
 };
 
-// [MODIFIED] Icon component updated to exactly match the desired screenshot style.
+// [MODIFIED] Icon component styling has been refined to better match the screenshots.
 const CryptoTokenIcon = ({ mainSrc, networkSrc, alt }) => (
     <div className="relative w-10 h-10 shrink-0">
-        <img src={mainSrc} alt={alt} className="w-8 h-8 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+        <img src={mainSrc} alt={alt} className="w-8 h-8 rounded-full object-cover min-w-[2rem]" />
         {networkSrc && (
-            <div className="flex items-center justify-center w-4 h-4 rounded-full object-cover overflow-hidden absolute ring-1 ring-gray-800 -top-1 -right-1">
+            <div className="flex items-center justify-center w-4 h-4 rounded-full object-cover overflow-hidden absolute ring-1 ring-[#010409] -top-1 -right-1">
                 <img src={networkSrc} alt="Polygon Network" className="rounded-full" />
             </div>
         )}
@@ -51,11 +51,12 @@ const DepositPage = () => {
     const [quote, setQuote] = useState(null);
     const [isQuoteLoading, setIsQuoteLoading] = useState(false);
     
+    // [MODIFIED] Corrected the mainSrc URL for USDC to the blue icon.
     const depositTokens = [
         {
             symbol: 'USDC',
             name: 'USDCoin',
-            mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/59144/0x176211869ca2b568f2a7d4ee941e073a821ee1ff.png',
+            mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174.png',
             networkSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x0000000000000000000000000000000000000000.png'
         },
         {
@@ -169,7 +170,6 @@ const DepositPage = () => {
                 <div className="widget !p-4">
                     <label className="block text-sm font-medium text-gray-400 mb-2">1. Select Currency</label>
                     <div className="space-y-2">
-                        {/* [MODIFIED] Button structure updated to match screenshots */}
                         {depositTokens.map(tokenItem => (
                             <button key={tokenItem.symbol} onClick={() => setSelectedCrypto(tokenItem.symbol)} className={`w-full p-3 rounded-lg border-2 flex items-center justify-between transition-all ${selectedCrypto === tokenItem.symbol ? 'border-cyan-400 bg-cyan-500/10' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}`}>
                                 <div className="flex items-center gap-3">
