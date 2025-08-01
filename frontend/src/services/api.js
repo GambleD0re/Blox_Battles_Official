@@ -47,9 +47,7 @@ export const getTransactionHistory = (token) => apiRequest('/history', 'GET', nu
 
 // --- DUELS & DISPUTES ---
 export const getDuelHistory = (token) => apiRequest('/duels/history', 'GET', null, token);
-// [NEW] This function gets the new, more detailed duel history for the dedicated page.
 export const getDetailedDuelHistory = (token) => apiRequest('/duel-history', 'GET', null, token);
-
 export const findPlayer = (robloxUsername, token) => apiRequest(`/duels/find-player?roblox_username=${encodeURIComponent(robloxUsername)}`, 'GET', null, token);
 export const sendChallenge = (challengeData, token) => apiRequest('/duels/challenge', 'POST', challengeData, token);
 export const respondToDuel = (responseData, token) => apiRequest('/duels/respond', 'POST', responseData, token);
@@ -82,6 +80,11 @@ export const updatePassword = (passwordData, token) => apiRequest('/user/passwor
 export const unlinkRoblox = (token) => apiRequest('/user/unlink/roblox', 'POST', null, token);
 export const deleteAccount = (password, token) => apiRequest('/user/delete/account', 'DELETE', { password }, token);
 export const updateNotificationPreference = (enabled, token) => apiRequest('/user/notification-preference', 'PUT', { enabled }, token);
+
+// --- [NEW] TOURNAMENTS ---
+export const getTournaments = (token) => apiRequest('/tournaments', 'GET', null, token);
+export const getTournamentDetails = (id, token) => apiRequest(`/tournaments/${id}`, 'GET', null, token);
+export const registerForTournament = (id, token) => apiRequest(`/tournaments/${id}/register`, 'POST', null, token);
 
 // --- ADMIN ---
 export const getAdminStats = (token) => apiRequest('/admin/stats', 'GET', null, token);
