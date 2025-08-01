@@ -4,8 +4,8 @@ const db = require('./database/database');
 const DUEL_EXPIRATION_HOURS = 1;
 const DUEL_FORFEIT_MINUTES = 10;
 const RESULT_CONFIRMATION_MINUTES = 2;
+const TOURNAMENT_DISPUTE_HOURS = 1;
 
-// ... (decrementPlayerCount helper remains the same) ...
 const decrementPlayerCount = async (client, duelId) => {
     try {
         const { rows: [duel] } = await client.query('SELECT assigned_server_id FROM duels WHERE id = $1', [duelId]);
@@ -18,22 +18,21 @@ const decrementPlayerCount = async (client, duelId) => {
     }
 };
 
-
 async function runScheduledTasks() {
     console.log(`[CRON] Running scheduled tasks at ${new Date().toISOString()}`);
     const pool = db.getPool();
 
-    // --- [NEW] Task 4: Handle Tournament State Transitions ---
+    // --- Task 1: Handle Tournament State Transitions ---
     const tournamentClient = await pool.connect();
     try {
-        // 4a: Open registration for scheduled tournaments
+        // 1a: Open registration for scheduled tournaments
         const openRegSql = `UPDATE tournaments SET status = 'registration_open' WHERE status = 'scheduled' AND registration_opens_at <= NOW() RETURNING id`;
         const { rows: openedTournaments } = await tournamentClient.query(openRegSql);
         if (openedTournaments.length > 0) {
             console.log(`[CRON][TOURNAMENT] Opened registration for tournaments: ${openedTournaments.map(t => t.id).join(', ')}`);
         }
 
-        // 4b: Start tournaments and generate brackets
+        // 1b: Start tournaments and generate brackets
         const startTourneySql = `SELECT * FROM tournaments WHERE status = 'registration_open' AND starts_at <= NOW()`;
         const { rows: tournamentsToStart } = await tournamentClient.query(startTourneySql);
 
@@ -45,34 +44,24 @@ async function runScheduledTasks() {
 
                 const { rows: participants } = await txClient.query("SELECT user_id FROM tournament_participants WHERE tournament_id = $1 ORDER BY registered_at ASC", [tournament.id]);
                 if (participants.length < 2) {
-                    console.log(`[CRON][TOURNAMENT] Not enough participants for tournament ${tournament.id}. Canceling.`);
-                    // Optional: refund logic here if needed, though buy-in is on register.
                     await txClient.query("UPDATE tournaments SET status = 'canceled' WHERE id = $1", [tournament.id]);
                     await txClient.query('COMMIT');
                     continue;
                 }
                 
-                // Simple round-robin generation
                 let players = participants.map(p => p.user_id);
-                if (players.length % 2 !== 0) { players.push(null); } // Add a null for a bye
+                if (players.length % 2 !== 0) { players.push(null); } 
                 
                 let matchInRound = 1;
                 for (let i = 0; i < players.length; i += 2) {
-                    await txClient.query(
-                        `INSERT INTO tournament_matches (tournament_id, round_number, match_in_round, player1_id, player2_id) VALUES ($1, 1, $2, $3, $4)`,
-                        [tournament.id, matchInRound, players[i], players[i+1]]
-                    );
+                    await txClient.query(`INSERT INTO tournament_matches (tournament_id, round_number, match_in_round, player1_id, player2_id) VALUES ($1, 1, $2, $3, $4)`, [tournament.id, matchInRound, players[i], players[i+1]]);
                     matchInRound++;
                 }
                 
-                // Create task for the bot
-                const taskPayload = { tournamentId: tournament.id, round: 1 };
+                const taskPayload = { tournamentId: tournament.id, round: 1, rules: tournament.rules, serverLink: tournament.private_server_link };
                 await txClient.query("INSERT INTO tasks (task_type, payload) VALUES ('START_TOURNAMENT', $1)", [JSON.stringify(taskPayload)]);
-                
                 await txClient.query("UPDATE tournaments SET status = 'active' WHERE id = $1", [tournament.id]);
-                
                 await txClient.query('COMMIT');
-                console.log(`[CRON][TOURNAMENT] Tournament ${tournament.id} is now active. Round 1 generated.`);
 
             } catch (err) {
                 await txClient.query('ROLLBACK');
@@ -81,6 +70,37 @@ async function runScheduledTasks() {
                 txClient.release();
             }
         }
+        
+        // 1c: Finalize tournaments after dispute period and pay out prizes
+        const finalizeSql = `SELECT * FROM tournaments WHERE status = 'dispute_period' AND ends_at <= NOW() - INTERVAL '${TOURNAMENT_DISPUTE_HOURS} hours'`;
+        const { rows: tournamentsToFinalize } = await tournamentClient.query(finalizeSql);
+        
+        for (const tournament of tournamentsToFinalize) {
+             const txClient = await pool.connect();
+             try {
+                await txClient.query('BEGIN');
+                console.log(`[CRON][TOURNAMENT] Finalizing tournament ${tournament.id}`);
+                
+                const { rows: placements } = await txClient.query("SELECT user_id, placement FROM tournament_participants WHERE tournament_id = $1 AND placement IS NOT NULL ORDER BY placement ASC", [tournament.id]);
+                
+                for(const player of placements) {
+                    const prize = tournament.prize_distribution[player.placement.toString()];
+                    if (prize && prize > 0) {
+                        await txClient.query("UPDATE users SET gems = gems + $1 WHERE id = $2", [prize, player.user_id]);
+                        await txClient.query("INSERT INTO transaction_history (user_id, type, amount_gems, description, reference_id) VALUES ($1, 'tournament_prize', $2, $3, $4)", [player.user_id, prize, `Prize for finishing #${player.placement} in ${tournament.name}`, tournament.id]);
+                    }
+                }
+                
+                await txClient.query("UPDATE tournaments SET status = 'finalized' WHERE id = $1", [tournament.id]);
+                await txClient.query('COMMIT');
+
+             } catch(err) {
+                await txClient.query('ROLLBACK');
+                console.error(`[CRON][TOURNAMENT] Error finalizing tournament ${tournament.id}:`, err);
+             } finally {
+                txClient.release();
+             }
+        }
 
     } catch (error) {
         console.error('[CRON][TOURNAMENT] Error processing tournament transitions:', error);
@@ -88,7 +108,7 @@ async function runScheduledTasks() {
         tournamentClient.release();
     }
     
-    // ... (rest of the existing cron tasks for duels remain)
+    // --- Task 2: Cancel old 'accepted' duels that were never started ---
     const expirationClient = await pool.connect();
     try {
         const acceptedSql = `
@@ -122,6 +142,7 @@ async function runScheduledTasks() {
         expirationClient.release();
     }
 
+    // --- Task 3: Handle 'started' duels that were never matched in-game (forfeit logic) ---
     const forfeitClient = await pool.connect();
     try {
         const startedSql = `
@@ -205,6 +226,7 @@ async function runScheduledTasks() {
         forfeitClient.release();
     }
     
+    // --- Task 4: Finalize duels where the 2-minute confirmation timer has expired ---
     const confirmationClient = await pool.connect();
     try {
         const confirmationSql = `
@@ -244,7 +266,6 @@ async function runScheduledTasks() {
     }
 }
 
-// Run the tasks and then exit.
 runScheduledTasks()
     .then(() => {
         console.log("[CRON] Scheduled tasks finished successfully.");
