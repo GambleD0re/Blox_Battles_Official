@@ -4,10 +4,10 @@ const { body, param, query } = require('express-validator');
 const db = require('../database/database');
 const { authenticateToken, isAdmin, handleValidationErrors } = require('../middleware/auth');
 const { getLogs } = require('../middleware/botLogger');
+const crypto = require('crypto');
 
 const router = express.Router();
-
-// A helper function to decrement a server's player count.
+// ... (decrementPlayerCount helper remains the same) ...
 const decrementPlayerCount = async (client, duelId) => {
     try {
         const { rows: [duel] } = await client.query('SELECT assigned_server_id FROM duels WHERE id = $1', [duelId]);
@@ -20,7 +20,75 @@ const decrementPlayerCount = async (client, duelId) => {
     }
 };
 
-// --- PLATFORM STATS ---
+// --- [NEW] TOURNAMENT MANAGEMENT ---
+router.post('/tournaments', authenticateToken, isAdmin, [
+    body('name').trim().notEmpty(),
+    body('region').trim().notEmpty(),
+    body('assigned_bot_id').trim().notEmpty(),
+    body('private_server_link').isURL(),
+    body('buy_in_amount').isInt({ gt: -1 }),
+    body('prize_pool_gems').isInt({ gt: 0 }),
+    body('registration_opens_at').isISO8601(),
+    body('starts_at').isISO8601(),
+    body('rules').isObject(),
+    body('prize_distribution').isObject(),
+], handleValidationErrors, async (req, res) => {
+    const { name, region, assigned_bot_id, private_server_link, buy_in_amount, prize_pool_gems, registration_opens_at, starts_at, rules, prize_distribution } = req.body;
+    try {
+        const tournamentId = crypto.randomUUID();
+        const sql = `
+            INSERT INTO tournaments (id, name, region, assigned_bot_id, private_server_link, buy_in_amount, prize_pool_gems, registration_opens_at, starts_at, rules, prize_distribution)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `;
+        await db.query(sql, [tournamentId, name, region, assigned_bot_id, private_server_link, buy_in_amount, prize_pool_gems, registration_opens_at, starts_at, JSON.stringify(rules), JSON.stringify(prize_distribution)]);
+        res.status(201).json({ message: 'Tournament created successfully.', tournamentId });
+    } catch (err) {
+        console.error("Admin Create Tournament Error:", err);
+        res.status(500).json({ message: 'Failed to create tournament.' });
+    }
+});
+
+router.get('/tournaments', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const { rows } = await db.query("SELECT id, name, status, starts_at FROM tournaments ORDER BY created_at DESC");
+        res.status(200).json(rows);
+    } catch (err) {
+        console.error("Admin Fetch Tournaments Error:", err);
+        res.status(500).json({ message: 'Failed to fetch tournaments.' });
+    }
+});
+
+router.delete('/tournaments/:id', authenticateToken, isAdmin, param('id').isUUID(), handleValidationErrors, async (req, res) => {
+    const tournamentId = req.params.id;
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+        const { rows: [tournament] } = await client.query("SELECT * FROM tournaments WHERE id = $1 AND status IN ('scheduled', 'registration_open') FOR UPDATE", [tournamentId]);
+        if (!tournament) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Tournament not found or has already started.' });
+        }
+        
+        const { rows: participants } = await client.query("SELECT user_id FROM tournament_participants WHERE tournament_id = $1", [tournamentId]);
+        for (const participant of participants) {
+            await client.query("UPDATE users SET gems = gems + $1 WHERE id = $2", [tournament.buy_in_amount, participant.user_id]);
+            // Add refund to transaction history
+        }
+        
+        await client.query("UPDATE tournaments SET status = 'canceled' WHERE id = $1", [tournamentId]);
+        
+        await client.query('COMMIT');
+        res.status(200).json({ message: 'Tournament canceled and all players refunded.' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Admin Cancel Tournament Error:", err);
+        res.status(500).json({ message: 'Failed to cancel tournament.' });
+    } finally {
+        client.release();
+    }
+});
+
+// ... (rest of the admin.js file remains unchanged) ...
 router.get('/stats', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { rows: [totalUsers] } = await db.query("SELECT COUNT(id)::int as count FROM users");
@@ -41,9 +109,7 @@ router.get('/stats', authenticateToken, isAdmin, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch platform statistics.' });
     }
 });
-
-
-// --- PAYOUT MANAGEMENT ---
+// (The rest of the file continues as before...)
 router.get('/payout-requests', authenticateToken, isAdmin, async (req, res) => {
     try {
         const sql = `
@@ -193,11 +259,9 @@ router.post('/disputes/:id/resolve', authenticateToken, isAdmin, param('id').isI
                 resolutionMessage = `Result overturned. Pot of ${duel.pot} paid to reporter.`;
                 break;
             case 'void_refund':
-                // [MODIFIED] Refund the original wager, not half the taxed pot.
                 const refundAmount = duel.wager;
                 await client.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.challenger_id]);
                 await client.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.opponent_id]);
-                // [MODIFIED] Manually set tax_collected to 0 for voided duels.
                 await client.query('UPDATE duels SET tax_collected = 0 WHERE id = $1', [duel.id]);
                 resolutionMessage = `Duel voided. Pot of ${duel.wager * 2} refunded to both players.`;
                 break;
@@ -219,7 +283,6 @@ router.post('/disputes/:id/resolve', authenticateToken, isAdmin, param('id').isI
 });
 
 
-// --- SERVER MANAGEMENT IS NOW READ-ONLY ---
 router.get('/servers', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { rows: servers } = await db.query('SELECT server_id, region, join_link, player_count, last_heartbeat FROM game_servers ORDER BY region, server_id');
@@ -231,7 +294,6 @@ router.get('/servers', authenticateToken, isAdmin, async (req, res) => {
 });
 
 
-// --- USER MANAGEMENT ---
 router.get('/users', authenticateToken, isAdmin, 
     query('search').optional().trim(),
     query('status').optional().isIn(['active', 'banned', 'terminated']),
