@@ -106,7 +106,7 @@ export const getAdminPayoutRequests = (token) => apiRequest('/admin/payout-reque
 export const getAdminUserDetailsForPayout = (userId, payoutId, token) => apiRequest(`/admin/users/${userId}/details-for-payout/${payoutId}`, 'GET', null, token);
 export const approvePayoutRequest = (requestId, token) => apiRequest(`/admin/payout-requests/${requestId}/approve`, 'POST', null, token);
 export const declinePayoutRequest = (requestId, reason, token) => apiRequest(`/admin/payout-requests/${requestId}/decline`, 'POST', { reason }, token);
-// [NEW] Admin Tournament Functions
+// [CORRECTED] Admin Tournament Functions now included.
 export const createTournament = (tournamentData, token) => apiRequest('/admin/tournaments', 'POST', tournamentData, token);
 export const getAdminTournaments = (token) => apiRequest('/admin/tournaments', 'GET', null, token);
 export const cancelTournament = (id, token) => apiRequest(`/admin/tournaments/${id}`, 'DELETE', null, token);
