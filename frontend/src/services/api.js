@@ -81,7 +81,7 @@ export const unlinkRoblox = (token) => apiRequest('/user/unlink/roblox', 'POST',
 export const deleteAccount = (password, token) => apiRequest('/user/delete/account', 'DELETE', { password }, token);
 export const updateNotificationPreference = (enabled, token) => apiRequest('/user/notification-preference', 'PUT', { enabled }, token);
 
-// --- [NEW] TOURNAMENTS ---
+// --- TOURNAMENTS ---
 export const getTournaments = (token) => apiRequest('/tournaments', 'GET', null, token);
 export const getTournamentDetails = (id, token) => apiRequest(`/tournaments/${id}`, 'GET', null, token);
 export const registerForTournament = (id, token) => apiRequest(`/tournaments/${id}/register`, 'POST', null, token);
@@ -91,12 +91,8 @@ export const getAdminStats = (token) => apiRequest('/admin/stats', 'GET', null, 
 export const getAdminLogs = (token) => apiRequest('/admin/logs', 'GET', null, token);
 export const getAdminUsers = (searchQuery, token, status) => {
     const params = new URLSearchParams();
-    if (searchQuery) {
-        params.append('search', searchQuery);
-    }
-    if (status) {
-        params.append('status', status);
-    }
+    if (searchQuery) { params.append('search', searchQuery); }
+    if (status) { params.append('status', status); }
     return apiRequest(`/admin/users?${params.toString()}`, 'GET', null, token);
 };
 export const updateUserGems = (userId, amount, token) => apiRequest(`/admin/users/${userId}/gems`, 'POST', { amount }, token);
@@ -110,3 +106,7 @@ export const getAdminPayoutRequests = (token) => apiRequest('/admin/payout-reque
 export const getAdminUserDetailsForPayout = (userId, payoutId, token) => apiRequest(`/admin/users/${userId}/details-for-payout/${payoutId}`, 'GET', null, token);
 export const approvePayoutRequest = (requestId, token) => apiRequest(`/admin/payout-requests/${requestId}/approve`, 'POST', null, token);
 export const declinePayoutRequest = (requestId, reason, token) => apiRequest(`/admin/payout-requests/${requestId}/decline`, 'POST', { reason }, token);
+// [NEW] Admin Tournament Functions
+export const createTournament = (tournamentData, token) => apiRequest('/admin/tournaments', 'POST', tournamentData, token);
+export const getAdminTournaments = (token) => apiRequest('/admin/tournaments', 'GET', null, token);
+export const cancelTournament = (id, token) => apiRequest(`/admin/tournaments/${id}`, 'DELETE', null, token);
