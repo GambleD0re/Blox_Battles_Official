@@ -1,7 +1,7 @@
 -- This script defines the PostgreSQL-compatible structure of the database.
 
 -- Drop tables if they exist to ensure a clean slate. The CASCADE keyword will also drop dependent objects.
-DROP TABLE IF EXISTS users, duels, tasks, push_subscriptions, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages CASCADE;
+DROP TABLE IF EXISTS users, duels, tasks, push_subscriptions, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches CASCADE;
 
 -- Create the 'users' table. 'SERIAL' is the PostgreSQL equivalent of AUTOINCREMENT.
 -- 'UUID' is a better type for your unique 'id' column.
@@ -59,7 +59,7 @@ CREATE TABLE gem_purchases (
 CREATE TABLE transaction_history (
     id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type VARCHAR(50) NOT NULL CHECK(type IN ('deposit_stripe', 'deposit_crypto', 'withdrawal', 'duel_wager', 'duel_win', 'admin_adjustment')),
+    type VARCHAR(50) NOT NULL CHECK(type IN ('deposit_stripe', 'deposit_crypto', 'withdrawal', 'duel_wager', 'duel_win', 'admin_adjustment', 'tournament_buy_in', 'tournament_prize')),
     amount_gems BIGINT NOT NULL,
     description TEXT,
     reference_id TEXT,
@@ -130,6 +130,50 @@ CREATE TABLE disputes (
     resolved_at TIMESTAMP WITH TIME ZONE,
     admin_resolver_id UUID REFERENCES users(id) ON DELETE SET NULL
 );
+
+-- [NEW] Tournaments Table: Stores the main configuration for each tournament.
+CREATE TABLE tournaments (
+    id UUID PRIMARY KEY,
+    name TEXT NOT NULL,
+    region TEXT NOT NULL,
+    buy_in_amount BIGINT NOT NULL,
+    prize_pool_gems BIGINT NOT NULL,
+    prize_distribution JSONB NOT NULL,
+    rules JSONB NOT NULL,
+    capacity INTEGER NOT NULL DEFAULT 40,
+    registration_opens_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    starts_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    ends_at TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(50) NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled', 'registration_open', 'active', 'completed', 'dispute_period', 'finalized', 'canceled')),
+    assigned_bot_id VARCHAR(255) NOT NULL,
+    private_server_link TEXT NOT NULL,
+    final_transcript JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- [NEW] Tournament Participants Table: Links users to the tournaments they've joined.
+CREATE TABLE tournament_participants (
+    id SERIAL PRIMARY KEY,
+    tournament_id UUID NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    placement INTEGER,
+    registered_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(tournament_id, user_id)
+);
+
+-- [NEW] Tournament Matches Table: Represents each match in the tournament bracket.
+CREATE TABLE tournament_matches (
+    id SERIAL PRIMARY KEY,
+    tournament_id UUID NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+    duel_id INTEGER REFERENCES duels(id) ON DELETE SET NULL,
+    round_number INTEGER NOT NULL,
+    match_in_round INTEGER NOT NULL,
+    player1_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    player2_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    winner_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'active', 'completed'))
+);
+
 
 CREATE TABLE tasks (
     id SERIAL PRIMARY KEY,
