@@ -16,8 +16,9 @@ const DepositPage = lazy(() => import('./pages/DepositPage.jsx'));
 const WithdrawPage = lazy(() => import('./pages/WithdrawPage.jsx'));
 const TransactionHistoryPage = lazy(() => import('./pages/TransactionHistoryPage.jsx'));
 const BanNotice = lazy(() => import('./pages/BanNotice.jsx'));
-// [NEW] Lazily load the new DuelHistoryPage.
 const DuelHistoryPage = lazy(() => import('./pages/DuelHistoryPage.jsx'));
+// [NEW] Lazily load the new TournamentsPage.
+const TournamentsPage = lazy(() => import('./pages/TournamentsPage.jsx'));
 
 // --- UI COMPONENTS ---
 const Loader = ({ fullScreen = false }) => (
@@ -38,7 +39,6 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
         return <Navigate to="/dashboard" />;
     }
     
-    // Allow access to settings and transaction history even if roblox is not linked
     const allowedPaths = ['/link-account', '/settings', '/history'];
     if (!user.linked_roblox_username && !allowedPaths.includes(window.location.pathname)) {
         return <Navigate to="/link-account" />;
@@ -114,7 +114,6 @@ const App = () => {
                     } 
                 />
 
-                {/* [NEW] Add the route for the new Duel History Page */}
                 <Route 
                     path="/duel-history" 
                     element={
@@ -122,6 +121,20 @@ const App = () => {
                             <ErrorBoundary>
                                 <Suspense fallback={<Loader fullScreen />}>
                                     <DuelHistoryPage />
+                                </Suspense>
+                            </ErrorBoundary>
+                        </ProtectedRoute>
+                    } 
+                />
+
+                {/* [NEW] Add the route for the new Tournaments Page */}
+                <Route 
+                    path="/tournaments" 
+                    element={
+                        <ProtectedRoute>
+                            <ErrorBoundary>
+                                <Suspense fallback={<Loader fullScreen />}>
+                                    <TournamentsPage />
                                 </Suspense>
                             </ErrorBoundary>
                         </ProtectedRoute>
