@@ -51,6 +51,10 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <div className="p-4">
                     <h2 className="text-xl font-bold text-white mb-6">Navigation</h2>
                     <nav className="flex flex-col space-y-2">
+                        {/* [NEW] Tournaments link added to the sidebar */}
+                        <button onClick={() => handleNavigate('/tournaments')} className="text-left text-gray-300 hover:bg-gray-700/50 hover:text-white p-3 rounded-lg transition-colors">
+                            Tournaments
+                        </button>
                         <button onClick={() => handleNavigate('/duel-history')} className="text-left text-gray-300 hover:bg-gray-700/50 hover:text-white p-3 rounded-lg transition-colors">
                             Duel History
                         </button>
