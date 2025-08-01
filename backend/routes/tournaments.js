@@ -22,7 +22,7 @@ router.get('/', authenticateToken, async (req, res) => {
                 COUNT(tp.user_id)::int AS registered_players
             FROM tournaments t
             LEFT JOIN tournament_participants tp ON t.id = tp.tournament_id
-            WHERE t.status IN ('registration_open', 'active', 'completed', 'dispute_period', 'finalized')
+            WHERE t.status IN ('scheduled', 'registration_open', 'active', 'completed', 'dispute_period', 'finalized') -- [CORRECTED] Added 'scheduled' to the list of visible statuses
             GROUP BY t.id
             ORDER BY t.starts_at DESC;
         `;
