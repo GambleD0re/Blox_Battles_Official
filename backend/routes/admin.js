@@ -7,7 +7,7 @@ const { getLogs } = require('../middleware/botLogger');
 const crypto = require('crypto');
 
 const router = express.Router();
-// ... (decrementPlayerCount helper remains the same) ...
+
 const decrementPlayerCount = async (client, duelId) => {
     try {
         const { rows: [duel] } = await client.query('SELECT assigned_server_id FROM duels WHERE id = $1', [duelId]);
@@ -72,7 +72,10 @@ router.delete('/tournaments/:id', authenticateToken, isAdmin, param('id').isUUID
         const { rows: participants } = await client.query("SELECT user_id FROM tournament_participants WHERE tournament_id = $1", [tournamentId]);
         for (const participant of participants) {
             await client.query("UPDATE users SET gems = gems + $1 WHERE id = $2", [tournament.buy_in_amount, participant.user_id]);
-            // Add refund to transaction history
+            await client.query(
+                "INSERT INTO transaction_history (user_id, type, amount_gems, description, reference_id) VALUES ($1, $2, $3, $4, $5)",
+                [participant.user_id, 'tournament_buy_in', tournament.buy_in_amount, `Refund for canceled tournament: ${tournament.name}`, tournamentId]
+            );
         }
         
         await client.query("UPDATE tournaments SET status = 'canceled' WHERE id = $1", [tournamentId]);
@@ -88,7 +91,8 @@ router.delete('/tournaments/:id', authenticateToken, isAdmin, param('id').isUUID
     }
 });
 
-// ... (rest of the admin.js file remains unchanged) ...
+
+// --- PLATFORM STATS ---
 router.get('/stats', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { rows: [totalUsers] } = await db.query("SELECT COUNT(id)::int as count FROM users");
@@ -109,7 +113,9 @@ router.get('/stats', authenticateToken, isAdmin, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch platform statistics.' });
     }
 });
-// (The rest of the file continues as before...)
+
+
+// --- PAYOUT MANAGEMENT ---
 router.get('/payout-requests', authenticateToken, isAdmin, async (req, res) => {
     try {
         const sql = `
@@ -283,6 +289,7 @@ router.post('/disputes/:id/resolve', authenticateToken, isAdmin, param('id').isI
 });
 
 
+// --- SERVER MANAGEMENT IS NOW READ-ONLY ---
 router.get('/servers', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { rows: servers } = await db.query('SELECT server_id, region, join_link, player_count, last_heartbeat FROM game_servers ORDER BY region, server_id');
@@ -294,6 +301,7 @@ router.get('/servers', authenticateToken, isAdmin, async (req, res) => {
 });
 
 
+// --- USER MANAGEMENT ---
 router.get('/users', authenticateToken, isAdmin, 
     query('search').optional().trim(),
     query('status').optional().isIn(['active', 'banned', 'terminated']),
