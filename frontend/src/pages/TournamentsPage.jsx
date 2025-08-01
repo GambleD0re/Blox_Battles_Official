@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../services/api';
+import TournamentDetailModal from '../components/Dashboard/TournamentDetailModal'; // [NEW] Import the modal
 
 const Loader = () => (
     <div className="flex items-center justify-center p-8">
@@ -9,9 +10,7 @@ const Loader = () => (
     </div>
 );
 
-const TournamentRow = ({ tournament }) => {
-    const navigate = useNavigate();
-
+const TournamentRow = ({ tournament, onView }) => { // [MODIFIED] Pass onView handler
     const getStatusStyles = (status) => {
         switch (status) {
             case 'registration_open': return 'bg-green-800 text-green-200';
@@ -46,7 +45,7 @@ const TournamentRow = ({ tournament }) => {
             </td>
             <td className="p-4 text-right">
                 <button 
-                    onClick={() => navigate(`/tournaments/${tournament.id}`)} 
+                    onClick={() => onView(tournament.id)} 
                     className="btn btn-secondary !mt-0 !py-2 !px-4"
                 >
                     View
@@ -57,30 +56,63 @@ const TournamentRow = ({ tournament }) => {
 };
 
 const TournamentsPage = () => {
-    const { token } = useAuth();
+    const { token, refreshUser } = useAuth(); // [NEW] Get refreshUser from auth context
     const navigate = useNavigate();
     const [tournaments, setTournaments] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
+    
+    // [NEW] State for the modal
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedTournament, setSelectedTournament] = useState(null);
+    const [message, setMessage] = useState({ text: '', type: '' });
 
+    const fetchTournaments = async () => {
+        if (!token) return;
+        setIsLoading(true);
+        try {
+            const data = await api.getTournaments(token);
+            setTournaments(data);
+        } catch (err) {
+            setError(err.message || 'Failed to fetch tournaments.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
     useEffect(() => {
-        const fetchTournaments = async () => {
-            if (!token) return;
-            try {
-                const data = await api.getTournaments(token);
-                setTournaments(data);
-            } catch (err) {
-                setError(err.message || 'Failed to fetch tournaments.');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         fetchTournaments();
     }, [token]);
 
+    const handleViewDetails = async (id) => {
+        try {
+            const details = await api.getTournamentDetails(id, token);
+            // We need to merge the player count from the list view, as the detail view doesn't have it.
+            const listVersion = tournaments.find(t => t.id === id);
+            setSelectedTournament({ ...details, registered_players: listVersion?.registered_players || 0 });
+            setIsModalOpen(true);
+        } catch (err) {
+             setMessage({ text: err.message, type: 'error' });
+        }
+    };
+    
+    const handleRegister = async (tournament) => {
+        if (window.confirm(`Are you sure you want to register for "${tournament.name}"? ${tournament.buy_in_amount} gems will be deducted from your balance.`)) {
+            try {
+                const result = await api.registerForTournament(tournament.id, token);
+                setMessage({ text: result.message, type: 'success' });
+                setIsModalOpen(false);
+                refreshUser(); // Update user's gem balance
+                fetchTournaments(); // Refresh the tournament list to show updated player count
+            } catch (err) {
+                 setMessage({ text: err.message, type: 'error' });
+            }
+        }
+    };
+
     return (
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+             {message.text && <div className={`fixed top-5 right-5 p-4 rounded-lg text-white font-bold shadow-lg z-[60] ${message.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{message.text}</div>}
             <header className="flex justify-between items-center mb-8">
                 <h1 className="text-4xl font-bold text-white">Tournaments</h1>
                 <button onClick={() => navigate('/dashboard')} className="btn btn-secondary !mt-0">Back to Dashboard</button>
@@ -105,7 +137,7 @@ const TournamentsPage = () => {
                             {isLoading ? (
                                 <tr><td colSpan="6"><Loader /></td></tr>
                             ) : tournaments.length > 0 ? (
-                                tournaments.map(t => <TournamentRow key={t.id} tournament={t} />)
+                                tournaments.map(t => <TournamentRow key={t.id} tournament={t} onView={handleViewDetails} />)
                             ) : (
                                 <tr><td colSpan="6" className="p-8 text-center text-gray-500">No tournaments found.</td></tr>
                             )}
@@ -113,6 +145,13 @@ const TournamentsPage = () => {
                     </table>
                 </div>
             </div>
+
+            <TournamentDetailModal 
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                tournament={selectedTournament}
+                onRegister={handleRegister}
+            />
         </div>
     );
 };
