@@ -16,6 +16,9 @@ const StatCard = ({ title, value, icon }) => (
     </div>
 );
 
+// ... (UserRow, DisputeResolutionModal, etc. remain the same) ...
+// NOTE: For brevity, the unchanged helper components from the original file are omitted here. They are still part of the final file.
+
 const UserRow = ({ user, onSelectUser }) => {
     const statusStyles = {
         active: 'bg-green-800 text-green-200',
@@ -125,18 +128,19 @@ const DeclineModal = ({ isOpen, onClose, onSubmit }) => {
     );
 };
 
-
 // --- Main Admin Dashboard Component ---
 const AdminDashboard = () => {
     const { token } = useAuth();
     const navigate = useNavigate();
     
+    // ... (existing state variables) ...
     const [users, setUsers] = useState([]);
     const [servers, setServers] = useState([]);
     const [disputes, setDisputes] = useState([]);
     const [payoutRequests, setPayoutRequests] = useState([]);
     const [stats, setStats] = useState({ totalUsers: 0, gemsInCirculation: 0, pendingPayouts: 0, pendingDisputes: 0, taxCollected: 0 });
     const [transcript, setTranscript] = useState([]);
+    const [tournaments, setTournaments] = useState([]); // [NEW] State for tournaments
     
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
@@ -156,18 +160,20 @@ const AdminDashboard = () => {
         if (!token) return;
         setIsLoading(true);
         try {
-            const [usersData, serversData, disputesData, payoutsData, statsData] = await Promise.all([
+            const [usersData, serversData, disputesData, payoutsData, statsData, tournamentsData] = await Promise.all([
                 api.getAdminUsers(searchQuery, token, statusFilter),
                 api.getAdminServers(token),
                 api.getPendingDisputes(token),
                 api.getAdminPayoutRequests(token),
-                api.getAdminStats(token)
+                api.getAdminStats(token),
+                api.getAdminTournaments(token) // [NEW] Fetch tournaments
             ]);
             setUsers(usersData);
             setServers(serversData);
             setDisputes(disputesData);
             setPayoutRequests(payoutsData);
             setStats(statsData);
+            setTournaments(tournamentsData); // [NEW] Set tournaments state
         } catch (error) { showMessage(error.message, 'error'); } finally { setIsLoading(false); }
     }, [token, searchQuery, statusFilter]);
 
@@ -191,7 +197,34 @@ const AdminDashboard = () => {
                 <StatCard title="Total Users" value={stats.totalUsers} icon="👥" /><StatCard title="Gems in Circulation" value={stats.gemsInCirculation.toLocaleString()} icon="💎" /><StatCard title="Pending Disputes" value={stats.pendingDisputes} icon="⚖️" /><StatCard title="Pending Payouts" value={stats.pendingPayouts} icon="💸" /><StatCard title="Total Tax Collected" value={stats.taxCollected.toLocaleString()} icon="📈" />
             </div>
             
+            {/* [NEW] Tournament Management Section */}
             <div className="widget mb-8">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="widget-title !mb-0">Tournament Management</h2>
+                    <button onClick={() => navigate('/admin/tournaments/create')} className="btn btn-primary !mt-0">Create Tournament</button>
+                </div>
+                <div className="overflow-x-auto">
+                     <table className="w-full">
+                        <thead><tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-700"><th className="p-3">Name</th><th className="p-3">Status</th><th className="p-3">Starts At</th><th className="p-3"></th></tr></thead>
+                        <tbody>
+                            {isLoading ? (<tr><td colSpan="4" className="p-8 text-center">Loading...</td></tr>)
+                            : tournaments.length > 0 ? (tournaments.map(t => (
+                                <tr key={t.id} className="border-b border-gray-700 hover:bg-gray-800/50">
+                                    <td className="p-3 font-semibold text-white">{t.name}</td>
+                                    <td className="p-3">{t.status.replace('_', ' ').toUpperCase()}</td>
+                                    <td className="p-3">{new Date(t.starts_at).toLocaleString()}</td>
+                                    <td className="p-3 text-right">
+                                        {/* Future actions like 'View Bracket' or 'Cancel' would go here */}
+                                    </td>
+                                </tr>
+                            ))) : (<tr><td colSpan="4" className="p-8 text-center text-gray-500">No tournaments created yet.</td></tr>)}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {/* ... (rest of the existing JSX for payouts, disputes, users, etc.) ... */}
+             <div className="widget mb-8">
                 <h2 className="widget-title">Pending Withdrawal Requests</h2>
                 <div className="overflow-x-auto">
                     <table className="w-full">
