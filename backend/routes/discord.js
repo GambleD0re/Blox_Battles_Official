@@ -116,6 +116,13 @@ router.post('/respond-link',
                     "UPDATE users SET discord_id = $1, discord_username = $2 WHERE id = $3",
                     [discordId, discordUsername, userId]
                 );
+                
+                // [NEW] Create a task for the Discord bot to send a confirmation DM.
+                const taskPayload = { discordId: discordId };
+                await client.query(
+                    "INSERT INTO tasks (task_type, payload) VALUES ('SEND_DISCORD_LINK_SUCCESS_DM', $1)",
+                    [JSON.stringify(taskPayload)]
+                );
             }
 
             // Delete the message regardless of the response.
