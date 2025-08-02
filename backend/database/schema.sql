@@ -59,7 +59,7 @@ CREATE TABLE gem_purchases (
 CREATE TABLE transaction_history (
     id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type VARCHAR(50) NOT NULL CHECK(type IN ('deposit_stripe', 'deposit_crypto', 'withdrawal', 'duel_wager', 'duel_win', 'admin_adjustment', 'tournament_buy_in', 'tournament_prize')),
+    type VARCHAR(50) NOT NULL CHECK(type IN ('deposit_stripe', 'deposit_crypto', 'withdrawal', 'duel_wager', 'duel_win', 'admin_adjustment', 'tournament_buy_in', 'tournament_prize', 'tournament_duel')),
     amount_gems BIGINT NOT NULL,
     description TEXT,
     reference_id TEXT,
@@ -112,9 +112,10 @@ CREATE TABLE duels (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     accepted_at TIMESTAMP WITH TIME ZONE,
     started_at TIMESTAMP WITH TIME ZONE,
-    result_posted_at TIMESTAMP WITH TIME ZONE, -- [NEW] Tracks when the bot reported a result, starting the 2-min timer.
+    result_posted_at TIMESTAMP WITH TIME ZONE,
     bot_duel_id VARCHAR(255) UNIQUE,
-    transcript JSONB
+    transcript JSONB,
+    player_loadouts JSONB -- [NEW] Column to store player weapon loadouts.
 );
 
 CREATE TABLE disputes (
