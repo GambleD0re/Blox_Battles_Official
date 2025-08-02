@@ -11,7 +11,7 @@ router.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
 });
 
-// [MODIFIED] Endpoint for the Discord bot to get live status, now protected by authenticateBot.
+// Endpoint for the Discord bot to get live server status
 router.get('/', authenticateBot, async (req, res) => {
     try {
         const BOT_OFFLINE_THRESHOLD_SECONDS = 45;
@@ -29,8 +29,19 @@ router.get('/', authenticateBot, async (req, res) => {
     }
 });
 
+// [NEW] Endpoint for the Discord bot to get the total registered player count.
+router.get('/player-count', authenticateBot, async (req, res) => {
+    try {
+        const { rows: [result] } = await db.query("SELECT COUNT(id)::int FROM users WHERE status != 'terminated'");
+        res.status(200).json({ playerCount: result.count });
+    } catch (err) {
+        console.error("[STATUS] Error fetching player count:", err);
+        res.status(500).json({ message: 'Failed to fetch player count.' });
+    }
+});
 
-// [MODIFIED] The heartbeat endpoint now lives here and is protected by authenticateBot.
+
+// Endpoint for the game server bot to send a heartbeat
 router.post('/heartbeat',
     authenticateBot,
     [
