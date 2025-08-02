@@ -70,9 +70,9 @@ router.get('/', authenticateToken, async (req, res) => {
             });
         });
 
-        // --- 3. Fetch static messages ---
+        // --- 3. Fetch static messages (including new discord link requests) ---
         const messageSql = `
-            SELECT id, title, message, reference_id, created_at 
+            SELECT id, type, title, message, reference_id, created_at 
             FROM inbox_messages 
             WHERE user_id = $1 AND is_read = FALSE
         `;
@@ -81,7 +81,8 @@ router.get('/', authenticateToken, async (req, res) => {
         messages.forEach(message => {
             allNotifications.push({
                 id: `message-${message.id}`,
-                type: 'admin_message',
+                // [MODIFIED] This now dynamically uses the type from the database.
+                type: message.type,
                 timestamp: message.created_at,
                 data: message
             });
