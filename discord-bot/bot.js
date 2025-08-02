@@ -1,8 +1,12 @@
 // discord-bot/bot.js
 require('dotenv').config();
 const axios = require('axios');
-// [MODIFIED] Added GatewayIntentBits.GuildMembers
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+// [MODIFIED] Added builders and types for Slash Commands and Modals.
+const {
+    Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder,
+    ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder,
+    TextInputStyle, InteractionType
+} = require('discord.js');
 
 // --- Configuration ---
 const {
@@ -39,9 +43,71 @@ const REGION_CHANNELS = {
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers 
+        GatewayIntentBits.GuildMembers
     ]
 });
+
+// [NEW] Command and Modal Interaction Handler
+client.on('interactionCreate', async interaction => {
+    // Handle Slash Command interactions
+    if (interaction.isChatInputCommand()) {
+        const { commandName } = interaction;
+
+        if (commandName === 'link') {
+            // Create the modal for account linking
+            const modal = new ModalBuilder()
+                .setCustomId('linkAccountModal')
+                .setTitle('Link Your Blox Battles Account');
+
+            // Create the text input component
+            const usernameInput = new TextInputBuilder()
+                .setCustomId('robloxUsernameInput')
+                .setLabel("Your Blox Battles (Roblox) Username")
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Enter your exact Roblox username')
+                .setRequired(true);
+
+            // Add the input to an action row, then to the modal
+            const actionRow = new ActionRowBuilder().addComponents(usernameInput);
+            modal.addComponents(actionRow);
+
+            // Show the modal to the user
+            await interaction.showModal(modal);
+        }
+    }
+    // Handle Modal Submission interactions
+    else if (interaction.type === InteractionType.ModalSubmit) {
+        if (interaction.customId === 'linkAccountModal') {
+            await interaction.deferReply({ ephemeral: true });
+
+            const robloxUsername = interaction.fields.getTextInputValue('robloxUsernameInput');
+            const discordId = interaction.user.id;
+            const discordUsername = interaction.user.tag; // e.g., username#1234
+
+            try {
+                // Call the backend API to initiate the link
+                await apiClient.post('/api/discord/initiate-link', {
+                    robloxUsername,
+                    discordId,
+                    discordUsername,
+                });
+
+                await interaction.editReply({
+                    content: `✅ **Request Sent!**\nA confirmation request has been sent to the inbox of the Blox Battles account for **${robloxUsername}**.\n\nPlease log in to the website to complete the linking process.`,
+                    ephemeral: true
+                });
+
+            } catch (error) {
+                const errorMessage = error.response?.data?.message || 'An unknown error occurred. Please try again later.';
+                await interaction.editReply({
+                    content: `❌ **Error:** ${errorMessage}`,
+                    ephemeral: true
+                });
+            }
+        }
+    }
+});
+
 
 const buildDuelResultEmbed = (taskPayload) => {
     const { duelId, winner, loser, wager, pot, mapName, finalScores, playerLoadouts } = taskPayload;
@@ -120,7 +186,7 @@ async function updateStatChannels() {
         const guild = client.guilds.cache.first();
         if (!guild) return;
         
-        await guild.fetch(); // Ensure guild data is fresh
+        await guild.members.fetch(); // Ensure member cache is fresh
         const memberCount = guild.memberCount;
         const memberChannelName = `📈 Members: ${memberCount.toLocaleString()}`;
         const memberChannel = await client.channels.fetch(MEMBERS_VC_ID).catch(() => null);
