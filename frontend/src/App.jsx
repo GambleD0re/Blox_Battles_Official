@@ -18,16 +18,19 @@ const TransactionHistoryPage = lazy(() => import('./pages/TransactionHistoryPage
 const BanNotice = lazy(() => import('./pages/BanNotice.jsx'));
 const DuelHistoryPage = lazy(() => import('./pages/DuelHistoryPage.jsx'));
 const TournamentsPage = lazy(() => import('./pages/TournamentsPage.jsx'));
-// [NEW] Lazily load the new Admin Tournament Create Page.
 const AdminTournamentCreatePage = lazy(() => import('./pages/AdminTournamentCreatePage.jsx'));
+// [NEW] Lazily load the new TranscriptViewerPage.
+const TranscriptViewerPage = lazy(() => import('./pages/TranscriptViewerPage.jsx'));
 
-// ... (Loader and ProtectedRoute components remain the same) ...
+
+// --- UI COMPONENTS ---
 const Loader = ({ fullScreen = false }) => (
     <div className={`flex items-center justify-center ${fullScreen ? 'fixed inset-0 bg-black bg-opacity-70 z-50' : ''}`}>
         <div className="w-12 h-12 border-4 border-[var(--accent-color)] border-t-transparent rounded-full animate-spin"></div>
     </div>
 );
 
+// A helper component to protect routes that require authentication.
 const ProtectedRoute = ({ children, adminOnly = false }) => {
     const { user } = useAuth();
 
@@ -47,15 +50,20 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     return children;
 };
 
-
 // --- MAIN APP COMPONENT (ROUTING) ---
 const App = () => {
     const { user, isLoading } = useAuth();
 
-    if (isLoading) { return <Loader fullScreen />; }
+    if (isLoading) {
+        return <Loader fullScreen />;
+    }
 
     if (user && user.status === 'banned') {
-        return (<Suspense fallback={<Loader fullScreen />}><BanNotice /></Suspense>);
+        return (
+            <Suspense fallback={<Loader fullScreen />}>
+                <BanNotice />
+            </Suspense>
+        );
     }
 
     return (
@@ -64,11 +72,14 @@ const App = () => {
                 {/* --- Public Routes --- */}
                 <Route path="/signin" element={!user ? <SignInPage /> : <Navigate to="/dashboard" />} />
                 <Route path="/signup" element={!user ? <SignUpPage /> : <Navigate to="/dashboard" />} />
+                {/* [NEW] Add the public route for viewing transcripts */}
+                <Route path="/transcripts/:duelId" element={<Suspense fallback={<Loader fullScreen />}><TranscriptViewerPage /></Suspense>} />
 
                 {/* --- Protected Routes --- */}
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/link-account" element={<ProtectedRoute><LinkingView /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+                
                 <Route path="/deposit" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><DepositPage /></Suspense></ProtectedRoute>} />
                 <Route path="/withdraw" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><WithdrawPage /></Suspense></ProtectedRoute>} />
                 <Route path="/history" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><TransactionHistoryPage /></Suspense></ProtectedRoute>} />
@@ -77,14 +88,7 @@ const App = () => {
                 
                 {/* --- Admin Routes --- */}
                 <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
-                {/* [NEW] Add the route for the tournament creation page */}
-                <Route path="/admin/tournaments/create" element={
-                    <ProtectedRoute adminOnly={true}>
-                        <Suspense fallback={<Loader fullScreen />}>
-                            <AdminTournamentCreatePage />
-                        </Suspense>
-                    </ProtectedRoute>
-                } />
+                <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><Suspense fallback={<Loader fullScreen />}><AdminTournamentCreatePage /></Suspense></ProtectedRoute>} />
 
                 {/* --- Default Route --- */}
                 <Route path="*" element={<Navigate to={user ? "/dashboard" : "/signin"} />} />
