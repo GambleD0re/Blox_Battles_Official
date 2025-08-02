@@ -47,55 +47,31 @@ const client = new Client({
 
 // Command and Modal Interaction Handler
 client.on('interactionCreate', async interaction => {
-    // Handle Slash Command interactions
     if (interaction.isChatInputCommand()) {
         const { commandName } = interaction;
-
         if (commandName === 'link') {
-            const modal = new ModalBuilder()
-                .setCustomId('linkAccountModal')
-                .setTitle('Link Your Blox Battles Account');
-
-            const usernameInput = new TextInputBuilder()
-                .setCustomId('robloxUsernameInput')
-                .setLabel("Your Blox Battles (Roblox) Username")
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('Enter your exact Roblox username')
-                .setRequired(true);
-
+            const modal = new ModalBuilder().setCustomId('linkAccountModal').setTitle('Link Your Blox Battles Account');
+            const usernameInput = new TextInputBuilder().setCustomId('robloxUsernameInput').setLabel("Your Blox Battles (Roblox) Username").setStyle(TextInputStyle.Short).setPlaceholder('Enter your exact Roblox username').setRequired(true);
             const actionRow = new ActionRowBuilder().addComponents(usernameInput);
             modal.addComponents(actionRow);
-
             await interaction.showModal(modal);
         }
     }
-    // Handle Modal Submission interactions
     else if (interaction.type === InteractionType.ModalSubmit) {
         if (interaction.customId === 'linkAccountModal') {
             await interaction.deferReply({ ephemeral: true });
-
             const robloxUsername = interaction.fields.getTextInputValue('robloxUsernameInput');
             const discordId = interaction.user.id;
             const discordUsername = interaction.user.tag;
-
             try {
-                await apiClient.post('/api/discord/initiate-link', {
-                    robloxUsername,
-                    discordId,
-                    discordUsername,
-                });
-                
+                await apiClient.post('/api/discord/initiate-link', { robloxUsername, discordId, discordUsername });
                 await interaction.editReply({
                     content: `✅ **Request Sent!**\nA confirmation request has been sent to the inbox of the Blox Battles account for **${robloxUsername}**.\n\nPlease log in to the website to complete the linking process.`,
                     flags: [MessageFlags.Ephemeral]
                 });
-
             } catch (error) {
                 const errorMessage = error.response?.data?.message || 'An unknown error occurred. Please try again later.';
-                await interaction.editReply({
-                    content: `❌ **Error:** ${errorMessage}`,
-                    flags: [MessageFlags.Ephemeral]
-                });
+                await interaction.editReply({ content: `❌ **Error:** ${errorMessage}`, flags: [MessageFlags.Ephemeral] });
             }
         }
     }
@@ -104,10 +80,8 @@ client.on('interactionCreate', async interaction => {
 
 const buildDuelResultEmbed = (taskPayload) => {
     const { duelId, winner, loser, wager, pot, mapName, finalScores, playerLoadouts } = taskPayload;
-    
     const winnerLoadout = playerLoadouts?.[winner.username]?.join(', ') || 'N/A';
     const loserLoadout = playerLoadouts?.[loser.username]?.join(', ') || 'N/A';
-    
     const embed = new EmbedBuilder()
         .setColor(0x3fb950)
         .setTitle(`⚔️ Duel Result: ${winner.username} vs. ${loser.username}`)
@@ -122,15 +96,7 @@ const buildDuelResultEmbed = (taskPayload) => {
         )
         .setTimestamp()
         .setFooter({ text: `Duel ID: ${duelId}` });
-
-    const row = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setLabel('View Full Transcript')
-                .setStyle(ButtonStyle.Link)
-                .setURL(`${FRONTEND_URL}/transcripts/${duelId}`)
-        );
-
+    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('View Full Transcript').setStyle(ButtonStyle.Link).setURL(`${FRONTEND_URL}/transcripts/${duelId}`));
     return { embeds: [embed], components: [row] };
 };
 
@@ -147,6 +113,73 @@ async function sendLinkSuccessDM(task) {
     }
 }
 
+// [NEW] Function to send a "You've been challenged" DM
+async function sendDuelChallengeDM(task) {
+    try {
+        const { recipientDiscordId, challengerUsername, wager, mapName } = task.payload;
+        const user = await client.users.fetch(recipientDiscordId);
+        if (user) {
+            const embed = new EmbedBuilder()
+                .setColor(0x58a6ff) // Blue
+                .setTitle('⚔️ You Have Been Challenged!')
+                .setDescription(`**${challengerUsername}** has challenged you to a duel.`)
+                .addFields(
+                    { name: 'Wager', value: `${wager.toLocaleString()} Gems`, inline: true },
+                    { name: 'Map', value: mapName, inline: true }
+                )
+                .setTimestamp();
+            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('View on Dashboard').setStyle(ButtonStyle.Link).setURL(`${FRONTEND_URL}/dashboard`));
+            await user.send({ embeds: [embed], components: [row] });
+            console.log(`Sent new duel challenge DM to user ${recipientDiscordId}`);
+        }
+    } catch (dmError) {
+        console.error(`Failed to send duel challenge DM to user ${task.payload.recipientDiscordId}:`, dmError.message);
+    }
+}
+
+// [NEW] Function to send a "Your challenge was accepted" DM
+async function sendDuelAcceptedDM(task) {
+    try {
+        const { recipientDiscordId, opponentUsername, duelId } = task.payload;
+        const user = await client.users.fetch(recipientDiscordId);
+        if (user) {
+            const embed = new EmbedBuilder()
+                .setColor(0x3fb950) // Green
+                .setTitle('✅ Challenge Accepted!')
+                .setDescription(`**${opponentUsername}** has accepted your challenge. The duel is now ready to start from your inbox.`)
+                .setTimestamp()
+                .setFooter({ text: `Duel ID: ${duelId}` });
+            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Go to Dashboard').setStyle(ButtonStyle.Link).setURL(`${FRONTEND_URL}/dashboard`));
+            await user.send({ embeds: [embed], components: [row] });
+            console.log(`Sent duel accepted DM to user ${recipientDiscordId}`);
+        }
+    } catch (dmError) {
+        console.error(`Failed to send duel accepted DM to user ${task.payload.recipientDiscordId}:`, dmError.message);
+    }
+}
+
+// [NEW] Function to send a "Your opponent started the duel" DM
+async function sendDuelStartedDM(task) {
+    try {
+        const { recipientDiscordId, starterUsername, serverLink, duelId } = task.payload;
+        const user = await client.users.fetch(recipientDiscordId);
+        if (user) {
+            const embed = new EmbedBuilder()
+                .setColor(0xf85149) // Red
+                .setTitle('🔥 Your Duel Has Started!')
+                .setDescription(`**${starterUsername}** has started the duel. Join the server now!`)
+                .setTimestamp()
+                .setFooter({ text: `Duel ID: ${duelId}` });
+            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Join Server').setStyle(ButtonStyle.Link).setURL(serverLink));
+            await user.send({ embeds: [embed], components: [row] });
+            console.log(`Sent duel started DM to user ${recipientDiscordId}`);
+        }
+    } catch (dmError) {
+        console.error(`Failed to send duel started DM to user ${task.payload.recipientDiscordId}:`, dmError.message);
+    }
+}
+
+
 async function processDiscordTasks() {
     console.log('Fetching general Discord tasks...');
     try {
@@ -155,6 +188,7 @@ async function processDiscordTasks() {
         if (tasks.length === 0) return;
         
         for (const task of tasks) {
+            // [MODIFIED] Added cases for the new duel notification task types.
             switch (task.task_type) {
                 case 'POST_DUEL_RESULT_TO_DISCORD':
                     const channel = await client.channels.fetch(DUEL_RESULTS_CHANNEL_ID).catch(() => null);
@@ -163,9 +197,17 @@ async function processDiscordTasks() {
                         await channel.send(messagePayload);
                     }
                     break;
-                
                 case 'SEND_DISCORD_LINK_SUCCESS_DM':
                     await sendLinkSuccessDM(task);
+                    break;
+                case 'SEND_DUEL_CHALLENGE_DM':
+                    await sendDuelChallengeDM(task);
+                    break;
+                case 'SEND_DUEL_ACCEPTED_DM':
+                    await sendDuelAcceptedDM(task);
+                    break;
+                case 'SEND_DUEL_STARTED_DM':
+                    await sendDuelStartedDM(task);
                     break;
             }
             
@@ -206,7 +248,6 @@ async function updateStatChannels() {
         const memberChannelName = `📈 Members: ${memberCount.toLocaleString()}`;
         const memberChannel = await client.channels.fetch(MEMBERS_VC_ID).catch(() => null);
         if (memberChannel && memberChannel.name !== memberChannelName) {
-            // [NEW] Added logging for member count changes.
             console.log(`Updating member count channel name from "${memberChannel.name}" to "${memberChannelName}"`);
             await memberChannel.setName(memberChannelName);
         }
@@ -216,7 +257,6 @@ async function updateStatChannels() {
         const playerChannelName = `💻 Players: ${playerCount.toLocaleString()}`;
         const playerChannel = await client.channels.fetch(PLAYERS_VC_ID).catch(() => null);
         if (playerChannel && playerChannel.name !== playerChannelName) {
-            // [NEW] Added logging for player count changes.
             console.log(`Updating player count channel name from "${playerChannel.name}" to "${playerChannelName}"`);
             await playerChannel.setName(playerChannelName);
         }
