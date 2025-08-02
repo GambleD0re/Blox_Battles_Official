@@ -21,7 +21,6 @@ const decrementPlayerCount = async (client, duelId) => {
 };
 
 // --- Dispute System Endpoints ---
-// [MODIFIED] This endpoint now returns the result_posted_at timestamp.
 router.get('/unseen-results', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
@@ -151,7 +150,7 @@ router.post('/challenge', authenticateToken,
         const client = await db.getPool().connect();
         try {
             await client.query('BEGIN');
-            const { rows: [challenger] } = await client.query("SELECT status, ban_expires_at, ban_reason, gems FROM users WHERE id = $1 FOR UPDATE", [challenger_id]);
+            const { rows: [challenger] } = await client.query("SELECT status, ban_expires_at, ban_reason, gems, linked_roblox_username FROM users WHERE id = $1 FOR UPDATE", [challenger_id]);
 
             if (challenger?.status === 'banned') {
                 const now = new Date();
@@ -172,6 +171,20 @@ router.post('/challenge', authenticateToken,
 
             const bannedWeaponsStr = JSON.stringify(banned_weapons || []);
             await client.query('INSERT INTO duels (challenger_id, opponent_id, wager, banned_weapons, map, region) VALUES ($1, $2, $3, $4, $5, $6)', [challenger_id, opponent_id, wager, bannedWeaponsStr, map, region]);
+            
+            // [NEW] Create a task to notify the opponent on Discord if they are linked.
+            const { rows: [opponent] } = await client.query('SELECT discord_id FROM users WHERE id = $1', [opponent_id]);
+            if (opponent && opponent.discord_id) {
+                const mapInfo = GAME_DATA.maps.find(m => m.id === map);
+                const taskPayload = {
+                    recipientDiscordId: opponent.discord_id,
+                    challengerUsername: challenger.linked_roblox_username,
+                    wager: wager,
+                    mapName: mapInfo ? mapInfo.name : map
+                };
+                await client.query("INSERT INTO tasks (task_type, payload) VALUES ('SEND_DUEL_CHALLENGE_DM', $1)", [JSON.stringify(taskPayload)]);
+            }
+
             await client.query('COMMIT');
             res.status(201).json({ message: 'Challenge sent!' });
         } catch(err) {
@@ -252,6 +265,21 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
         };
         await client.query("INSERT INTO tasks (task_type, payload) VALUES ($1, $2)", ['REFEREE_DUEL', JSON.stringify(taskPayload)]);
         
+        // [NEW] Create a task to notify the OTHER player on Discord that the duel has started.
+        const starterId = userId;
+        const otherPlayerId = duel.challenger_id.toString() === starterId ? duel.opponent_id : duel.challenger_id;
+        const { rows: [otherPlayer] } = await client.query('SELECT discord_id FROM users WHERE id = $1', [otherPlayerId]);
+        if (otherPlayer && otherPlayer.discord_id) {
+            const { rows: [starter] } = await client.query('SELECT linked_roblox_username FROM users WHERE id = $1', [starterId]);
+            const notificationPayload = {
+                recipientDiscordId: otherPlayer.discord_id,
+                starterUsername: starter.linked_roblox_username,
+                serverLink: availableServer.join_link,
+                duelId: duelId
+            };
+            await client.query("INSERT INTO tasks (task_type, payload) VALUES ('SEND_DUEL_STARTED_DM', $1)", [JSON.stringify(notificationPayload)]);
+        }
+
         await client.query('COMMIT');
         res.status(200).json({ message: 'Duel started! Server assigned.', serverLink: availableServer.join_link });
 
@@ -265,7 +293,6 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
 });
 
 
-// [NEW] New endpoint for the bot to confirm it has matched a duel in-game.
 router.post('/:id/bot-confirm', authenticateBot, param('id').isInt(), handleValidationErrors, async (req, res) => {
     const duelId = req.params.id;
     try {
@@ -357,13 +384,13 @@ router.post('/respond', authenticateToken, body('duel_id').isInt(), body('respon
             return res.status(200).json({ message: 'Duel declined.' });
         } 
         
-        const { rows: [opponent] } = await client.query('SELECT gems, status FROM users WHERE id = $1 FOR UPDATE', [opponentId]);
+        const { rows: [opponent] } = await client.query('SELECT gems, status, linked_roblox_username FROM users WHERE id = $1 FOR UPDATE', [opponentId]);
         if (opponent.status === 'banned') {
             await client.query('ROLLBACK');
             return res.status(403).json({ message: 'You cannot accept duels while your account is banned.' });
         }
 
-        const { rows: [challenger] } = await client.query('SELECT gems FROM users WHERE id = $1 FOR UPDATE', [duel.challenger_id]);
+        const { rows: [challenger] } = await client.query('SELECT gems, discord_id FROM users WHERE id = $1 FOR UPDATE', [duel.challenger_id]);
         if (!opponent || parseInt(opponent.gems) < parseInt(duel.wager)) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'You do not have enough gems.' }); }
         if (!challenger || parseInt(challenger.gems) < parseInt(duel.wager)) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'The challenger no longer has enough gems.' }); }
 
@@ -379,6 +406,16 @@ router.post('/respond', authenticateToken, body('duel_id').isInt(), body('respon
         
         await client.query('UPDATE duels SET status = $1, accepted_at = NOW(), pot = $2, tax_collected = $3 WHERE id = $4', ['accepted', finalPot, taxCollected, duel_id]);
         
+        // [NEW] Create a task to notify the challenger that their duel was accepted.
+        if (challenger.discord_id) {
+            const taskPayload = {
+                recipientDiscordId: challenger.discord_id,
+                opponentUsername: opponent.linked_roblox_username,
+                duelId: duel_id
+            };
+            await client.query("INSERT INTO tasks (task_type, payload) VALUES ('SEND_DUEL_ACCEPTED_DM', $1)", [JSON.stringify(taskPayload)]);
+        }
+
         await client.query('COMMIT');
         res.status(200).json({ message: 'Duel accepted! You can now start the match from your inbox.' });
     } catch(err) {
