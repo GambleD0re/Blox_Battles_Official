@@ -1,6 +1,6 @@
 // discord-bot/deploy-commands.js
 require('dotenv').config();
-const { REST, Routes } = require('discord.js');
+const { REST, Routes, ApplicationCommandOptionType } = require('discord.js');
 
 const { DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, DISCORD_GUILD_ID } = process.env;
 
@@ -9,7 +9,7 @@ if (!DISCORD_BOT_TOKEN || !DISCORD_CLIENT_ID || !DISCORD_GUILD_ID) {
     process.exit(1);
 }
 
-// [MODIFIED] Added the new /unlink command to the array.
+// [MODIFIED] Added the new /challenge command with a user option.
 const commands = [
     {
         name: 'link',
@@ -18,6 +18,19 @@ const commands = [
     {
         name: 'unlink',
         description: 'Unlink your Discord account from your Blox Battles account.',
+    },
+    {
+        name: 'challenge',
+        description: 'Challenge another player to a duel using an interactive builder.',
+        options: [
+            {
+                name: 'opponent',
+                // This specifies the option must be a user.
+                type: ApplicationCommandOptionType.User,
+                description: 'The user you want to challenge',
+                required: true,
+            },
+        ],
     },
 ];
 
