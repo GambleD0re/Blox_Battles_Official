@@ -155,6 +155,18 @@ const Dashboard = () => {
     const handleCancelWithdrawalClick = (req) => { setSelectedItem({ data: req }); setIsCancelWithdrawalModalOpen(true); };
     const handleConfirmCancelWithdrawal = async () => { if (!selectedItem?.data) return; try { const r = await api.cancelWithdrawalRequest(selectedItem.data.id, token); showMessage(r.message, 'success'); setIsCancelWithdrawalModalOpen(false); await refreshUser(); fetchData(); } catch (e) { showMessage(e.message, 'error'); setIsCancelWithdrawalModalOpen(false); } };
 
+    // [NEW] Handler for responding to Discord link requests.
+    const handleRespondToLink = async (messageId, response) => {
+        try {
+            const result = await api.respondToDiscordLink(messageId, response, token);
+            showMessage(result.message, 'success');
+            await refreshUser(); // Refresh to show new linked discord username if confirmed
+            fetchData(); // Refetch inbox to remove the notification
+        } catch (error) {
+            showMessage(error.message, 'error');
+        }
+    };
+
     if (isAuthLoading || !user) {
         return <Loader fullScreen />;
     }
@@ -174,7 +186,7 @@ const Dashboard = () => {
                     <ChallengePlayer token={token} onChallenge={handleChallengePlayer} onError={showMessage} isBanned={user.status === 'banned'} />
                 </main>
                 <aside className="sidebar space-y-8">
-                    <Inbox notifications={notifications} onViewDuel={handleViewDetails} onCancelDuel={handleCancelDuelClick} onStartDuel={handleStartDuel} onForfeitDuel={handleForfeitClick} onCancelWithdrawal={handleCancelWithdrawalClick} />
+                    <Inbox notifications={notifications} onViewDuel={handleViewDetails} onCancelDuel={handleCancelDuelClick} onStartDuel={handleStartDuel} onForfeitDuel={handleForfeitClick} onCancelWithdrawal={handleCancelWithdrawalClick} onRespondToLink={handleRespondToLink} />
                 </aside>
             </div>
 
