@@ -47,8 +47,10 @@ const client = new Client({
 
 // Command and Modal Interaction Handler
 client.on('interactionCreate', async interaction => {
+    // --- Slash Command Handling ---
     if (interaction.isChatInputCommand()) {
         const { commandName } = interaction;
+
         if (commandName === 'link') {
             const modal = new ModalBuilder().setCustomId('linkAccountModal').setTitle('Link Your Blox Battles Account');
             const usernameInput = new TextInputBuilder().setCustomId('robloxUsernameInput').setLabel("Your Blox Battles (Roblox) Username").setStyle(TextInputStyle.Short).setPlaceholder('Enter your exact Roblox username').setRequired(true);
@@ -56,8 +58,27 @@ client.on('interactionCreate', async interaction => {
             modal.addComponents(actionRow);
             await interaction.showModal(modal);
         }
+        // [NEW] Handle the /unlink command
+        else if (commandName === 'unlink') {
+            const embed = new EmbedBuilder()
+                .setColor(0xf85149) // Red
+                .setTitle('Unlink Account Confirmation')
+                .setDescription('Are you sure you want to unlink your Discord account from your Blox Battles account? You will stop receiving all notifications.');
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('confirm_unlink').setLabel('Confirm').setStyle(ButtonStyle.Danger),
+                new ButtonBuilder().setCustomId('cancel_unlink').setLabel('Cancel').setStyle(ButtonStyle.Secondary)
+            );
+
+            await interaction.reply({
+                embeds: [embed],
+                components: [row],
+                ephemeral: true
+            });
+        }
     }
-    else if (interaction.type === InteractionType.ModalSubmit) {
+    // --- Modal Submission Handling ---
+    else if (interaction.isModalSubmit()) {
         if (interaction.customId === 'linkAccountModal') {
             await interaction.deferReply({ ephemeral: true });
             const robloxUsername = interaction.fields.getTextInputValue('robloxUsernameInput');
@@ -73,6 +94,25 @@ client.on('interactionCreate', async interaction => {
                 const errorMessage = error.response?.data?.message || 'An unknown error occurred. Please try again later.';
                 await interaction.editReply({ content: `❌ **Error:** ${errorMessage}`, flags: [MessageFlags.Ephemeral] });
             }
+        }
+    }
+    // --- Button Click Handling ---
+    else if (interaction.isButton()) {
+        const { customId } = interaction;
+
+        if (customId === 'confirm_unlink') {
+            try {
+                await apiClient.post('/api/discord/unlink', { discordId: interaction.user.id });
+                const successEmbed = new EmbedBuilder().setColor(0x3fb950).setTitle('✅ Success').setDescription('Your Discord account has been successfully unlinked.');
+                await interaction.update({ embeds: [successEmbed], components: [] });
+            } catch (error) {
+                const errorMessage = error.response?.data?.message || 'An unknown error occurred.';
+                const errorEmbed = new EmbedBuilder().setColor(0xf85149).setTitle('❌ Error').setDescription(errorMessage);
+                await interaction.update({ embeds: [errorEmbed], components: [] });
+            }
+        } else if (customId === 'cancel_unlink') {
+            const cancelEmbed = new EmbedBuilder().setColor(0x58a6ff).setTitle('🚫 Canceled').setDescription('The unlink process has been canceled.');
+            await interaction.update({ embeds: [cancelEmbed], components: [] });
         }
     }
 });
@@ -113,14 +153,13 @@ async function sendLinkSuccessDM(task) {
     }
 }
 
-// [NEW] Function to send a "You've been challenged" DM
 async function sendDuelChallengeDM(task) {
     try {
         const { recipientDiscordId, challengerUsername, wager, mapName } = task.payload;
         const user = await client.users.fetch(recipientDiscordId);
         if (user) {
             const embed = new EmbedBuilder()
-                .setColor(0x58a6ff) // Blue
+                .setColor(0x58a6ff)
                 .setTitle('⚔️ You Have Been Challenged!')
                 .setDescription(`**${challengerUsername}** has challenged you to a duel.`)
                 .addFields(
@@ -137,14 +176,13 @@ async function sendDuelChallengeDM(task) {
     }
 }
 
-// [NEW] Function to send a "Your challenge was accepted" DM
 async function sendDuelAcceptedDM(task) {
     try {
         const { recipientDiscordId, opponentUsername, duelId } = task.payload;
         const user = await client.users.fetch(recipientDiscordId);
         if (user) {
             const embed = new EmbedBuilder()
-                .setColor(0x3fb950) // Green
+                .setColor(0x3fb950)
                 .setTitle('✅ Challenge Accepted!')
                 .setDescription(`**${opponentUsername}** has accepted your challenge. The duel is now ready to start from your inbox.`)
                 .setTimestamp()
@@ -158,14 +196,13 @@ async function sendDuelAcceptedDM(task) {
     }
 }
 
-// [NEW] Function to send a "Your opponent started the duel" DM
 async function sendDuelStartedDM(task) {
     try {
         const { recipientDiscordId, starterUsername, serverLink, duelId } = task.payload;
         const user = await client.users.fetch(recipientDiscordId);
         if (user) {
             const embed = new EmbedBuilder()
-                .setColor(0xf85149) // Red
+                .setColor(0xf85149)
                 .setTitle('🔥 Your Duel Has Started!')
                 .setDescription(`**${starterUsername}** has started the duel. Join the server now!`)
                 .setTimestamp()
@@ -188,7 +225,6 @@ async function processDiscordTasks() {
         if (tasks.length === 0) return;
         
         for (const task of tasks) {
-            // [MODIFIED] Added cases for the new duel notification task types.
             switch (task.task_type) {
                 case 'POST_DUEL_RESULT_TO_DISCORD':
                     const channel = await client.channels.fetch(DUEL_RESULTS_CHANNEL_ID).catch(() => null);
