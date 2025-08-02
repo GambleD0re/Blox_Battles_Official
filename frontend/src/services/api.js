@@ -86,6 +86,9 @@ export const getTournaments = (token) => apiRequest('/tournaments', 'GET', null,
 export const getTournamentDetails = (id, token) => apiRequest(`/tournaments/${id}`, 'GET', null, token);
 export const registerForTournament = (id, token) => apiRequest(`/tournaments/${id}/register`, 'POST', null, token);
 
+// --- [NEW] DISCORD LINKING ---
+export const respondToDiscordLink = (messageId, response, token) => apiRequest('/discord/respond-link', 'POST', { messageId, response }, token);
+
 // --- ADMIN ---
 export const getAdminStats = (token) => apiRequest('/admin/stats', 'GET', null, token);
 export const getAdminLogs = (token) => apiRequest('/admin/logs', 'GET', null, token);
