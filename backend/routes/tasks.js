@@ -52,12 +52,18 @@ router.get('/bot/discord', authenticateBot, async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // [FIX] Updated the WHERE clause to include both types of tasks for the Discord bot.
+        // [FIX] Updated the WHERE clause to include all valid task types for the Discord bot.
         const sql = `
             SELECT id, task_type, payload
             FROM tasks
             WHERE status = 'pending'
-              AND task_type IN ('POST_DUEL_RESULT_TO_DISCORD', 'SEND_DISCORD_LINK_SUCCESS_DM')
+              AND task_type IN (
+                  'POST_DUEL_RESULT_TO_DISCORD', 
+                  'SEND_DISCORD_LINK_SUCCESS_DM',
+                  'SEND_DUEL_CHALLENGE_DM',
+                  'SEND_DUEL_ACCEPTED_DM',
+                  'SEND_DUEL_STARTED_DM'
+              )
             FOR UPDATE SKIP LOCKED
             LIMIT 5
         `;
