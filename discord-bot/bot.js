@@ -1,11 +1,11 @@
 // discord-bot/bot.js
 require('dotenv').config();
 const axios = require('axios');
-// [MODIFIED] Added builders and types for Slash Commands and Modals.
+// [MODIFIED] Added MessageFlags to fix a deprecation warning.
 const {
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder,
     ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder,
-    TextInputStyle, InteractionType
+    TextInputStyle, InteractionType, MessageFlags
 } = require('discord.js');
 
 // --- Configuration ---
@@ -39,27 +39,24 @@ const REGION_CHANNELS = {
     'OCE':     { id: OCE_VC_ID,     name: 'Oceania' }
 };
 
-// [MODIFIED] Add the GuildMembers intent to allow the bot to see all server members.
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers
+        GatewayIntentBits.GuildMembers 
     ]
 });
 
-// [NEW] Command and Modal Interaction Handler
+// Command and Modal Interaction Handler
 client.on('interactionCreate', async interaction => {
     // Handle Slash Command interactions
     if (interaction.isChatInputCommand()) {
         const { commandName } = interaction;
 
         if (commandName === 'link') {
-            // Create the modal for account linking
             const modal = new ModalBuilder()
                 .setCustomId('linkAccountModal')
                 .setTitle('Link Your Blox Battles Account');
 
-            // Create the text input component
             const usernameInput = new TextInputBuilder()
                 .setCustomId('robloxUsernameInput')
                 .setLabel("Your Blox Battles (Roblox) Username")
@@ -67,11 +64,9 @@ client.on('interactionCreate', async interaction => {
                 .setPlaceholder('Enter your exact Roblox username')
                 .setRequired(true);
 
-            // Add the input to an action row, then to the modal
             const actionRow = new ActionRowBuilder().addComponents(usernameInput);
             modal.addComponents(actionRow);
 
-            // Show the modal to the user
             await interaction.showModal(modal);
         }
     }
@@ -82,26 +77,27 @@ client.on('interactionCreate', async interaction => {
 
             const robloxUsername = interaction.fields.getTextInputValue('robloxUsernameInput');
             const discordId = interaction.user.id;
-            const discordUsername = interaction.user.tag; // e.g., username#1234
+            const discordUsername = interaction.user.tag;
 
             try {
-                // Call the backend API to initiate the link
                 await apiClient.post('/api/discord/initiate-link', {
                     robloxUsername,
                     discordId,
                     discordUsername,
                 });
-
+                
+                // [FIX] Updated to use flags instead of the deprecated 'ephemeral' property.
                 await interaction.editReply({
                     content: `✅ **Request Sent!**\nA confirmation request has been sent to the inbox of the Blox Battles account for **${robloxUsername}**.\n\nPlease log in to the website to complete the linking process.`,
-                    ephemeral: true
+                    flags: [MessageFlags.Ephemeral]
                 });
 
             } catch (error) {
                 const errorMessage = error.response?.data?.message || 'An unknown error occurred. Please try again later.';
+                // [FIX] Updated to use flags instead of the deprecated 'ephemeral' property.
                 await interaction.editReply({
                     content: `❌ **Error:** ${errorMessage}`,
-                    ephemeral: true
+                    flags: [MessageFlags.Ephemeral]
                 });
             }
         }
