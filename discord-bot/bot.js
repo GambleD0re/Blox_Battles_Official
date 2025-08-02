@@ -134,7 +134,6 @@ const buildDuelResultEmbed = (taskPayload) => {
     return { embeds: [embed], components: [row] };
 };
 
-// [NEW] Function to handle sending the link success DM.
 async function sendLinkSuccessDM(task) {
     try {
         const { discordId } = task.payload;
@@ -156,7 +155,6 @@ async function processDiscordTasks() {
         if (tasks.length === 0) return;
         
         for (const task of tasks) {
-            // [MODIFIED] Added a switch to handle multiple task types.
             switch (task.task_type) {
                 case 'POST_DUEL_RESULT_TO_DISCORD':
                     const channel = await client.channels.fetch(DUEL_RESULTS_CHANNEL_ID).catch(() => null);
@@ -203,11 +201,13 @@ async function updateStatChannels() {
         const guild = client.guilds.cache.first();
         if (!guild) return;
         
-        await guild.members.fetch(); // Ensure member cache is fresh
+        await guild.members.fetch();
         const memberCount = guild.memberCount;
         const memberChannelName = `📈 Members: ${memberCount.toLocaleString()}`;
         const memberChannel = await client.channels.fetch(MEMBERS_VC_ID).catch(() => null);
         if (memberChannel && memberChannel.name !== memberChannelName) {
+            // [NEW] Added logging for member count changes.
+            console.log(`Updating member count channel name from "${memberChannel.name}" to "${memberChannelName}"`);
             await memberChannel.setName(memberChannelName);
         }
 
@@ -216,6 +216,8 @@ async function updateStatChannels() {
         const playerChannelName = `💻 Players: ${playerCount.toLocaleString()}`;
         const playerChannel = await client.channels.fetch(PLAYERS_VC_ID).catch(() => null);
         if (playerChannel && playerChannel.name !== playerChannelName) {
+            // [NEW] Added logging for player count changes.
+            console.log(`Updating player count channel name from "${playerChannel.name}" to "${playerChannelName}"`);
             await playerChannel.setName(playerChannelName);
         }
     } catch (err) {
