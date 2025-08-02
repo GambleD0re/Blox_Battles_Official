@@ -60,6 +60,8 @@ const SettingsPage = () => {
     const [notificationsEnabled, setNotificationsEnabled] = useState(user?.push_notifications_enabled ?? true);
 
     const [isUnlinkModalOpen, setUnlinkModalOpen] = useState(false);
+    // [NEW] State for the new unlink Discord modal.
+    const [isUnlinkDiscordModalOpen, setUnlinkDiscordModalOpen] = useState(false);
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
 
     useEffect(() => {
@@ -111,6 +113,18 @@ const SettingsPage = () => {
             showMessage(error.message, 'error');
         }
     };
+
+    // [NEW] Handler for unlinking Discord account.
+    const handleUnlinkDiscord = async () => {
+        try {
+            await api.unlinkDiscord(token);
+            showMessage("Discord account unlinked successfully.", 'success');
+            setUnlinkDiscordModalOpen(false);
+            await refreshUser();
+        } catch (error) {
+            showMessage(error.message, 'error');
+        }
+    };
     
     const handleConfirmDelete = async () => {
         try {
@@ -144,8 +158,9 @@ const SettingsPage = () => {
                     <SettingsRow label="Email Address" value={user.email} />
                     <SettingsRow label="User ID" value={user.id} />
                     <SettingsRow label="Linked Roblox Account" value={user.linked_roblox_username || 'Not Linked'} />
+                    {/* [NEW] Display linked Discord username. */}
+                    <SettingsRow label="Linked Discord Account" value={user.discord_username || 'Not Linked'} />
                     <SettingsRow label="Member Since" value={formatDate(user.created_at)} />
-                    {/* [NEW] Button to navigate to the new transaction history page. */}
                     <div className="text-center pt-4 mt-2">
                         <button onClick={() => navigate('/history')} className="btn btn-primary">
                             Transaction History
@@ -184,6 +199,15 @@ const SettingsPage = () => {
                             </button>
                         </div>
                         <DangerZoneCard title="Unlink Roblox Account" text="This will remove the connection to your Roblox account." buttonText="Unlink" onAction={() => setUnlinkModalOpen(true)} />
+                        {/* [NEW] Conditionally render the Unlink Discord button. */}
+                        {user.discord_id && (
+                             <DangerZoneCard 
+                                title="Unlink Discord Account" 
+                                text={`Currently linked to ${user.discord_username}.`} 
+                                buttonText="Unlink" 
+                                onAction={() => setUnlinkDiscordModalOpen(true)} 
+                            />
+                        )}
                         <DangerZoneCard title="Delete Account" text="This action is permanent and cannot be undone." buttonText="Delete" onAction={() => setDeleteModalOpen(true)} />
                     </div>
                 </SettingsCard>
@@ -195,6 +219,15 @@ const SettingsPage = () => {
                 onConfirm={handleUnlinkRoblox}
                 title="Unlink Roblox Account?"
                 text="Are you sure? You will need to re-verify your account to participate in duels."
+                confirmText="Yes, Unlink"
+            />
+            {/* [NEW] Add the confirmation modal for unlinking Discord. */}
+            <ConfirmationModal
+                isOpen={isUnlinkDiscordModalOpen}
+                onClose={() => setUnlinkDiscordModalOpen(false)}
+                onConfirm={handleUnlinkDiscord}
+                title="Unlink Discord Account?"
+                text="Are you sure? You can re-link your account later using the /link command in Discord."
                 confirmText="Yes, Unlink"
             />
             <ConfirmationModal 
