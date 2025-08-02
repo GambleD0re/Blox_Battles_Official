@@ -17,6 +17,8 @@ const duelHistoryRoutes = require('./duelHistory.js');
 const tournamentRoutes = require('./tournaments.js');
 // [NEW] Import the new public transcript router.
 const transcriptRoutes = require('./transcripts.js');
+// [NEW] Import the new Discord integration router.
+const discordRoutes = require('./discord.js');
 
 const router = express.Router();
 
@@ -37,6 +39,8 @@ router.use('/duel-history', duelHistoryRoutes);
 router.use('/tournaments', tournamentRoutes);
 // [NEW] Register the public transcript router.
 router.use('/transcripts', transcriptRoutes);
+// [NEW] Register the Discord integration router.
+router.use('/discord', discordRoutes);
 
 
 // The most general route ('/') should come LAST
