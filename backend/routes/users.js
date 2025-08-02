@@ -42,6 +42,7 @@ router.get('/user-data', authenticateToken, async (req, res) => {
         const sql = `
             SELECT id, email, google_id, gems, wins, losses, is_admin, 
                    linked_roblox_id, linked_roblox_username, verification_phrase,
+                   discord_id, discord_username,
                    created_at, password_last_updated, push_notifications_enabled,
                    status, ban_reason, ban_applied_at, ban_expires_at
             FROM users WHERE id = $1
@@ -165,6 +166,20 @@ router.post('/user/unlink/roblox', authenticateToken, async (req, res) => {
         res.status(200).json({ message: 'Roblox account unlinked successfully.' });
     } catch(err) {
         console.error("Unlink Roblox Error:", err.message);
+        res.status(500).json({ message: 'An internal server error occurred.' });
+    }
+});
+
+// [NEW] Unlink Discord account
+router.post('/user/unlink/discord', authenticateToken, async (req, res) => {
+    try {
+        await db.query(
+            'UPDATE users SET discord_id = NULL, discord_username = NULL WHERE id = $1',
+            [req.user.userId]
+        );
+        res.status(200).json({ message: 'Discord account unlinked successfully.' });
+    } catch(err) {
+        console.error("Unlink Discord Error:", err.message);
         res.status(500).json({ message: 'An internal server error occurred.' });
     }
 });
