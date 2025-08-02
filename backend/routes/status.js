@@ -11,9 +11,8 @@ router.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
 });
 
-// [MODIFIED] Endpoint for the frontend to get the live status of all registered bots.
-// This is now purely informational for the user.
-router.get('/', authenticateToken, async (req, res) => {
+// [MODIFIED] Endpoint for the Discord bot to get live status, now protected by authenticateBot.
+router.get('/', authenticateBot, async (req, res) => {
     try {
         const BOT_OFFLINE_THRESHOLD_SECONDS = 45;
         const sql = `
@@ -31,11 +30,10 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 
-// [MODIFIED] The heartbeat endpoint now registers the bot's serverId and joinLink in the database.
+// [MODIFIED] The heartbeat endpoint now lives here and is protected by authenticateBot.
 router.post('/heartbeat',
     authenticateBot,
     [
-        // Regex validates formats like "NA-East_1", "EU_1", "OCE_12", etc.
         body('serverId').matches(/^[A-Z]{2,3}(?:-[A-Za-z]+)?_[0-9]+$/).withMessage('Invalid serverId format (e.g., NA-East_1, EU_1).'),
         body('joinLink').isURL().withMessage('A valid joinLink URL is required.')
     ],
@@ -43,12 +41,9 @@ router.post('/heartbeat',
     async (req, res) => {
         const { serverId, joinLink } = req.body;
         
-        // Extract region from serverId (e.g., "NA-East_1" -> "NA-East")
         const region = serverId.substring(0, serverId.lastIndexOf('_'));
 
         try {
-            // This query performs an "UPSERT": it inserts a new server if it doesn't exist,
-            // or updates the existing one's join link and heartbeat if it does.
             const sql = `
                 INSERT INTO game_servers (server_id, region, join_link, last_heartbeat)
                 VALUES ($1, $2, $3, NOW())
