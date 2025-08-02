@@ -6,6 +6,7 @@ const { Client, GatewayIntentBits } = require('discord.js');
 // --- Configuration ---
 const {
     DISCORD_BOT_TOKEN,
+    BOT_API_KEY, // [NEW] Read the API key from .env
     BACKEND_API_URL,
     UPDATE_INTERVAL_SECONDS,
     NA_EAST_VC_ID,
@@ -16,6 +17,14 @@ const {
 
 const STATUS_API_ENDPOINT = `${BACKEND_API_URL}/api/status`;
 const UPDATE_INTERVAL_MS = parseInt(UPDATE_INTERVAL_SECONDS, 10) * 1000 || 30000;
+
+// [NEW] Axios instance with default headers for authentication
+const apiClient = axios.create({
+    baseURL: BACKEND_API_URL,
+    headers: {
+        'X-API-Key': BOT_API_KEY
+    }
+});
 
 // Mapping of region names to their Discord Channel IDs and display names
 const REGION_CHANNELS = {
@@ -36,7 +45,8 @@ const client = new Client({
 async function updateServerStatus() {
     console.log('Fetching server status from backend...');
     try {
-        const response = await axios.get(STATUS_API_ENDPOINT);
+        // [MODIFIED] Use the authenticated apiClient instance
+        const response = await apiClient.get('/api/status');
         const onlineServers = response.data;
         const activeRegions = new Set(onlineServers.map(server => server.region));
         
@@ -87,14 +97,18 @@ async function updateServerStatus() {
 client.once('ready', () => {
     console.log(`Bot logged in as ${client.user.tag}!`);
     
-    // Run immediately on startup, then start the interval
     updateServerStatus();
     setInterval(updateServerStatus, UPDATE_INTERVAL_MS);
 });
 
-// --- Login ---
+// --- Login & Validation ---
 if (!DISCORD_BOT_TOKEN) {
     console.error("FATAL: DISCORD_BOT_TOKEN is not defined in the .env file. Bot cannot start.");
+    process.exit(1);
+}
+// [NEW] Add validation check for the BOT_API_KEY
+if (!BOT_API_KEY) {
+    console.error("FATAL: BOT_API_KEY is not defined in the .env file. Bot cannot authenticate with the backend.");
     process.exit(1);
 }
 client.login(DISCORD_BOT_TOKEN);
