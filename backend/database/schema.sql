@@ -5,12 +5,15 @@ DROP TABLE IF EXISTS users, duels, tasks, push_subscriptions, game_servers, disp
 
 -- Create the 'users' table. 'SERIAL' is the PostgreSQL equivalent of AUTOINCREMENT.
 -- 'UUID' is a better type for your unique 'id' column.
+-- [MODIFIED] Added 'discord_id' and 'discord_username' columns for Discord account linking.
 CREATE TABLE users (
     user_index SERIAL PRIMARY KEY,
     id UUID NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash TEXT,
     google_id VARCHAR(255) UNIQUE,
+    discord_id VARCHAR(255) UNIQUE,
+    discord_username VARCHAR(255),
     gems BIGINT DEFAULT 0,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
@@ -82,10 +85,11 @@ CREATE TABLE payout_requests (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- [MODIFIED] Added 'discord_link_request' to the list of allowed message types.
 CREATE TABLE inbox_messages (
     id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type VARCHAR(50) NOT NULL CHECK(type IN ('withdrawal_update', 'admin_message')),
+    type VARCHAR(50) NOT NULL CHECK(type IN ('withdrawal_update', 'admin_message', 'discord_link_request')),
     title TEXT NOT NULL,
     message TEXT NOT NULL,
     reference_id TEXT,
