@@ -117,7 +117,7 @@ router.post('/respond-link',
                     [discordId, discordUsername, userId]
                 );
                 
-                // [NEW] Create a task for the Discord bot to send a confirmation DM.
+                // Create a task for the Discord bot to send a confirmation DM.
                 const taskPayload = { discordId: discordId };
                 await client.query(
                     "INSERT INTO tasks (task_type, payload) VALUES ('SEND_DISCORD_LINK_SUCCESS_DM', $1)",
