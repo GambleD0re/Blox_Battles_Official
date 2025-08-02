@@ -14,10 +14,13 @@ const {
     NA_EAST_VC_ID,
     NA_WEST_VC_ID,
     EUROPE_VC_ID,
-    OCE_VC_ID
+    OCE_VC_ID,
+    MEMBERS_VC_ID,
+    PLAYERS_VC_ID
 } = process.env;
 
 const UPDATE_INTERVAL_MS = parseInt(UPDATE_INTERVAL_SECONDS, 10) * 1000 || 15000;
+const STATS_UPDATE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
 const apiClient = axios.create({
     baseURL: BACKEND_API_URL,
@@ -31,7 +34,6 @@ const REGION_CHANNELS = {
     'OCE':     { id: OCE_VC_ID,     name: 'Oceania' }
 };
 
-// --- Discord Client Initialization ---
 const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
@@ -132,7 +134,6 @@ async function updateServerStatus() {
         }
     } catch (apiError) {
         console.error(`Error fetching status from backend API: ${apiError.message}`);
-        // If we can't reach the backend, assume all servers are down.
         for (const [regionKey, channelInfo] of Object.entries(REGION_CHANNELS)) {
              const newName = `${channelInfo.name}: 🔴`;
              try {
@@ -148,6 +149,48 @@ async function updateServerStatus() {
     }
 }
 
+// --- Stat Channel Update Function ---
+async function updateStatChannels() {
+    console.log('Updating stat channels...');
+    if (!MEMBERS_VC_ID || !PLAYERS_VC_ID) {
+        console.warn('Member or Player VC ID is not configured. Skipping stat update.');
+        return;
+    }
+
+    try {
+        const guild = client.guilds.cache.first();
+        if (!guild) {
+            console.error('Bot is not in any guild.');
+            return;
+        }
+
+        // 1. Update Discord Member Count
+        await guild.members.fetch(); // Ensure member cache is up-to-date
+        const memberCount = guild.memberCount;
+        const memberChannelName = `📈 Members: ${memberCount.toLocaleString()}`;
+        
+        const memberChannel = await client.channels.fetch(MEMBERS_VC_ID);
+        if (memberChannel && memberChannel.name !== memberChannelName) {
+            await memberChannel.setName(memberChannelName);
+            console.log(`Updated member count channel to: ${memberChannelName}`);
+        }
+
+        // 2. Update Website Player Count
+        const response = await apiClient.get('/api/status/player-count');
+        const playerCount = response.data.playerCount || 0;
+        const playerChannelName = `💻 Players: ${playerCount.toLocaleString()}`;
+        
+        const playerChannel = await client.channels.fetch(PLAYERS_VC_ID);
+        if (playerChannel && playerChannel.name !== playerChannelName) {
+            await playerChannel.setName(playerChannelName);
+            console.log(`Updated player count channel to: ${playerChannelName}`);
+        }
+
+    } catch (err) {
+        console.error(`Failed to update stat channels: ${err.message}`);
+    }
+}
+
 // --- Bot Events ---
 client.once('ready', () => {
     console.log(`Bot logged in as ${client.user.tag}!`);
@@ -155,18 +198,16 @@ client.once('ready', () => {
     // Run all tasks on startup, then start intervals
     updateServerStatus();
     processDiscordTasks();
+    updateStatChannels();
 
     setInterval(updateServerStatus, UPDATE_INTERVAL_MS);
-    setInterval(processDiscordTasks, UPDATE_INTERVAL_MS); // Use the same interval
+    setInterval(processDiscordTasks, UPDATE_INTERVAL_MS);
+    setInterval(updateStatChannels, STATS_UPDATE_INTERVAL_MS);
 });
 
 // --- Login & Validation ---
-if (!DISCORD_BOT_TOKEN) {
-    console.error("FATAL: DISCORD_BOT_TOKEN is not defined in the .env file.");
-    process.exit(1);
-}
-if (!BOT_API_KEY) {
-    console.error("FATAL: BOT_API_KEY is not defined in the .env file.");
+if (!DISCORD_BOT_TOKEN || !BOT_API_KEY) {
+    console.error("FATAL: DISCORD_BOT_TOKEN or BOT_API_KEY is not defined in the .env file.");
     process.exit(1);
 }
 if (!DUEL_RESULTS_CHANNEL_ID) {
