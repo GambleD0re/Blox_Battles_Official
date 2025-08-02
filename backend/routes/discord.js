@@ -23,7 +23,6 @@ router.post('/initiate-link',
         try {
             await client.query('BEGIN');
 
-            // Find the user by their linked Roblox username.
             const { rows: [user] } = await client.query(
                 "SELECT id, discord_id FROM users WHERE linked_roblox_username ILIKE $1",
                 [robloxUsername]
@@ -39,7 +38,6 @@ router.post('/initiate-link',
                 return res.status(409).json({ message: 'This Blox Battles account is already linked to a Discord account.' });
             }
 
-            // Check if the Discord ID is already linked to another account.
             const { rows: [existingDiscordLink] } = await client.query(
                 "SELECT id FROM users WHERE discord_id = $1",
                 [discordId]
@@ -50,12 +48,10 @@ router.post('/initiate-link',
                 return res.status(409).json({ message: 'This Discord account is already linked to another Blox Battles account.' });
             }
 
-            // Create an inbox message for the user to confirm.
             const messageSql = `
                 INSERT INTO inbox_messages (user_id, type, title, message, reference_id)
                 VALUES ($1, 'discord_link_request', 'Discord Account Link Request', $2, $3)
             `;
-            // We store the discord username in the message body and the discordId in the reference_id.
             await client.query(messageSql, [user.id, discordUsername, discordId]);
 
             await client.query('COMMIT');
@@ -87,7 +83,6 @@ router.post('/respond-link',
         try {
             await client.query('BEGIN');
 
-            // Find the specific message to ensure the user owns it.
             const numericId = parseInt(messageId.replace('message-', ''), 10);
             const { rows: [message] } = await client.query(
                 "SELECT id, message, reference_id FROM inbox_messages WHERE id = $1 AND user_id = $2 AND type = 'discord_link_request'",
@@ -103,7 +98,6 @@ router.post('/respond-link',
                 const discordUsername = message.message;
                 const discordId = message.reference_id;
 
-                // Final check to prevent race conditions.
                 const { rows: [existingLink] } = await client.query("SELECT id FROM users WHERE discord_id = $1", [discordId]);
                 if (existingLink) {
                     await client.query("DELETE FROM inbox_messages WHERE id = $1", [numericId]);
@@ -111,13 +105,11 @@ router.post('/respond-link',
                     return res.status(409).json({ message: 'This Discord account has already been linked by another user.' });
                 }
 
-                // Link the account.
                 await client.query(
                     "UPDATE users SET discord_id = $1, discord_username = $2 WHERE id = $3",
                     [discordId, discordUsername, userId]
                 );
                 
-                // Create a task for the Discord bot to send a confirmation DM.
                 const taskPayload = { discordId: discordId };
                 await client.query(
                     "INSERT INTO tasks (task_type, payload) VALUES ('SEND_DISCORD_LINK_SUCCESS_DM', $1)",
@@ -125,7 +117,6 @@ router.post('/respond-link',
                 );
             }
 
-            // Delete the message regardless of the response.
             await client.query("DELETE FROM inbox_messages WHERE id = $1", [numericId]);
 
             await client.query('COMMIT');
@@ -137,6 +128,34 @@ router.post('/respond-link',
             res.status(500).json({ message: 'An internal server error occurred.' });
         } finally {
             client.release();
+        }
+    }
+);
+
+// [NEW] Endpoint for the Discord bot to unlink an account.
+router.post('/unlink',
+    authenticateBot,
+    [
+        body('discordId').isString().notEmpty().withMessage('Discord ID is required.')
+    ],
+    handleValidationErrors,
+    async (req, res) => {
+        const { discordId } = req.body;
+        try {
+            const { rowCount } = await db.query(
+                "UPDATE users SET discord_id = NULL, discord_username = NULL WHERE discord_id = $1",
+                [discordId]
+            );
+
+            if (rowCount === 0) {
+                return res.status(404).json({ message: "No Blox Battles account is linked to this Discord account." });
+            }
+
+            res.status(200).json({ message: "Account unlinked successfully." });
+
+        } catch (error) {
+            console.error("Discord Unlink Error:", error);
+            res.status(500).json({ message: "An internal server error occurred." });
         }
     }
 );
