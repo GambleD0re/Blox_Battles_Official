@@ -78,6 +78,8 @@ export const updateWithdrawalDetails = (requestId, details, token) => apiRequest
 // --- SETTINGS ---
 export const updatePassword = (passwordData, token) => apiRequest('/user/password', 'PUT', passwordData, token);
 export const unlinkRoblox = (token) => apiRequest('/user/unlink/roblox', 'POST', null, token);
+// [NEW] Add unlinkDiscord function
+export const unlinkDiscord = (token) => apiRequest('/user/unlink/discord', 'POST', null, token);
 export const deleteAccount = (password, token) => apiRequest('/user/delete/account', 'DELETE', { password }, token);
 export const updateNotificationPreference = (enabled, token) => apiRequest('/user/notification-preference', 'PUT', { enabled }, token);
 
@@ -86,7 +88,7 @@ export const getTournaments = (token) => apiRequest('/tournaments', 'GET', null,
 export const getTournamentDetails = (id, token) => apiRequest(`/tournaments/${id}`, 'GET', null, token);
 export const registerForTournament = (id, token) => apiRequest(`/tournaments/${id}/register`, 'POST', null, token);
 
-// --- [NEW] DISCORD LINKING ---
+// --- DISCORD LINKING ---
 export const respondToDiscordLink = (messageId, response, token) => apiRequest('/discord/respond-link', 'POST', { messageId, response }, token);
 
 // --- ADMIN ---
