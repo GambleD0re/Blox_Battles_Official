@@ -46,17 +46,18 @@ router.get('/:serverId',
         }
 });
 
-// [NEW] Endpoint for the DISCORD bot to fetch general, non-server-specific tasks.
+// [MODIFIED] Endpoint for the DISCORD bot to fetch general, non-server-specific tasks.
 router.get('/bot/discord', authenticateBot, async (req, res) => {
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
 
+        // [FIX] Updated the WHERE clause to include both types of tasks for the Discord bot.
         const sql = `
             SELECT id, task_type, payload
             FROM tasks
             WHERE status = 'pending'
-              AND task_type = 'POST_DUEL_RESULT_TO_DISCORD'
+              AND task_type IN ('POST_DUEL_RESULT_TO_DISCORD', 'SEND_DISCORD_LINK_SUCCESS_DM')
             FOR UPDATE SKIP LOCKED
             LIMIT 5
         `;
