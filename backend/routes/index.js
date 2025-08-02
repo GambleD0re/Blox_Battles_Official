@@ -14,8 +14,9 @@ const payoutRoutes = require('./payouts.js');
 const inboxRoutes = require('./inbox.js');
 const historyRoutes = require('./history.js');
 const duelHistoryRoutes = require('./duelHistory.js');
-// [NEW] Import the new tournament router.
 const tournamentRoutes = require('./tournaments.js');
+// [NEW] Import the new public transcript router.
+const transcriptRoutes = require('./transcripts.js');
 
 const router = express.Router();
 
@@ -33,8 +34,10 @@ router.use('/payouts', payoutRoutes);
 router.use('/inbox', inboxRoutes);
 router.use('/history', historyRoutes);
 router.use('/duel-history', duelHistoryRoutes);
-// [NEW] Register the tournament router.
 router.use('/tournaments', tournamentRoutes);
+// [NEW] Register the public transcript router.
+router.use('/transcripts', transcriptRoutes);
+
 
 // The most general route ('/') should come LAST
 router.use('/', userRoutes);
