@@ -112,6 +112,9 @@ services:
     envVars:
       - key: DISCORD_BOT_TOKEN
         sync: false
+      # [NEW] Added the Bot API Key for backend authentication
+      - key: BOT_API_KEY
+        sync: false
       - key: BACKEND_API_URL
         value: https://blox-battles-backend.onrender.com
       - key: UPDATE_INTERVAL_SECONDS
