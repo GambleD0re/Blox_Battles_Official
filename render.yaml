@@ -1,5 +1,5 @@
-# render.yaml - A Render Blueprint for the Blox Battles Application (v13 - Final Cron Job Fix)
-# This version adds the build command to the cron job service.
+# render.yaml - A Render Blueprint for the Blox Battles Application
+# This version adds the new Discord Bot worker service.
 
 databases:
   - name: blox-battles-db
@@ -17,7 +17,6 @@ services:
     region: oregon
     rootDir: ./backend
     buildCommand: "npm install"
-    # [CORRECTED] Chained the new seed script to run after schema setup.
     preDeployCommand: "./setup-database.sh && node seed-admin.js"
     startCommand: "node server.js"
     healthCheckPath: /healthz
@@ -31,7 +30,6 @@ services:
       - key: BACKEND_URL
         value: https://blox-battles-backend.onrender.com
       # --- SECRETS (sync: false) ---
-      # [NEW] Added the secure password for the default admin account.
       - key: DEFAULT_ADMIN_PASSWORD
         sync: false
       - key: JWT_SECRET
@@ -99,3 +97,30 @@ services:
         fromDatabase:
           name: blox-battles-db
           property: connectionString
+          
+  # ---------------------
+  # 4. The Discord Bot Worker
+  # ---------------------
+  - type: worker
+    name: blox-battles-discord-bot
+    runtime: node
+    plan: starter
+    region: oregon
+    rootDir: ./discord-bot
+    buildCommand: "npm install"
+    startCommand: "node bot.js"
+    envVars:
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: BACKEND_API_URL
+        value: https://blox-battles-backend.onrender.com
+      - key: UPDATE_INTERVAL_SECONDS
+        value: 30
+      - key: NA_EAST_VC_ID
+        sync: false
+      - key: NA_WEST_VC_ID
+        sync: false
+      - key: EUROPE_VC_ID
+        sync: false
+      - key: OCE_VC_ID
+        sync: false
