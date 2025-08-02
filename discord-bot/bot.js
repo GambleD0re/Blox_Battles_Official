@@ -36,7 +36,7 @@ const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
 
-// --- [NEW] Helper function to build the duel result embed ---
+// --- Helper function to build the duel result embed ---
 const buildDuelResultEmbed = (taskPayload) => {
     const { duelId, winner, loser, wager, pot, mapName, finalScores, playerLoadouts } = taskPayload;
     
@@ -99,7 +99,53 @@ async function processDiscordTasks() {
 }
 
 async function updateServerStatus() {
-    // ... (This function remains unchanged)
+    console.log('Fetching server status from backend...');
+    try {
+        const response = await apiClient.get('/api/status');
+        const onlineServers = response.data;
+        const activeRegions = new Set(onlineServers.map(server => server.region));
+        
+        console.log('Active regions found:', Array.from(activeRegions));
+
+        for (const [regionKey, channelInfo] of Object.entries(REGION_CHANNELS)) {
+            if (!channelInfo.id) {
+                console.warn(`Channel ID for region ${regionKey} is not configured. Skipping.`);
+                continue;
+            }
+
+            const isOnline = activeRegions.has(regionKey);
+            const newName = `${channelInfo.name}: ${isOnline ? '🟢' : '🔴'}`;
+
+            try {
+                const channel = await client.channels.fetch(channelInfo.id);
+                if (channel) {
+                    if (channel.name !== newName) {
+                        await channel.setName(newName);
+                        console.log(`Updated channel ${channelInfo.name} to: ${newName}`);
+                    }
+                } else {
+                    console.error(`Could not find channel with ID ${channelInfo.id} for region ${regionKey}.`);
+                }
+            } catch (discordError) {
+                console.error(`Failed to update channel for ${regionKey}. Error: ${discordError.message}`);
+            }
+        }
+    } catch (apiError) {
+        console.error(`Error fetching status from backend API: ${apiError.message}`);
+        // If we can't reach the backend, assume all servers are down.
+        for (const [regionKey, channelInfo] of Object.entries(REGION_CHANNELS)) {
+             const newName = `${channelInfo.name}: 🔴`;
+             try {
+                const channel = await client.channels.fetch(channelInfo.id);
+                if (channel && channel.name !== newName) {
+                    await channel.setName(newName);
+                    console.log(`API unreachable. Updated channel ${channelInfo.name} to offline status.`);
+                }
+             } catch (discordError) {
+                console.error(`Failed to set channel ${regionKey} to offline. Error: ${discordError.message}`);
+             }
+        }
+    }
 }
 
 // --- Bot Events ---
@@ -126,6 +172,4 @@ if (!BOT_API_KEY) {
 if (!DUEL_RESULTS_CHANNEL_ID) {
     console.warn("Warning: DUEL_RESULTS_CHANNEL_ID is not set. The bot will not be able to post duel results.");
 }
-client.login(DISCORD_BOT_TOKEN);```
-
-This completes the entire feature. Once you deploy these changes and configure the new environment variables, the system will be fully capable of capturing duel results, including player loadouts, and automatically posting them as stylish, informative cards in your Discord server.
+client.login(DISCORD_BOT_TOKEN);
