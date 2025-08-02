@@ -1,7 +1,6 @@
 // discord-bot/bot.js
 require('dotenv').config();
 const axios = require('axios');
-// [MODIFIED] Added MessageFlags to fix a deprecation warning.
 const {
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder,
     ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder,
@@ -86,7 +85,6 @@ client.on('interactionCreate', async interaction => {
                     discordUsername,
                 });
                 
-                // [FIX] Updated to use flags instead of the deprecated 'ephemeral' property.
                 await interaction.editReply({
                     content: `✅ **Request Sent!**\nA confirmation request has been sent to the inbox of the Blox Battles account for **${robloxUsername}**.\n\nPlease log in to the website to complete the linking process.`,
                     flags: [MessageFlags.Ephemeral]
@@ -94,7 +92,6 @@ client.on('interactionCreate', async interaction => {
 
             } catch (error) {
                 const errorMessage = error.response?.data?.message || 'An unknown error occurred. Please try again later.';
-                // [FIX] Updated to use flags instead of the deprecated 'ephemeral' property.
                 await interaction.editReply({
                     content: `❌ **Error:** ${errorMessage}`,
                     flags: [MessageFlags.Ephemeral]
@@ -137,20 +134,44 @@ const buildDuelResultEmbed = (taskPayload) => {
     return { embeds: [embed], components: [row] };
 };
 
+// [NEW] Function to handle sending the link success DM.
+async function sendLinkSuccessDM(task) {
+    try {
+        const { discordId } = task.payload;
+        const user = await client.users.fetch(discordId);
+        if (user) {
+            await user.send("✅ Your Blox Battles account has been successfully linked to this Discord account!");
+            console.log(`Sent link success DM to user ${discordId}`);
+        }
+    } catch (dmError) {
+        console.error(`Failed to send link success DM to user ${task.payload.discordId}:`, dmError.message);
+    }
+}
+
 async function processDiscordTasks() {
     console.log('Fetching general Discord tasks...');
     try {
         const response = await apiClient.get('/api/tasks/bot/discord');
         const tasks = response.data;
         if (tasks.length === 0) return;
-        const channel = await client.channels.fetch(DUEL_RESULTS_CHANNEL_ID);
-        if (!channel) return;
+        
         for (const task of tasks) {
-            if (task.task_type === 'POST_DUEL_RESULT_TO_DISCORD') {
-                const messagePayload = buildDuelResultEmbed(task.payload);
-                await channel.send(messagePayload);
-                await apiClient.post(`/api/tasks/${task.id}/complete`);
+            // [MODIFIED] Added a switch to handle multiple task types.
+            switch (task.task_type) {
+                case 'POST_DUEL_RESULT_TO_DISCORD':
+                    const channel = await client.channels.fetch(DUEL_RESULTS_CHANNEL_ID).catch(() => null);
+                    if (channel) {
+                        const messagePayload = buildDuelResultEmbed(task.payload);
+                        await channel.send(messagePayload);
+                    }
+                    break;
+                
+                case 'SEND_DISCORD_LINK_SUCCESS_DM':
+                    await sendLinkSuccessDM(task);
+                    break;
             }
+            
+            await apiClient.post(`/api/tasks/${task.id}/complete`);
         }
     } catch (err) {
         console.error(`Error processing Discord tasks: ${err.message}`);
