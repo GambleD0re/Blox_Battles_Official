@@ -13,7 +13,7 @@ services:
   - type: web
     name: blox-battles-backend
     runtime: node
-    plan: starter
+    plan: basic
     region: oregon
     rootDir: ./backend
     buildCommand: "npm install"
