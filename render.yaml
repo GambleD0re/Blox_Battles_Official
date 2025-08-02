@@ -101,7 +101,7 @@ services:
   # ---------------------
   # 4. The Discord Bot Worker
   # ---------------------
-  - type: worker
+ - type: worker
     name: blox-battles-discord-bot
     runtime: node
     plan: starter
@@ -112,13 +112,16 @@ services:
     envVars:
       - key: DISCORD_BOT_TOKEN
         sync: false
-      # [NEW] Added the Bot API Key for backend authentication
       - key: BOT_API_KEY
         sync: false
       - key: BACKEND_API_URL
         value: https://blox-battles-backend.onrender.com
+      - key: FRONTEND_URL
+        value: https://blox-battles-frontend.onrender.com
       - key: UPDATE_INTERVAL_SECONDS
-        value: 30
+        value: 15
+      - key: DUEL_RESULTS_CHANNEL_ID
+        sync: false
       - key: NA_EAST_VC_ID
         sync: false
       - key: NA_WEST_VC_ID
@@ -126,4 +129,9 @@ services:
       - key: EUROPE_VC_ID
         sync: false
       - key: OCE_VC_ID
+        sync: false
+      # [NEW] Add the new secret env vars for the stat channels
+      - key: MEMBERS_VC_ID
+        sync: false
+      - key: PLAYERS_VC_ID
         sync: false
