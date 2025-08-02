@@ -92,8 +92,30 @@ const AdminMessageNotification = ({ message }) => {
     );
 };
 
+// --- [NEW] Sub-component for Discord Link Request notifications ---
+const DiscordLinkNotification = ({ message, onRespondToLink }) => {
+    const discordUsername = message.data.message;
+    const messageId = message.id; // e.g., "message-123"
+
+    return (
+        <div className="duel-item bg-blue-900/30 border-l-4 border-blue-500">
+            <div className="flex-grow flex items-center gap-3">
+                <span className="text-blue-400 text-2xl">🔗</span>
+                <div>
+                    <p className="font-semibold text-blue-400">Discord Link Request</p>
+                    <p className="text-sm text-gray-300">User <span className="font-bold">{discordUsername}</span> wants to link their Discord account.</p>
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                <button onClick={() => onRespondToLink(messageId, 'decline')} className="btn btn-danger !py-1 !px-3 !text-sm">Decline</button>
+                <button onClick={() => onRespondToLink(messageId, 'confirm')} className="btn btn-accept !py-1 !px-3 !text-sm">Confirm</button>
+            </div>
+        </div>
+    );
+};
+
 // --- Main Inbox Component (Dispatcher) ---
-const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeitDuel, onCancelWithdrawal }) => {
+const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeitDuel, onCancelWithdrawal, onRespondToLink }) => {
     
     const renderNotification = (notification) => {
         switch (notification.type) {
@@ -125,6 +147,14 @@ const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeit
                     <AdminMessageNotification
                         key={notification.id}
                         message={notification.data}
+                    />
+                );
+            case 'discord_link_request':
+                return (
+                    <DiscordLinkNotification
+                        key={notification.id}
+                        message={notification}
+                        onRespondToLink={onRespondToLink}
                     />
                 );
             default:
