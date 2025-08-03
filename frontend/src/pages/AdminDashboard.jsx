@@ -16,9 +16,6 @@ const StatCard = ({ title, value, icon }) => (
     </div>
 );
 
-// ... (UserRow, DisputeResolutionModal, etc. remain the same) ...
-// NOTE: For brevity, the unchanged helper components from the original file are omitted here. They are still part of the final file.
-
 const UserRow = ({ user, onSelectUser }) => {
     const statusStyles = {
         active: 'bg-green-800 text-green-200',
@@ -128,19 +125,105 @@ const DeclineModal = ({ isOpen, onClose, onSubmit }) => {
     );
 };
 
+// [NEW] System Controls Component for Master Admin
+const SystemControls = ({ token, showMessage }) => {
+    const [status, setStatus] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchStatus = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const data = await api.getSystemStatus(token);
+            setStatus(data);
+        } catch (error) {
+            showMessage(error.message, 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [token, showMessage]);
+
+    useEffect(() => {
+        fetchStatus();
+    }, [fetchStatus]);
+
+    const handleUpdate = async (feature) => {
+        try {
+            await api.updateSystemStatus(feature, token);
+            showMessage(`${feature.feature_name} status updated.`, 'success');
+            fetchStatus();
+        } catch (error) {
+            showMessage(error.message, 'error');
+        }
+    };
+
+    const handleToggle = (feature_name) => {
+        const feature = status.find(s => s.feature_name === feature_name);
+        if (feature) {
+            handleUpdate({ ...feature, is_enabled: !feature.is_enabled });
+        }
+    };
+
+    const handleMessageChange = (feature_name, new_message) => {
+        setStatus(prevStatus => prevStatus.map(s => s.feature_name === feature_name ? { ...s, disabled_message: new_message } : s));
+    };
+
+    const handleMessageSave = (feature_name) => {
+        const feature = status.find(s => s.feature_name === feature_name);
+        if (feature) {
+            handleUpdate(feature);
+        }
+    };
+
+    if (isLoading) {
+        return <div className="widget text-center p-8">Loading System Controls...</div>;
+    }
+
+    return (
+        <div className="widget mt-8">
+            <h2 className="widget-title">Master System Controls</h2>
+            <div className="space-y-6">
+                {status.map(feature => (
+                    <div key={feature.feature_name} className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h4 className="font-bold text-lg text-white">{feature.feature_name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
+                                <p className={`text-sm font-semibold ${feature.is_enabled ? 'text-green-400' : 'text-red-400'}`}>
+                                    {feature.is_enabled ? 'ENABLED' : 'DISABLED'}
+                                </p>
+                            </div>
+                            <button onClick={() => handleToggle(feature.feature_name)} className={`px-4 py-2 rounded-md font-bold text-white ${feature.is_enabled ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>
+                                {feature.is_enabled ? 'Disable' : 'Enable'}
+                            </button>
+                        </div>
+                        {!feature.is_enabled && (
+                            <div className="mt-4 flex items-end gap-2">
+                                <div className="flex-grow">
+                                    <label className="text-xs text-gray-400">Disabled Message</label>
+                                    <input type="text" value={feature.disabled_message || ''} onChange={(e) => handleMessageChange(feature.feature_name, e.target.value)} className="form-input"/>
+                                </div>
+                                <button onClick={() => handleMessageSave(feature.feature_name)} className="btn btn-secondary !mt-0">Save Message</button>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+
 // --- Main Admin Dashboard Component ---
 const AdminDashboard = () => {
-    const { token } = useAuth();
+    const { user, token } = useAuth();
     const navigate = useNavigate();
     
-    // ... (existing state variables) ...
     const [users, setUsers] = useState([]);
     const [servers, setServers] = useState([]);
     const [disputes, setDisputes] = useState([]);
     const [payoutRequests, setPayoutRequests] = useState([]);
     const [stats, setStats] = useState({ totalUsers: 0, gemsInCirculation: 0, pendingPayouts: 0, pendingDisputes: 0, taxCollected: 0 });
     const [transcript, setTranscript] = useState([]);
-    const [tournaments, setTournaments] = useState([]); // [NEW] State for tournaments
+    const [tournaments, setTournaments] = useState([]);
     
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
@@ -166,14 +249,14 @@ const AdminDashboard = () => {
                 api.getPendingDisputes(token),
                 api.getAdminPayoutRequests(token),
                 api.getAdminStats(token),
-                api.getAdminTournaments(token) // [NEW] Fetch tournaments
+                api.getAdminTournaments(token)
             ]);
             setUsers(usersData);
             setServers(serversData);
             setDisputes(disputesData);
             setPayoutRequests(payoutsData);
             setStats(statsData);
-            setTournaments(tournamentsData); // [NEW] Set tournaments state
+            setTournaments(tournamentsData);
         } catch (error) { showMessage(error.message, 'error'); } finally { setIsLoading(false); }
     }, [token, searchQuery, statusFilter]);
 
@@ -188,6 +271,9 @@ const AdminDashboard = () => {
     const handleDeclinePayoutClick = (request) => { setSelectedPayoutRequest(request); setIsPayoutDetailModalOpen(false); setIsDeclineModalOpen(true); };
     const handleConfirmDecline = async (reason) => { try { const r = await api.declinePayoutRequest(selectedPayoutRequest.id, reason, token); showMessage(r.message, 'success'); setIsDeclineModalOpen(false); setSelectedPayoutRequest(null); fetchData(); } catch (e) { showMessage(e.message, 'error'); } };
 
+    // [NEW] Check if the current user is the master admin.
+    const isMasterAdmin = user?.email === 'scriptmail00@gmail.com';
+
     return (
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
             {message.text && <div className={`fixed top-5 right-5 p-4 rounded-lg text-white font-bold shadow-lg z-50 ${message.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{message.text}</div>}
@@ -197,7 +283,6 @@ const AdminDashboard = () => {
                 <StatCard title="Total Users" value={stats.totalUsers} icon="👥" /><StatCard title="Gems in Circulation" value={stats.gemsInCirculation.toLocaleString()} icon="💎" /><StatCard title="Pending Disputes" value={stats.pendingDisputes} icon="⚖️" /><StatCard title="Pending Payouts" value={stats.pendingPayouts} icon="💸" /><StatCard title="Total Tax Collected" value={stats.taxCollected.toLocaleString()} icon="📈" />
             </div>
             
-            {/* [NEW] Tournament Management Section */}
             <div className="widget mb-8">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="widget-title !mb-0">Tournament Management</h2>
@@ -213,9 +298,7 @@ const AdminDashboard = () => {
                                     <td className="p-3 font-semibold text-white">{t.name}</td>
                                     <td className="p-3">{t.status.replace('_', ' ').toUpperCase()}</td>
                                     <td className="p-3">{new Date(t.starts_at).toLocaleString()}</td>
-                                    <td className="p-3 text-right">
-                                        {/* Future actions like 'View Bracket' or 'Cancel' would go here */}
-                                    </td>
+                                    <td className="p-3 text-right"></td>
                                 </tr>
                             ))) : (<tr><td colSpan="4" className="p-8 text-center text-gray-500">No tournaments created yet.</td></tr>)}
                         </tbody>
@@ -223,7 +306,6 @@ const AdminDashboard = () => {
                 </div>
             </div>
 
-            {/* ... (rest of the existing JSX for payouts, disputes, users, etc.) ... */}
              <div className="widget mb-8">
                 <h2 className="widget-title">Pending Withdrawal Requests</h2>
                 <div className="overflow-x-auto">
@@ -319,6 +401,9 @@ const AdminDashboard = () => {
                     </div>
                 </div>
             </div>
+
+            {/* [NEW] Conditionally render the master controls */}
+            {isMasterAdmin && <SystemControls token={token} showMessage={showMessage} />}
 
             <UserActionsModal isOpen={!!selectedUser} onClose={() => setSelectedUser(null)} user={selectedUser} token={token} onActionComplete={handleActionComplete}/>
             <DisputeResolutionModal isOpen={!!selectedDispute} onClose={() => setSelectedDispute(null)} dispute={selectedDispute} onResolve={handleResolveDispute} onViewTranscript={handleViewTranscript} />
