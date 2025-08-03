@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const fetch = require('node-fetch');
 const { body } = require('express-validator');
 const db = require('../database/database');
-const { authenticateToken, handleValidationErrors, validatePassword } = require('../middleware/auth');
+const { authenticateToken, handleValidationErrors, validatePassword, MASTER_ADMIN_EMAIL } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -53,7 +53,6 @@ router.get('/user-data', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'User not found.' });
         }
         
-        // [NEW] Fetch system status flags and attach them to the response.
         const { rows: statusFlags } = await db.query('SELECT feature_name, is_enabled, disabled_message FROM system_status');
         const systemStatus = statusFlags.reduce((acc, flag) => {
             acc[flag.feature_name] = {
@@ -62,6 +61,14 @@ router.get('/user-data', authenticateToken, async (req, res) => {
             };
             return acc;
         }, {});
+
+        // [MODIFIED] Master Admin Maintenance Mode Bypass
+        // If the logged-in user is the master admin, override the maintenance flag
+        // in the response object so they can access the site. This does NOT change the database value.
+        if (user.email === MASTER_ADMIN_EMAIL && systemStatus.site_wide_maintenance) {
+            systemStatus.site_wide_maintenance.isEnabled = true;
+        }
+
         user.systemStatus = systemStatus;
 
 
