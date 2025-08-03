@@ -9,6 +9,7 @@ if (!jwtSecret) {
 }
 
 const ADMIN_TEST_KEY = process.env.ADMIN_TEST_API_KEY;
+const MASTER_ADMIN_EMAIL = 'scriptmail00@gmail.com'; // The master admin user
 
 /**
  * Middleware to authenticate a user's JWT token or a special admin test key.
@@ -116,10 +117,32 @@ const isAdmin = async (req, res, next) => {
     }
 };
 
+// [NEW] Middleware to check if the user is the master admin.
+const isMasterAdmin = async (req, res, next) => {
+    try {
+        if (!req.user || !req.user.userId) {
+            return res.status(403).json({ message: 'Forbidden: Invalid user token.' });
+        }
+        const { rows } = await db.query('SELECT email, is_admin FROM users WHERE id = $1', [req.user.userId]);
+        const user = rows[0];
+
+        if (user && user.is_admin && user.email === MASTER_ADMIN_EMAIL) {
+            next();
+        } else {
+            res.status(403).json({ message: 'Forbidden: Requires master admin privileges.' });
+        }
+    } catch (error) {
+        console.error("Master Admin check error:", error);
+        res.status(500).json({ message: 'An internal server error occurred during master admin check.' });
+    }
+};
+
+
 module.exports = {
     authenticateToken,
     handleValidationErrors,
     validatePassword,
     isAdmin,
-    authenticateBot
+    authenticateBot,
+    isMasterAdmin,
 };
