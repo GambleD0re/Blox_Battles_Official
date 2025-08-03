@@ -4,6 +4,7 @@ const { body } = require('express-validator');
 const db = require('../database/database');
 const { authenticateToken, authenticateBot, handleValidationErrors } = require('../middleware/auth');
 const crypto = require('crypto');
+const GAME_DATA = require('../game-data-store');
 
 const router = express.Router();
 
@@ -115,7 +116,7 @@ router.post('/unlink',
     }
 );
 
-// --- [NEW] DUEL CHALLENGE FLOW ---
+// --- DUEL CHALLENGE FLOW ---
 
 router.post('/duels/pre-check', authenticateBot,
     [
@@ -160,7 +161,7 @@ router.post('/duels/create', authenticateBot,
         const client = await db.getPool().connect();
         try {
             await client.query('BEGIN');
-            const userSql = 'SELECT id, gems, discord_id FROM users WHERE discord_id = ANY($1::varchar[]) FOR UPDATE';
+            const userSql = 'SELECT id, gems, discord_id, linked_roblox_username, discord_notifications_enabled FROM users WHERE discord_id = ANY($1::varchar[]) FOR UPDATE';
             const { rows: users } = await client.query(userSql, [[challengerDiscordId, opponentDiscordId]]);
             
             const challenger = users.find(u => u.discord_id === challengerDiscordId);
@@ -181,6 +182,18 @@ router.post('/duels/create', authenticateBot,
                 [challenger.id, opponent.id, wager, bannedWeaponsStr, map, region]
             );
 
+            // [MODIFIED] Add logic to create a DM notification task for the opponent.
+            if (opponent.discord_id && opponent.discord_notifications_enabled) {
+                const mapInfo = GAME_DATA.maps.find(m => m.id === map);
+                const taskPayload = {
+                    recipientDiscordId: opponent.discord_id,
+                    challengerUsername: challenger.linked_roblox_username,
+                    wager: wager,
+                    mapName: mapInfo ? mapInfo.name : map
+                };
+                await client.query("INSERT INTO tasks (task_type, payload) VALUES ('SEND_DUEL_CHALLENGE_DM', $1)", [JSON.stringify(taskPayload)]);
+            }
+
             await client.query('COMMIT');
             res.status(201).json({ message: 'Challenge created successfully!', duelId: newDuel.id });
         } catch (error) {
@@ -193,8 +206,6 @@ router.post('/duels/create', authenticateBot,
     }
 );
 
-// This endpoint re-uses the existing duel response logic.
-// We just need a simple wrapper for the bot to use.
 router.post('/duels/respond', authenticateBot,
     [
         body('duelId').isInt(),
@@ -223,7 +234,6 @@ router.post('/duels/respond', authenticateBot,
             if (user.status === 'banned') { await client.query('ROLLBACK'); return res.status(403).json({ message: 'You cannot accept duels while banned.' }); }
             if (parseInt(user.gems) < parseInt(duel.wager)) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'You do not have enough gems.' }); }
 
-            // [MODIFIED] Fetch challenger's notification preference along with other data.
             const { rows: [challenger] } = await client.query('SELECT gems, discord_id, discord_notifications_enabled FROM users WHERE id = $1 FOR UPDATE', [duel.challenger_id]);
             if (!challenger || parseInt(challenger.gems) < parseInt(duel.wager)) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'The challenger no longer has enough gems.' }); }
 
@@ -236,7 +246,6 @@ router.post('/duels/respond', authenticateBot,
             
             await client.query('UPDATE duels SET status = $1, accepted_at = NOW(), pot = $2, tax_collected = $3 WHERE id = $4', ['accepted', finalPot, taxCollected, duelId]);
             
-            // [MODIFIED] Check if challenger has Discord linked and notifications enabled.
             if (challenger.discord_id && challenger.discord_notifications_enabled) {
                 const taskPayload = { recipientDiscordId: challenger.discord_id, opponentUsername: user.linked_roblox_username, duelId: duel.id };
                 await client.query("INSERT INTO tasks (task_type, payload) VALUES ('SEND_DUEL_ACCEPTED_DM', $1)", [JSON.stringify(taskPayload)]);
@@ -254,7 +263,6 @@ router.post('/duels/respond', authenticateBot,
     }
 );
 
-// This is a new, simplified cancel endpoint for the bot.
 router.post('/duels/cancel', authenticateBot,
     [ body('duelId').isInt() ],
     handleValidationErrors,
