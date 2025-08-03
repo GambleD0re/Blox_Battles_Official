@@ -127,6 +127,7 @@ client.on('interactionCreate', async interaction => {
             if (opponent.bot) return interaction.reply({ content: "You cannot challenge a bot.", ephemeral: true });
             if (opponent.id === interaction.user.id) return interaction.reply({ content: "You cannot challenge yourself.", ephemeral: true });
             
+            // [MODIFIED] Defer the reply immediately before any async operations.
             await interaction.deferReply({ ephemeral: true });
 
             try {
