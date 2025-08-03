@@ -1,19 +1,18 @@
 -- This script defines the PostgreSQL-compatible structure of the database.
 
 -- Drop tables if they exist to ensure a clean slate. The CASCADE keyword will also drop dependent objects.
-DROP TABLE IF EXISTS users, duels, tasks, push_subscriptions, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status CASCADE;
+-- [MODIFIED] push_subscriptions table is removed from the drop list as it's being deleted.
+DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status CASCADE;
 
--- [NEW] Table to manage the on/off status of site features.
+-- Table to manage the on/off status of site features.
 CREATE TABLE system_status (
     feature_name VARCHAR(50) PRIMARY KEY,
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     disabled_message TEXT
 );
 
-
--- Create the 'users' table. 'SERIAL' is the PostgreSQL equivalent of AUTOINCREMENT.
--- 'UUID' is a better type for your unique 'id' column.
--- [MODIFIED] Added 'discord_id' and 'discord_username' columns for Discord account linking.
+-- Create the 'users' table.
+-- [MODIFIED] Renamed 'push_notifications_enabled' to 'discord_notifications_enabled' for clarity.
 CREATE TABLE users (
     user_index SERIAL PRIMARY KEY,
     id UUID NOT NULL UNIQUE,
@@ -32,7 +31,7 @@ CREATE TABLE users (
     avatar_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     password_last_updated TIMESTAMP WITH TIME ZONE,
-    push_notifications_enabled BOOLEAN DEFAULT TRUE,
+    discord_notifications_enabled BOOLEAN DEFAULT TRUE,
     status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'banned', 'terminated')),
     ban_applied_at TIMESTAMP WITH TIME ZONE,
     ban_expires_at TIMESTAMP WITH TIME ZONE,
@@ -93,7 +92,6 @@ CREATE TABLE payout_requests (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- [MODIFIED] Added 'discord_link_request' to the list of allowed message types.
 CREATE TABLE inbox_messages (
     id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -115,7 +113,7 @@ CREATE TABLE duels (
     banned_weapons JSONB,
     map TEXT,
     region TEXT,
-    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'started', 'in_progress', 'completed_unseen', 'under_review', 'completed', 'canceled', 'declined', 'cheater_forfeit')), -- [MODIFIED] Added 'in_progress' status
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'started', 'in_progress', 'completed_unseen', 'under_review', 'completed', 'canceled', 'declined', 'cheater_forfeit')),
     winner_id UUID REFERENCES users(id) ON DELETE SET NULL,
     challenger_seen_result BOOLEAN DEFAULT FALSE,
     opponent_seen_result BOOLEAN DEFAULT FALSE,
@@ -127,7 +125,7 @@ CREATE TABLE duels (
     result_posted_at TIMESTAMP WITH TIME ZONE,
     bot_duel_id VARCHAR(255) UNIQUE,
     transcript JSONB,
-    player_loadouts JSONB -- [NEW] Column to store player weapon loadouts.
+    player_loadouts JSONB
 );
 
 CREATE TABLE disputes (
@@ -144,7 +142,6 @@ CREATE TABLE disputes (
     admin_resolver_id UUID REFERENCES users(id) ON DELETE SET NULL
 );
 
--- [NEW] Tournaments Table: Stores the main configuration for each tournament.
 CREATE TABLE tournaments (
     id UUID PRIMARY KEY,
     name TEXT NOT NULL,
@@ -164,7 +161,6 @@ CREATE TABLE tournaments (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- [NEW] Tournament Participants Table: Links users to the tournaments they've joined.
 CREATE TABLE tournament_participants (
     id SERIAL PRIMARY KEY,
     tournament_id UUID NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
@@ -174,7 +170,6 @@ CREATE TABLE tournament_participants (
     UNIQUE(tournament_id, user_id)
 );
 
--- [NEW] Tournament Matches Table: Represents each match in the tournament bracket.
 CREATE TABLE tournament_matches (
     id SERIAL PRIMARY KEY,
     tournament_id UUID NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
@@ -197,13 +192,6 @@ CREATE TABLE tasks (
     completed_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE TABLE push_subscriptions (
-    id SERIAL PRIMARY KEY,
-    user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-    subscription JSONB NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE game_servers (
     server_id VARCHAR(255) PRIMARY KEY,
     region VARCHAR(50) NOT NULL,
@@ -212,7 +200,7 @@ CREATE TABLE game_servers (
     last_heartbeat TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
--- [NEW] Insert default values for the system_status table.
+-- Insert default values for the system_status table.
 INSERT INTO system_status (feature_name, is_enabled, disabled_message) VALUES
 ('site_wide_maintenance', FALSE, 'The platform is currently down for scheduled maintenance. Please check back later.'),
 ('user_registration', TRUE, 'New user registrations are temporarily disabled.'),
