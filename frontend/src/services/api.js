@@ -115,3 +115,6 @@ export const declinePayoutRequest = (requestId, reason, token) => apiRequest(`/a
 export const createTournament = (tournamentData, token) => apiRequest('/admin/tournaments', 'POST', tournamentData, token);
 export const getAdminTournaments = (token) => apiRequest('/admin/tournaments', 'GET', null, token);
 export const cancelTournament = (id, token) => apiRequest(`/admin/tournaments/${id}`, 'DELETE', null, token);
+// [NEW] Admin system status functions
+export const getSystemStatus = (token) => apiRequest('/admin/system-status', 'GET', null, token);
+export const updateSystemStatus = (statusData, token) => apiRequest('/admin/system-status', 'PUT', statusData, token);
