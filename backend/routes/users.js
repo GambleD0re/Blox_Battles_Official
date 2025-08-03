@@ -39,15 +39,15 @@ async function sendUserResponse(user, res) {
 
 router.get('/user-data', authenticateToken, async (req, res) => {
     try {
-        const sql = `
-            SELECT id, email, google_id, gems, wins, losses, is_admin, 
+        const userSql = `
+            SELECT id, email, google_id, gems, wins, losses, is_admin, is_master_admin, 
                    linked_roblox_id, linked_roblox_username, verification_phrase,
                    discord_id, discord_username,
                    created_at, password_last_updated, push_notifications_enabled,
                    status, ban_reason, ban_applied_at, ban_expires_at
             FROM users WHERE id = $1
         `;
-        const { rows: [user] } = await db.query(sql, [req.user.userId]);
+        const { rows: [user] } = await db.query(userSql, [req.user.userId]);
 
         if (!user) {
             return res.status(404).json({ message: 'User not found.' });
@@ -58,6 +58,14 @@ router.get('/user-data', authenticateToken, async (req, res) => {
             await db.query('UPDATE users SET verification_phrase = $1 WHERE id = $2', [newPhrase, user.id]);
             user.verification_phrase = newPhrase;
         }
+
+        // [NEW] Fetch all platform status flags and attach them to the user object
+        const { rows: platformStatusRows } = await db.query('SELECT * FROM platform_status');
+        const platformStatus = platformStatusRows.reduce((acc, row) => {
+            acc[row.feature_key] = row;
+            return acc;
+        }, {});
+        user.platformStatus = platformStatus;
         
         await sendUserResponse(user, res);
     } catch(err) {
