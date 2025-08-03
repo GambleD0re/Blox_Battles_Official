@@ -8,6 +8,9 @@ import PlayerHeader from '../components/Dashboard/PlayerHeader';
 import ChallengePlayer from '../components/Dashboard/ChallengePlayer';
 import Inbox from '../components/Dashboard/Inbox';
 import { ChallengeModal, DuelDetailsModal, ConfirmationModal, TranscriptModal, PostDuelModal } from '../components/Dashboard/Modals';
+// [NEW] Import the overlay component
+import FeatureUnavailableOverlay from '../components/FeatureUnavailableOverlay';
+
 
 // --- Reusable Helper Components ---
 const Loader = ({ fullScreen = false }) => (
@@ -51,7 +54,6 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <div className="p-4">
                     <h2 className="text-xl font-bold text-white mb-6">Navigation</h2>
                     <nav className="flex flex-col space-y-2">
-                        {/* [NEW] Tournaments link added to the sidebar */}
                         <button onClick={() => handleNavigate('/tournaments')} className="text-left text-gray-300 hover:bg-gray-700/50 hover:text-white p-3 rounded-lg transition-colors">
                             Tournaments
                         </button>
@@ -97,6 +99,10 @@ const Dashboard = () => {
     const [isTranscriptModalOpen, setIsTranscriptModalOpen] = useState(false);
     const [isForfeitModalOpen, setIsForfeitModalOpen] = useState(false);
     const [isCancelWithdrawalModalOpen, setIsCancelWithdrawalModalOpen] = useState(false);
+
+    // [NEW] Destructure system status for easier access
+    const systemStatus = user?.systemStatus || {};
+    const duelingWebsiteStatus = systemStatus['dueling_website'];
 
     const showMessage = (text, type = 'success') => {
         setMessage({ text, type });
@@ -154,18 +160,7 @@ const Dashboard = () => {
     const handleFileDispute = async (duelId, disputeData) => { try { const r = await api.fileDispute(duelId, disputeData, token); showMessage(r.message, 'success'); setUnseenResult(null); fetchData(); } catch (e) { showMessage(e.message, 'error'); setUnseenResult(null); } };
     const handleCancelWithdrawalClick = (req) => { setSelectedItem({ data: req }); setIsCancelWithdrawalModalOpen(true); };
     const handleConfirmCancelWithdrawal = async () => { if (!selectedItem?.data) return; try { const r = await api.cancelWithdrawalRequest(selectedItem.data.id, token); showMessage(r.message, 'success'); setIsCancelWithdrawalModalOpen(false); await refreshUser(); fetchData(); } catch (e) { showMessage(e.message, 'error'); setIsCancelWithdrawalModalOpen(false); } };
-
-    // [NEW] Handler for responding to Discord link requests.
-    const handleRespondToLink = async (messageId, response) => {
-        try {
-            const result = await api.respondToDiscordLink(messageId, response, token);
-            showMessage(result.message, 'success');
-            await refreshUser(); // Refresh to show new linked discord username if confirmed
-            fetchData(); // Refetch inbox to remove the notification
-        } catch (error) {
-            showMessage(error.message, 'error');
-        }
-    };
+    const handleRespondToLink = async (messageId, response) => { try { const result = await api.respondToDiscordLink(messageId, response, token); showMessage(result.message, 'success'); await refreshUser(); fetchData(); } catch (error) { showMessage(error.message, 'error'); } };
 
     if (isAuthLoading || !user) {
         return <Loader fullScreen />;
@@ -183,7 +178,13 @@ const Dashboard = () => {
             
             <div className="dashboard-grid">
                 <main className="main-content space-y-8">
-                    <ChallengePlayer token={token} onChallenge={handleChallengePlayer} onError={showMessage} isBanned={user.status === 'banned'} />
+                    {/* [MODIFIED] Wrap ChallengePlayer in a div to position the overlay */}
+                    <div className="relative">
+                        {duelingWebsiteStatus && !duelingWebsiteStatus.isEnabled && (
+                            <FeatureUnavailableOverlay message={duelingWebsiteStatus.message} />
+                        )}
+                        <ChallengePlayer token={token} onChallenge={handleChallengePlayer} onError={showMessage} isBanned={user.status === 'banned'} />
+                    </div>
                 </main>
                 <aside className="sidebar space-y-8">
                     <Inbox notifications={notifications} onViewDuel={handleViewDetails} onCancelDuel={handleCancelDuelClick} onStartDuel={handleStartDuel} onForfeitDuel={handleForfeitClick} onCancelWithdrawal={handleCancelWithdrawalClick} onRespondToLink={handleRespondToLink} />
