@@ -6,7 +6,6 @@ const cors = require('cors');
 const passport = require('passport');
 const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
-const webpush = require('web-push');
 const db = require('./database/database');
 const crypto = require('crypto');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
@@ -22,18 +21,6 @@ const PORT = process.env.PORT || 3001;
 
 // Trust the proxy to get the correct 'https' protocol from Render's router.
 app.set('trust proxy', 1);
-
-// --- Web Push Configuration ---
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-    webpush.setVapidDetails(
-        'mailto:youremail@example.com',
-        process.env.VAPID_PUBLIC_KEY,
-        process.env.VAPID_PRIVATE_KEY
-    );
-    console.log("Web Push configured successfully.");
-} else {
-    console.warn("VAPID keys not found in .env file. Push notifications will be disabled.");
-}
 
 // --- Middleware Setup ---
 app.use(cors({ origin: process.env.SERVER_URL, credentials: true }));
