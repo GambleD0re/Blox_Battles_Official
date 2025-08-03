@@ -13,12 +13,13 @@ const SettingsRow = ({ label, value }) => (
     </div>
 );
 
-const ToggleSwitch = ({ enabled, onToggle }) => (
+const ToggleSwitch = ({ enabled, onToggle, disabled = false }) => (
     <button
         onClick={onToggle}
+        disabled={disabled}
         className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-300 focus:outline-none ${
             enabled ? 'bg-green-500' : 'bg-gray-600'
-        }`}
+        } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
     >
         <span
             className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform duration-300 ${
@@ -57,15 +58,16 @@ const SettingsPage = () => {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [deletePassword, setDeletePassword] = useState('');
-    const [notificationsEnabled, setNotificationsEnabled] = useState(user?.push_notifications_enabled ?? true);
+    // [MODIFIED] State is now for discord notifications, and default is true.
+    const [notificationsEnabled, setNotificationsEnabled] = useState(user?.discord_notifications_enabled ?? true);
 
     const [isUnlinkModalOpen, setUnlinkModalOpen] = useState(false);
-    // [NEW] State for the new unlink Discord modal.
     const [isUnlinkDiscordModalOpen, setUnlinkDiscordModalOpen] = useState(false);
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
 
     useEffect(() => {
-        setNotificationsEnabled(user?.push_notifications_enabled ?? true);
+        // [MODIFIED] Effect now syncs with the discord notification property.
+        setNotificationsEnabled(user?.discord_notifications_enabled ?? true);
     }, [user]);
 
     const showMessage = (text, type) => {
@@ -94,8 +96,9 @@ const SettingsPage = () => {
         const newPreference = !notificationsEnabled;
         setNotificationsEnabled(newPreference);
         try {
-            await api.updateNotificationPreference(newPreference, token);
-            showMessage('Notification preferences updated.', 'success');
+            // [MODIFIED] Call the renamed API function.
+            await api.updateDiscordNotificationPreference(newPreference, token);
+            showMessage('Discord notification preferences updated.', 'success');
             refreshUser();
         } catch (error) {
             showMessage(error.message, 'error');
@@ -114,7 +117,6 @@ const SettingsPage = () => {
         }
     };
 
-    // [NEW] Handler for unlinking Discord account.
     const handleUnlinkDiscord = async () => {
         try {
             await api.unlinkDiscord(token);
@@ -158,7 +160,6 @@ const SettingsPage = () => {
                     <SettingsRow label="Email Address" value={user.email} />
                     <SettingsRow label="User ID" value={user.id} />
                     <SettingsRow label="Linked Roblox Account" value={user.linked_roblox_username || 'Not Linked'} />
-                    {/* [NEW] Display linked Discord username. */}
                     <SettingsRow label="Linked Discord Account" value={user.discord_username || 'Not Linked'} />
                     <SettingsRow label="Member Since" value={formatDate(user.created_at)} />
                     <div className="text-center pt-4 mt-2">
@@ -168,11 +169,29 @@ const SettingsPage = () => {
                     </div>
                 </SettingsCard>
 
+                {/* [MODIFIED] Notification section is completely overhauled */}
                 <SettingsCard title="Notifications">
-                    <div className="flex justify-between items-center py-3">
-                        <span className="text-gray-400">Enable Push Notifications</span>
-                        <ToggleSwitch enabled={notificationsEnabled} onToggle={handleNotificationToggle} />
-                    </div>
+                    {user.discord_id ? (
+                        <div className="flex justify-between items-center py-3">
+                            <div>
+                                <span className="text-gray-300 font-semibold">Discord DM Notifications</span>
+                                <p className="text-sm text-gray-500">Receive DMs for challenges, duel status, and more.</p>
+                            </div>
+                            <ToggleSwitch enabled={notificationsEnabled} onToggle={handleNotificationToggle} />
+                        </div>
+                    ) : (
+                        <div className="text-center p-4">
+                            <p className="text-gray-400 mb-4">Link your Discord account to get notifications when it's time to duel.</p>
+                             <a href="https://discord.gg/your-invite-link" // Replace with your actual Discord invite link
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-primary inline-flex items-center gap-2"
+                            >
+                                Link on Discord
+                            </a>
+                            <p className="text-xs text-gray-500 mt-2">Use the <code className="bg-gray-700 p-1 rounded-md">/link</code> command in the server.</p>
+                        </div>
+                    )}
                 </SettingsCard>
 
                 {!user.google_id && (
@@ -199,7 +218,6 @@ const SettingsPage = () => {
                             </button>
                         </div>
                         <DangerZoneCard title="Unlink Roblox Account" text="This will remove the connection to your Roblox account." buttonText="Unlink" onAction={() => setUnlinkModalOpen(true)} />
-                        {/* [NEW] Conditionally render the Unlink Discord button. */}
                         {user.discord_id && (
                              <DangerZoneCard 
                                 title="Unlink Discord Account" 
@@ -221,7 +239,6 @@ const SettingsPage = () => {
                 text="Are you sure? You will need to re-verify your account to participate in duels."
                 confirmText="Yes, Unlink"
             />
-            {/* [NEW] Add the confirmation modal for unlinking Discord. */}
             <ConfirmationModal
                 isOpen={isUnlinkDiscordModalOpen}
                 onClose={() => setUnlinkDiscordModalOpen(false)}
