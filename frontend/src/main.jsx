@@ -43,7 +43,8 @@ style.innerHTML = `
     .stat-item.losses .stat-value { color: var(--loss-color); }
     .btn-settings { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--input-border); border-radius: 50%; background-color: var(--input-bg); color: var(--text-color); cursor: pointer; transition: all 0.2s; }
     .btn-settings:hover { border-color: var(--accent-color); color: var(--accent-color); }
-    .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; align-items: start; }
+    /* [MODIFIED] Changed the grid layout to give more space to the inbox. */
+    .dashboard-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: start; }
     .form-group { margin-bottom: 1rem; text-align: left; }
     .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; color: var(--text-muted); }
     input[type="text"], input[type="password"], input[type="email"], input[type="number"] { width: 100%; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 8px; box-sizing: border-box; font-size: 1rem; background-color: var(--input-bg); color: var(--text-color); transition: all 0.2s; }
