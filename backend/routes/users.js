@@ -40,7 +40,7 @@ async function sendUserResponse(user, res) {
 router.get('/user-data', authenticateToken, async (req, res) => {
     try {
         const userSql = `
-            SELECT id, email, google_id, gems, wins, losses, is_admin, is_master_admin, 
+            SELECT id, email, google_id, gems, wins, losses, is_admin, 
                    linked_roblox_id, linked_roblox_username, verification_phrase,
                    discord_id, discord_username,
                    created_at, password_last_updated, push_notifications_enabled,
@@ -52,20 +52,24 @@ router.get('/user-data', authenticateToken, async (req, res) => {
         if (!user) {
             return res.status(404).json({ message: 'User not found.' });
         }
+        
+        // [NEW] Fetch system status flags and attach them to the response.
+        const { rows: statusFlags } = await db.query('SELECT feature_name, is_enabled, disabled_message FROM system_status');
+        const systemStatus = statusFlags.reduce((acc, flag) => {
+            acc[flag.feature_name] = {
+                isEnabled: flag.is_enabled,
+                message: flag.disabled_message
+            };
+            return acc;
+        }, {});
+        user.systemStatus = systemStatus;
+
 
         if (!user.linked_roblox_id && !user.verification_phrase) {
             const newPhrase = generateUniquePhrase();
             await db.query('UPDATE users SET verification_phrase = $1 WHERE id = $2', [newPhrase, user.id]);
             user.verification_phrase = newPhrase;
         }
-
-        // [NEW] Fetch all platform status flags and attach them to the user object
-        const { rows: platformStatusRows } = await db.query('SELECT * FROM platform_status');
-        const platformStatus = platformStatusRows.reduce((acc, row) => {
-            acc[row.feature_key] = row;
-            return acc;
-        }, {});
-        user.platformStatus = platformStatus;
         
         await sendUserResponse(user, res);
     } catch(err) {
