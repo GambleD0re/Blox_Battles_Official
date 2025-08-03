@@ -145,4 +145,5 @@ module.exports = {
     isAdmin,
     authenticateBot,
     isMasterAdmin,
+    MASTER_ADMIN_EMAIL, // [MODIFIED] Export the constant
 };
