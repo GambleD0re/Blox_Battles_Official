@@ -2,6 +2,8 @@ import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+// [NEW] Import the FeatureGuard component
+import FeatureGuard from './components/FeatureGuard.jsx';
 
 // Import pages that are always needed
 import AdminDashboard from './pages/AdminDashboard.jsx';
@@ -19,7 +21,6 @@ const BanNotice = lazy(() => import('./pages/BanNotice.jsx'));
 const DuelHistoryPage = lazy(() => import('./pages/DuelHistoryPage.jsx'));
 const TournamentsPage = lazy(() => import('./pages/TournamentsPage.jsx'));
 const AdminTournamentCreatePage = lazy(() => import('./pages/AdminTournamentCreatePage.jsx'));
-// [NEW] Lazily load the new TranscriptViewerPage.
 const TranscriptViewerPage = lazy(() => import('./pages/TranscriptViewerPage.jsx'));
 
 
@@ -42,9 +43,12 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
         return <Navigate to="/dashboard" />;
     }
     
-    const allowedPaths = ['/link-account', '/settings', '/history'];
-    if (!user.linked_roblox_username && !allowedPaths.includes(window.location.pathname)) {
-        return <Navigate to="/link-account" />;
+    // Check for Roblox linking only if the roblox_linking feature is enabled
+    if (user?.systemStatus?.roblox_linking?.isEnabled && !user.linked_roblox_username) {
+        const allowedPaths = ['/link-account', '/settings', '/history'];
+        if (!allowedPaths.includes(window.location.pathname)) {
+            return <Navigate to="/link-account" />;
+        }
     }
 
     return children;
@@ -56,6 +60,20 @@ const App = () => {
 
     if (isLoading) {
         return <Loader fullScreen />;
+    }
+    
+    // [NEW] Check for site-wide maintenance first
+    if (user && user.systemStatus?.site_wide_maintenance && !user.systemStatus.site_wide_maintenance.isEnabled) {
+        // Render a full-page maintenance notice
+        const message = user.systemStatus.site_wide_maintenance.message || 'The platform is temporarily down for maintenance.';
+        return (
+             <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
+                <div className="w-full max-w-2xl p-8 space-y-6 bg-gray-800/50 rounded-xl shadow-lg border-2 border-yellow-700 text-center">
+                    <h1 className="text-4xl font-black text-yellow-400">Under Maintenance</h1>
+                    <p className="text-lg text-gray-300">{message}</p>
+                </div>
+            </div>
+        );
     }
 
     if (user && user.status === 'banned') {
@@ -71,24 +89,25 @@ const App = () => {
             <Routes>
                 {/* --- Public Routes --- */}
                 <Route path="/signin" element={!user ? <SignInPage /> : <Navigate to="/dashboard" />} />
-                <Route path="/signup" element={!user ? <SignUpPage /> : <Navigate to="/dashboard" />} />
-                {/* [NEW] Add the public route for viewing transcripts */}
+                {/* [MODIFIED] Wrap SignUpPage in a feature guard */}
+                <Route path="/signup" element={!user ? <FeatureGuard featureName="user_registration"><SignUpPage /></FeatureGuard> : <Navigate to="/dashboard" />} />
                 <Route path="/transcripts/:duelId" element={<Suspense fallback={<Loader fullScreen />}><TranscriptViewerPage /></Suspense>} />
 
                 {/* --- Protected Routes --- */}
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                <Route path="/link-account" element={<ProtectedRoute><LinkingView /></ProtectedRoute>} />
+                <Route path="/link-account" element={<ProtectedRoute><FeatureGuard featureName="roblox_linking"><LinkingView /></FeatureGuard></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
                 
-                <Route path="/deposit" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><DepositPage /></Suspense></ProtectedRoute>} />
-                <Route path="/withdraw" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><WithdrawPage /></Suspense></ProtectedRoute>} />
+                {/* [MODIFIED] Wrap feature pages in their respective guards */}
+                <Route path="/deposit" element={<ProtectedRoute><FeatureGuard featureName="deposits"><Suspense fallback={<Loader fullScreen />}><DepositPage /></Suspense></FeatureGuard></ProtectedRoute>} />
+                <Route path="/withdraw" element={<ProtectedRoute><FeatureGuard featureName="withdrawals"><Suspense fallback={<Loader fullScreen />}><WithdrawPage /></Suspense></FeatureGuard></ProtectedRoute>} />
                 <Route path="/history" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><TransactionHistoryPage /></Suspense></ProtectedRoute>} />
                 <Route path="/duel-history" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><DuelHistoryPage /></Suspense></ProtectedRoute>} />
-                <Route path="/tournaments" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><TournamentsPage /></Suspense></ProtectedRoute>} />
+                <Route path="/tournaments" element={<ProtectedRoute><FeatureGuard featureName="tournaments"><Suspense fallback={<Loader fullScreen />}><TournamentsPage /></Suspense></FeatureGuard></ProtectedRoute>} />
                 
                 {/* --- Admin Routes --- */}
                 <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
-                <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><Suspense fallback={<Loader fullScreen />}><AdminTournamentCreatePage /></Suspense></ProtectedRoute>} />
+                <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><FeatureGuard featureName="tournaments"><Suspense fallback={<Loader fullScreen />}><AdminTournamentCreatePage /></Suspense></FeatureGuard></ProtectedRoute>} />
 
                 {/* --- Default Route --- */}
                 <Route path="*" element={<Navigate to={user ? "/dashboard" : "/signin"} />} />
