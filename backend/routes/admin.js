@@ -2,7 +2,7 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
 const db = require('../database/database');
-const { authenticateToken, isAdmin, handleValidationErrors } = require('../middleware/auth');
+const { authenticateToken, isAdmin, isMasterAdmin, handleValidationErrors } = require('../middleware/auth');
 const { getLogs } = require('../middleware/botLogger');
 const crypto = require('crypto');
 
@@ -19,6 +19,38 @@ const decrementPlayerCount = async (client, duelId) => {
         console.error(`[PlayerCount] Failed to decrement player count for duel ${duelId}:`, err);
     }
 };
+
+// --- [NEW] SYSTEM STATUS MANAGEMENT (MASTER ADMIN ONLY) ---
+router.get('/system-status', authenticateToken, isMasterAdmin, async (req, res) => {
+    try {
+        const { rows } = await db.query('SELECT feature_name, is_enabled, disabled_message FROM system_status ORDER BY feature_name');
+        res.status(200).json(rows);
+    } catch (err) {
+        console.error("Admin Get System Status Error:", err);
+        res.status(500).json({ message: 'Failed to fetch system status.' });
+    }
+});
+
+router.put('/system-status', authenticateToken, isMasterAdmin, [
+    body('feature_name').isString().notEmpty(),
+    body('is_enabled').isBoolean(),
+    body('disabled_message').isString().optional({ nullable: true })
+], handleValidationErrors, async (req, res) => {
+    const { feature_name, is_enabled, disabled_message } = req.body;
+    try {
+        const sql = `
+            UPDATE system_status 
+            SET is_enabled = $1, disabled_message = $2 
+            WHERE feature_name = $3
+        `;
+        await db.query(sql, [is_enabled, disabled_message, feature_name]);
+        res.status(200).json({ message: `Status for '${feature_name}' updated successfully.` });
+    } catch (err) {
+        console.error("Admin Update System Status Error:", err);
+        res.status(500).json({ message: 'Failed to update system status.' });
+    }
+});
+
 
 // --- [NEW] TOURNAMENT MANAGEMENT ---
 router.post('/tournaments', authenticateToken, isAdmin, [
