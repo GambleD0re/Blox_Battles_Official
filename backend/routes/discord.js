@@ -223,7 +223,8 @@ router.post('/duels/respond', authenticateBot,
             if (user.status === 'banned') { await client.query('ROLLBACK'); return res.status(403).json({ message: 'You cannot accept duels while banned.' }); }
             if (parseInt(user.gems) < parseInt(duel.wager)) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'You do not have enough gems.' }); }
 
-            const { rows: [challenger] } = await client.query('SELECT gems, discord_id FROM users WHERE id = $1 FOR UPDATE', [duel.challenger_id]);
+            // [MODIFIED] Fetch challenger's notification preference along with other data.
+            const { rows: [challenger] } = await client.query('SELECT gems, discord_id, discord_notifications_enabled FROM users WHERE id = $1 FOR UPDATE', [duel.challenger_id]);
             if (!challenger || parseInt(challenger.gems) < parseInt(duel.wager)) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'The challenger no longer has enough gems.' }); }
 
             await client.query('UPDATE users SET gems = gems - $1 WHERE id = $2', [duel.wager, user.id]);
@@ -235,8 +236,9 @@ router.post('/duels/respond', authenticateBot,
             
             await client.query('UPDATE duels SET status = $1, accepted_at = NOW(), pot = $2, tax_collected = $3 WHERE id = $4', ['accepted', finalPot, taxCollected, duelId]);
             
-            if (challenger.discord_id) {
-                const taskPayload = { recipientDiscordId: challenger.discord_id, opponentUsername: user.linked_roblox_username, duelId: duelId };
+            // [MODIFIED] Check if challenger has Discord linked and notifications enabled.
+            if (challenger.discord_id && challenger.discord_notifications_enabled) {
+                const taskPayload = { recipientDiscordId: challenger.discord_id, opponentUsername: user.linked_roblox_username, duelId: duel.id };
                 await client.query("INSERT INTO tasks (task_type, payload) VALUES ('SEND_DUEL_ACCEPTED_DM', $1)", [JSON.stringify(taskPayload)]);
             }
 
