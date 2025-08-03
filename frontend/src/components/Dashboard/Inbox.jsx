@@ -1,7 +1,8 @@
 import React from 'react';
 
 // --- Sub-component for standard Duel notifications ---
-const DuelNotification = ({ duel, onStartDuel, onViewDuel, onCancelDuel, onForfeitDuel }) => {
+// [MODIFIED] Added onViewActiveDuelDetails prop
+const DuelNotification = ({ duel, onStartDuel, onViewDuel, onCancelDuel, onForfeitDuel, onViewActiveDuelDetails }) => {
     return (
         <div className="duel-item">
             <div className="flex-grow">
@@ -13,10 +14,16 @@ const DuelNotification = ({ duel, onStartDuel, onViewDuel, onCancelDuel, onForfe
             
             <div className="flex items-center gap-2">
                 {duel.status === 'accepted' && (
-                    <button onClick={() => onStartDuel(duel)} className="btn btn-primary">Start</button>
+                    <>
+                        {/* [NEW] "Details" button for accepted duels */}
+                        <button onClick={() => onViewActiveDuelDetails(duel)} className="btn btn-secondary !py-2 !px-3">Details</button>
+                        <button onClick={() => onStartDuel(duel)} className="btn btn-primary">Start</button>
+                    </>
                 )}
                 {duel.status === 'started' && (
                     <>
+                        {/* [NEW] "Details" button for started duels */}
+                        <button onClick={() => onViewActiveDuelDetails(duel)} className="btn btn-secondary !py-2 !px-3">Details</button>
                         <a href={duel.server_invite_link || '#'} target="_blank" rel="noopener noreferrer" className="btn btn-primary" onClick={(e) => { if (!duel.server_invite_link) e.preventDefault(); }}>
                             Join Server
                         </a>
@@ -92,7 +99,7 @@ const AdminMessageNotification = ({ message }) => {
     );
 };
 
-// --- [NEW] Sub-component for Discord Link Request notifications ---
+// --- Sub-component for Discord Link Request notifications ---
 const DiscordLinkNotification = ({ message, onRespondToLink }) => {
     const discordUsername = message.data.message;
     const messageId = message.id; // e.g., "message-123"
@@ -115,7 +122,8 @@ const DiscordLinkNotification = ({ message, onRespondToLink }) => {
 };
 
 // --- Main Inbox Component (Dispatcher) ---
-const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeitDuel, onCancelWithdrawal, onRespondToLink }) => {
+// [MODIFIED] Added onViewActiveDuelDetails prop
+const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeitDuel, onCancelWithdrawal, onRespondToLink, onViewActiveDuelDetails }) => {
     
     const renderNotification = (notification) => {
         switch (notification.type) {
@@ -127,11 +135,12 @@ const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeit
                     <DuelNotification 
                         key={notification.id}
                         duel={notification.data}
-                        // [FIX] Pass the props from Inbox down to the DuelNotification component.
                         onViewDuel={() => onViewDuel(notification)}
                         onCancelDuel={() => onCancelDuel(notification)}
                         onStartDuel={() => onStartDuel(notification.data)}
                         onForfeitDuel={() => onForfeitDuel(notification)}
+                        // [MODIFIED] Pass the handler down
+                        onViewActiveDuelDetails={() => onViewActiveDuelDetails(notification.data)}
                     />
                 );
             case 'withdrawal_request':
