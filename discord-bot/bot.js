@@ -58,14 +58,16 @@ function buildDuelBuilderMessage(state) {
         )
         .setFooter({ text: 'This builder will expire in 5 minutes.' });
 
+    // [MODIFIED] Placeholder text is now dynamic.
     const regionMenu = new StringSelectMenuBuilder()
         .setCustomId(`duel_builder_region_${state.interactionId}`)
-        .setPlaceholder('Select a Server Region')
+        .setPlaceholder(state.region ? 'Change Server Region' : 'Select a Server Region')
         .addOptions(gameData.regions.map(region => new StringSelectMenuOptionBuilder().setLabel(region.name).setValue(region.id)));
 
+    // [MODIFIED] Placeholder text is now dynamic.
     const mapMenu = new StringSelectMenuBuilder()
         .setCustomId(`duel_builder_map_${state.interactionId}`)
-        .setPlaceholder('Select a Map')
+        .setPlaceholder(state.map ? 'Change Map' : 'Select a Map')
         .addOptions(gameData.maps.slice(0, 25).map(map => new StringSelectMenuOptionBuilder().setLabel(map.name).setValue(map.id)));
 
     const weaponsMenu = new StringSelectMenuBuilder()
@@ -85,7 +87,7 @@ function buildDuelBuilderMessage(state) {
             .setCustomId(`duel_builder_send_${state.interactionId}`)
             .setLabel('Send Challenge')
             .setStyle(ButtonStyle.Success)
-            .setDisabled(!state.wager || !state.map)
+            .setDisabled(!state.wager || !state.map || !state.region) // [MODIFIED] Region is now also required to send.
     );
 
     return {
@@ -103,209 +105,218 @@ function buildDuelBuilderMessage(state) {
 
 // --- Main Interaction Router ---
 client.on('interactionCreate', async interaction => {
-    if (interaction.isChatInputCommand()) {
-        const { commandName } = interaction;
-
-        if (commandName === 'link') {
-            const modal = new ModalBuilder().setCustomId('linkAccountModal').setTitle('Link Your Blox Battles Account');
-            const usernameInput = new TextInputBuilder().setCustomId('robloxUsernameInput').setLabel("Your Blox Battles (Roblox) Username").setStyle(TextInputStyle.Short).setPlaceholder('Enter your exact Roblox username').setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(usernameInput));
-            return await interaction.showModal(modal);
-        }
-
-        if (commandName === 'unlink') {
-            const embed = new EmbedBuilder().setColor(0xf85149).setTitle('Unlink Account Confirmation').setDescription('Are you sure you want to unlink your Discord account from your Blox Battles account? You will stop receiving all notifications.');
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('confirm_unlink').setLabel('Confirm').setStyle(ButtonStyle.Danger),
-                new ButtonBuilder().setCustomId('cancel_unlink').setLabel('Cancel').setStyle(ButtonStyle.Secondary)
-            );
-            return await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
-        }
-
-        if (commandName === 'challenge') {
-            const opponent = interaction.options.getUser('opponent');
-            if (opponent.bot) return interaction.reply({ content: "You cannot challenge a bot.", ephemeral: true });
-            if (opponent.id === interaction.user.id) return interaction.reply({ content: "You cannot challenge yourself.", ephemeral: true });
-            
-            // [MODIFIED] Defer the reply immediately before any async operations.
-            await interaction.deferReply({ ephemeral: true });
-
-            try {
-                const preCheck = await apiClient.post('/api/discord/duels/pre-check', {
-                    challengerDiscordId: interaction.user.id,
-                    opponentDiscordId: opponent.id,
-                });
-                
-                const duelState = {
-                    interactionId: interaction.id,
-                    challenger: { id: interaction.user.id, maxGems: preCheck.data.challenger.gems },
-                    opponent: { id: opponent.id, username: preCheck.data.opponent.username },
-                    opponentUsername: opponent.username,
-                    wager: null, map: null, region: null, banned_weapons: []
-                };
-
-                activeDuelBuilders.set(interaction.id, duelState);
-                
-                setTimeout(() => {
-                    if (activeDuelBuilders.has(interaction.id)) {
-                        activeDuelBuilders.delete(interaction.id);
-                        interaction.editReply({ content: 'Your duel builder has expired due to inactivity.', embeds: [], components: [] }).catch(() => {});
-                    }
-                }, 5 * 60 * 1000);
-
-                const messagePayload = buildDuelBuilderMessage(duelState);
-                await interaction.editReply(messagePayload);
-
-            } catch (error) {
-                const errorMessage = error.response?.data?.message || 'An unknown error occurred during pre-check.';
-                await interaction.editReply({ content: `❌ **Error:** ${errorMessage}` });
+    // [MODIFIED] Added a try/catch block to the entire handler to prevent crashes.
+    try {
+        if (interaction.isChatInputCommand()) {
+            const { commandName } = interaction;
+    
+            if (commandName === 'link') {
+                const modal = new ModalBuilder().setCustomId('linkAccountModal').setTitle('Link Your Blox Battles Account');
+                const usernameInput = new TextInputBuilder().setCustomId('robloxUsernameInput').setLabel("Your Blox Battles (Roblox) Username").setStyle(TextInputStyle.Short).setPlaceholder('Enter your exact Roblox username').setRequired(true);
+                modal.addComponents(new ActionRowBuilder().addComponents(usernameInput));
+                return await interaction.showModal(modal);
             }
-        }
-    }
-    else if (interaction.isMessageComponent()) {
-        const customIdParts = interaction.customId.split('_');
-        const componentType = customIdParts[0];
-
-        if (componentType === 'accept' || componentType === 'decline') {
-            const duelId = customIdParts[1];
-            const expectedOpponentId = interaction.message.mentions.users.first()?.id;
-
-            if (interaction.user.id !== expectedOpponentId) {
-                return interaction.reply({ content: "This is not your challenge to respond to!", ephemeral: true });
+    
+            if (commandName === 'unlink') {
+                const embed = new EmbedBuilder().setColor(0xf85149).setTitle('Unlink Account Confirmation').setDescription('Are you sure you want to unlink your Discord account from your Blox Battles account? You will stop receiving all notifications.');
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('confirm_unlink').setLabel('Confirm').setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder().setCustomId('cancel_unlink').setLabel('Cancel').setStyle(ButtonStyle.Secondary)
+                );
+                return await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
             }
-
-            await interaction.deferUpdate();
-            try {
-                await apiClient.post('/api/discord/duels/respond', { duelId, discordId: interaction.user.id, response: componentType });
+    
+            if (commandName === 'challenge') {
+                const opponent = interaction.options.getUser('opponent');
+                if (opponent.bot) return interaction.reply({ content: "You cannot challenge a bot.", ephemeral: true });
+                if (opponent.id === interaction.user.id) return interaction.reply({ content: "You cannot challenge yourself.", ephemeral: true });
                 
-                const finalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
-                finalEmbed.setColor(componentType === 'accept' ? 0x3fb950 : 0xf85149);
-                finalEmbed.addFields({ name: 'Status', value: `**${componentType.toUpperCase()}ED** by ${interaction.user.username}` });
-                
-                await interaction.editReply({ embeds: [finalEmbed], components: [] });
-            } catch (error) {
-                const errorMessage = error.response?.data?.message || 'An error occurred while responding.';
-                await interaction.followUp({ content: `❌ **Error:** ${errorMessage}`, ephemeral: true });
-            }
-            return;
-        }
-
-        if (customIdParts[0] === 'duel' && customIdParts[1] === 'builder') {
-            const interactionId = customIdParts[3];
-            const state = activeDuelBuilders.get(interactionId);
-            if (!state) return interaction.update({ content: "This duel builder has expired.", embeds: [], components: [] });
-            
-            const subAction = customIdParts[2];
-            
-            if (interaction.isStringSelectMenu()) {
-                if (subAction === 'region') state.region = interaction.values[0];
-                if (subAction === 'map') state.map = interaction.values[0];
-                if (subAction === 'weapons') state.banned_weapons = interaction.values;
-            } else if (interaction.isButton()) {
-                if (subAction === 'cancel') {
-                    activeDuelBuilders.delete(interactionId);
-                    return interaction.update({ content: 'Duel challenge canceled.', embeds: [], components: [] });
+                await interaction.deferReply({ ephemeral: true });
+    
+                try {
+                    const preCheck = await apiClient.post('/api/discord/duels/pre-check', {
+                        challengerDiscordId: interaction.user.id,
+                        opponentDiscordId: opponent.id,
+                    });
+                    
+                    const duelState = {
+                        interactionId: interaction.id,
+                        challenger: { id: interaction.user.id, maxGems: preCheck.data.challenger.gems },
+                        opponent: { id: opponent.id, username: preCheck.data.opponent.username },
+                        opponentUsername: opponent.username,
+                        wager: null, map: null, region: null, banned_weapons: []
+                    };
+    
+                    activeDuelBuilders.set(interaction.id, duelState);
+                    
+                    setTimeout(() => {
+                        if (activeDuelBuilders.has(interaction.id)) {
+                            activeDuelBuilders.delete(interaction.id);
+                            interaction.editReply({ content: 'Your duel builder has expired due to inactivity.', embeds: [], components: [] }).catch(() => {});
+                        }
+                    }, 5 * 60 * 1000);
+    
+                    const messagePayload = buildDuelBuilderMessage(duelState);
+                    await interaction.editReply(messagePayload);
+    
+                } catch (error) {
+                    const errorMessage = error.response?.data?.message || 'An unknown error occurred during pre-check.';
+                    await interaction.editReply({ content: `❌ **Error:** ${errorMessage}` });
                 }
-                if (subAction === 'wager') {
-                    const modal = new ModalBuilder().setCustomId(`duel_builder_wager_${interactionId}`).setTitle('Set Your Wager');
-                    const wagerInput = new TextInputBuilder().setCustomId('wager_input').setLabel("Wager Amount (Gems)").setStyle(TextInputStyle.Short).setRequired(true);
-                    modal.addComponents(new ActionRowBuilder().addComponents(wagerInput));
-                    return interaction.showModal(modal);
+            }
+        }
+        else if (interaction.isMessageComponent()) {
+            const customIdParts = interaction.customId.split('_');
+            const componentType = customIdParts[0];
+    
+            if (componentType === 'accept' || componentType === 'decline') {
+                const duelId = customIdParts[1];
+                const expectedOpponentId = interaction.message.mentions.users.first()?.id;
+    
+                if (interaction.user.id !== expectedOpponentId) {
+                    return interaction.reply({ content: "This is not your challenge to respond to!", ephemeral: true });
                 }
-                if (subAction === 'send') {
-                    await interaction.deferUpdate();
-                    try {
-                        const { data } = await apiClient.post('/api/discord/duels/create', {
-                            challengerDiscordId: state.challenger.id,
-                            opponentDiscordId: state.opponent.id,
-                            wager: state.wager, map: state.map, region: state.region, banned_weapons: state.banned_weapons
-                        });
+    
+                await interaction.deferUpdate();
+                try {
+                    await apiClient.post('/api/discord/duels/respond', { duelId, discordId: interaction.user.id, response: componentType });
+                    
+                    const finalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+                    finalEmbed.setColor(componentType === 'accept' ? 0x3fb950 : 0xf85149);
+                    finalEmbed.addFields({ name: 'Status', value: `**${componentType.toUpperCase()}ED** by ${interaction.user.username}` });
+                    
+                    await interaction.editReply({ embeds: [finalEmbed], components: [] });
+                } catch (error) {
+                    const errorMessage = error.response?.data?.message || 'An error occurred while responding.';
+                    await interaction.followUp({ content: `❌ **Error:** ${errorMessage}`, ephemeral: true });
+                }
+                return;
+            }
+    
+            if (customIdParts[0] === 'duel' && customIdParts[1] === 'builder') {
+                const interactionId = customIdParts[3];
+                const state = activeDuelBuilders.get(interactionId);
+                if (!state) return interaction.update({ content: "This duel builder has expired.", embeds: [], components: [] });
+                
+                const subAction = customIdParts[2];
+                
+                if (interaction.isStringSelectMenu()) {
+                    if (subAction === 'region') state.region = interaction.values[0];
+                    if (subAction === 'map') state.map = interaction.values[0];
+                    if (subAction === 'weapons') state.banned_weapons = interaction.values;
+                } else if (interaction.isButton()) {
+                    if (subAction === 'cancel') {
                         activeDuelBuilders.delete(interactionId);
-                        
-                        const challengeEmbed = EmbedBuilder.from(interaction.message.embeds[0])
-                            .setTitle(`⚔️ ${interaction.user.username} has challenged ${state.opponentUsername}!`)
-                            .setDescription('The opponent has 5 minutes to respond.')
-                            .setTimestamp();
-                        const buttons = new ActionRowBuilder().addComponents(
-                            new ButtonBuilder().setCustomId(`accept_${data.duelId}`).setLabel('Accept').setStyle(ButtonStyle.Success),
-                            new ButtonBuilder().setCustomId(`decline_${data.duelId}`).setLabel('Decline').setStyle(ButtonStyle.Danger)
-                        );
-                        
-                        const publicMessage = await interaction.channel.send({ content: `<@${state.opponent.id}>`, embeds: [challengeEmbed], components: [buttons] });
-                        await interaction.editReply({ content: '✅ Challenge sent successfully!', embeds: [], components: [] });
-                        
-                        setTimeout(async () => {
-                            const currentMessage = await interaction.channel.messages.fetch(publicMessage.id).catch(()=>null);
-                            if (currentMessage && currentMessage.components.length > 0) {
-                                await apiClient.post('/api/discord/duels/cancel', { duelId: data.duelId });
-                                const expiredEmbed = EmbedBuilder.from(currentMessage.embeds[0]).addFields({ name: 'Status', value: '⌛ **EXPIRED**' }).setColor(0x7d8590);
-                                await currentMessage.edit({ embeds: [expiredEmbed], components: [] });
-                            }
-                        }, 5 * 60 * 1000);
-
-                    } catch(error) {
-                        const errorMessage = error.response?.data?.message || 'An unknown error occurred.';
-                        await interaction.editReply({ content: `❌ **Error:** ${errorMessage}`, embeds: [], components: [] });
+                        return interaction.update({ content: 'Duel challenge canceled.', embeds: [], components: [] });
                     }
-                    return;
+                    if (subAction === 'wager') {
+                        const modal = new ModalBuilder().setCustomId(`duel_builder_wager_${interactionId}`).setTitle('Set Your Wager');
+                        const wagerInput = new TextInputBuilder().setCustomId('wager_input').setLabel("Wager Amount (Gems)").setStyle(TextInputStyle.Short).setRequired(true);
+                        modal.addComponents(new ActionRowBuilder().addComponents(wagerInput));
+                        return interaction.showModal(modal);
+                    }
+                    if (subAction === 'send') {
+                        await interaction.deferUpdate();
+                        try {
+                            const { data } = await apiClient.post('/api/discord/duels/create', {
+                                challengerDiscordId: state.challenger.id,
+                                opponentDiscordId: state.opponent.id,
+                                wager: state.wager, map: state.map, region: state.region, banned_weapons: state.banned_weapons
+                            });
+                            activeDuelBuilders.delete(interactionId);
+                            
+                            const challengeEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+                                .setTitle(`⚔️ ${interaction.user.username} has challenged ${state.opponentUsername}!`)
+                                .setDescription('The opponent has 5 minutes to respond.')
+                                .setTimestamp();
+                            const buttons = new ActionRowBuilder().addComponents(
+                                new ButtonBuilder().setCustomId(`accept_${data.duelId}`).setLabel('Accept').setStyle(ButtonStyle.Success),
+                                new ButtonBuilder().setCustomId(`decline_${data.duelId}`).setLabel('Decline').setStyle(ButtonStyle.Danger)
+                            );
+                            
+                            const publicMessage = await interaction.channel.send({ content: `<@${state.opponent.id}>`, embeds: [challengeEmbed], components: [buttons] });
+                            await interaction.editReply({ content: '✅ Challenge sent successfully!', embeds: [], components: [] });
+                            
+                            setTimeout(async () => {
+                                const currentMessage = await interaction.channel.messages.fetch(publicMessage.id).catch(()=>null);
+                                if (currentMessage && currentMessage.components.length > 0) {
+                                    await apiClient.post('/api/discord/duels/cancel', { duelId: data.duelId });
+                                    const expiredEmbed = EmbedBuilder.from(currentMessage.embeds[0]).addFields({ name: 'Status', value: '⌛ **EXPIRED**' }).setColor(0x7d8590);
+                                    await currentMessage.edit({ embeds: [expiredEmbed], components: [] });
+                                }
+                            }, 5 * 60 * 1000);
+    
+                        } catch(error) {
+                            const errorMessage = error.response?.data?.message || 'An unknown error occurred.';
+                            await interaction.editReply({ content: `❌ **Error:** ${errorMessage}`, embeds: [], components: [] });
+                        }
+                        return;
+                    }
+                }
+                const messagePayload = buildDuelBuilderMessage(state);
+                await interaction.update(messagePayload);
+            }
+    
+            if (componentType === 'confirm' && customIdParts[1] === 'unlink') {
+                try {
+                    await apiClient.post('/api/discord/unlink', { discordId: interaction.user.id });
+                    const successEmbed = new EmbedBuilder().setColor(0x3fb950).setTitle('✅ Success').setDescription('Your Discord account has been successfully unlinked.');
+                    await interaction.update({ embeds: [successEmbed], components: [] });
+                } catch (error) {
+                    const errorMessage = error.response?.data?.message || 'An unknown error occurred.';
+                    const errorEmbed = new EmbedBuilder().setColor(0xf85149).setTitle('❌ Error').setDescription(errorMessage);
+                    await interaction.update({ embeds: [errorEmbed], components: [] });
+                }
+            } else if (componentType === 'cancel' && customIdParts[1] === 'unlink') {
+                const cancelEmbed = new EmbedBuilder().setColor(0x58a6ff).setTitle('🚫 Canceled').setDescription('The unlink process has been canceled.');
+                await interaction.update({ embeds: [cancelEmbed], components: [] });
+            }
+        }
+        else if (interaction.isModalSubmit()) {
+            const customIdParts = interaction.customId.split('_');
+            const componentType = customIdParts[0];
+    
+            if (interaction.customId === 'linkAccountModal') {
+                await interaction.deferReply({ ephemeral: true });
+                const robloxUsername = interaction.fields.getTextInputValue('robloxUsernameInput');
+                const discordId = interaction.user.id;
+                const discordUsername = interaction.user.tag;
+                try {
+                    await apiClient.post('/api/discord/initiate-link', { robloxUsername, discordId, discordUsername });
+                    await interaction.editReply({
+                        content: `✅ **Request Sent!**\nA confirmation request has been sent to the inbox of the Blox Battles account for **${robloxUsername}**.\n\nPlease log in to the website to complete the linking process.`,
+                        flags: [MessageFlags.Ephemeral]
+                    });
+                } catch (error) {
+                    const errorMessage = error.response?.data?.message || 'An unknown error occurred. Please try again later.';
+                    await interaction.editReply({ content: `❌ **Error:** ${errorMessage}`, flags: [MessageFlags.Ephemeral] });
                 }
             }
-            const messagePayload = buildDuelBuilderMessage(state);
-            await interaction.update(messagePayload);
-        }
-
-        if (componentType === 'confirm' && customIdParts[1] === 'unlink') {
-            try {
-                await apiClient.post('/api/discord/unlink', { discordId: interaction.user.id });
-                const successEmbed = new EmbedBuilder().setColor(0x3fb950).setTitle('✅ Success').setDescription('Your Discord account has been successfully unlinked.');
-                await interaction.update({ embeds: [successEmbed], components: [] });
-            } catch (error) {
-                const errorMessage = error.response?.data?.message || 'An unknown error occurred.';
-                const errorEmbed = new EmbedBuilder().setColor(0xf85149).setTitle('❌ Error').setDescription(errorMessage);
-                await interaction.update({ embeds: [errorEmbed], components: [] });
-            }
-        } else if (componentType === 'cancel' && customIdParts[1] === 'unlink') {
-            const cancelEmbed = new EmbedBuilder().setColor(0x58a6ff).setTitle('🚫 Canceled').setDescription('The unlink process has been canceled.');
-            await interaction.update({ embeds: [cancelEmbed], components: [] });
-        }
-    }
-    else if (interaction.isModalSubmit()) {
-        const customIdParts = interaction.customId.split('_');
-        const componentType = customIdParts[0];
-
-        if (interaction.customId === 'linkAccountModal') {
-            await interaction.deferReply({ ephemeral: true });
-            const robloxUsername = interaction.fields.getTextInputValue('robloxUsernameInput');
-            const discordId = interaction.user.id;
-            const discordUsername = interaction.user.tag;
-            try {
-                await apiClient.post('/api/discord/initiate-link', { robloxUsername, discordId, discordUsername });
-                await interaction.editReply({
-                    content: `✅ **Request Sent!**\nA confirmation request has been sent to the inbox of the Blox Battles account for **${robloxUsername}**.\n\nPlease log in to the website to complete the linking process.`,
-                    flags: [MessageFlags.Ephemeral]
-                });
-            } catch (error) {
-                const errorMessage = error.response?.data?.message || 'An unknown error occurred. Please try again later.';
-                await interaction.editReply({ content: `❌ **Error:** ${errorMessage}`, flags: [MessageFlags.Ephemeral] });
+    
+            if (componentType === 'duel' && customIdParts[1] === 'builder' && customIdParts[2] === 'wager') {
+                const interactionId = customIdParts[3];
+                const state = activeDuelBuilders.get(interactionId);
+                if (!state) return interaction.update({ content: "This duel builder has expired.", embeds: [], components: [] });
+    
+                const wagerAmount = parseInt(interaction.fields.getTextInputValue('wager_input'), 10);
+                if (isNaN(wagerAmount) || wagerAmount <= 0) {
+                    return interaction.reply({ content: 'Please enter a valid, positive number for the wager.', ephemeral: true });
+                }
+                if (wagerAmount > state.challenger.maxGems) {
+                    return interaction.reply({ content: `You do not have enough gems. Your balance is ${state.challenger.maxGems.toLocaleString()}.`, ephemeral: true });
+                }
+                
+                state.wager = wagerAmount;
+                const messagePayload = buildDuelBuilderMessage(state);
+                await interaction.update(messagePayload);
             }
         }
-
-        if (componentType === 'duel' && customIdParts[1] === 'builder' && customIdParts[2] === 'wager') {
-            const interactionId = customIdParts[3];
-            const state = activeDuelBuilders.get(interactionId);
-            if (!state) return interaction.update({ content: "This duel builder has expired.", embeds: [], components: [] });
-
-            const wagerAmount = parseInt(interaction.fields.getTextInputValue('wager_input'), 10);
-            if (isNaN(wagerAmount) || wagerAmount <= 0) {
-                return interaction.reply({ content: 'Please enter a valid, positive number for the wager.', ephemeral: true });
-            }
-            if (wagerAmount > state.challenger.maxGems) {
-                return interaction.reply({ content: `You do not have enough gems. Your balance is ${state.challenger.maxGems.toLocaleString()}.`, ephemeral: true });
-            }
-            
-            state.wager = wagerAmount;
-            const messagePayload = buildDuelBuilderMessage(state);
-            await interaction.update(messagePayload);
+    } catch (error) {
+        console.error("An unhandled error occurred in the interactionCreate event:", error);
+        if (interaction.replied || interaction.deferred) {
+            await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
+        } else {
+            await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
         }
     }
 });
@@ -414,22 +425,26 @@ async function processDiscordTasks() {
         if (tasks.length === 0) return;
         
         for (const task of tasks) {
-            switch (task.task_type) {
-                case 'POST_DUEL_RESULT_TO_DISCORD':
-                    const channel = await client.channels.fetch(DUEL_RESULTS_CHANNEL_ID).catch(() => null);
-                    if (channel) {
-                        await channel.send(buildDuelResultEmbed(task.payload));
-                    }
-                    break;
-                case 'SEND_DISCORD_LINK_SUCCESS_DM': await sendLinkSuccessDM(task); break;
-                case 'SEND_DUEL_CHALLENGE_DM': await sendDuelChallengeDM(task); break;
-                case 'SEND_DUEL_ACCEPTED_DM': await sendDuelAcceptedDM(task); break;
-                case 'SEND_DUEL_STARTED_DM': await sendDuelStartedDM(task); break;
+            try {
+                switch (task.task_type) {
+                    case 'POST_DUEL_RESULT_TO_DISCORD':
+                        const channel = await client.channels.fetch(DUEL_RESULTS_CHANNEL_ID).catch(() => null);
+                        if (channel) {
+                            await channel.send(buildDuelResultEmbed(task.payload));
+                        }
+                        break;
+                    case 'SEND_DISCORD_LINK_SUCCESS_DM': await sendLinkSuccessDM(task); break;
+                    case 'SEND_DUEL_CHALLENGE_DM': await sendDuelChallengeDM(task); break;
+                    case 'SEND_DUEL_ACCEPTED_DM': await sendDuelAcceptedDM(task); break;
+                    case 'SEND_DUEL_STARTED_DM': await sendDuelStartedDM(task); break;
+                }
+                await apiClient.post(`/api/tasks/${task.id}/complete`);
+            } catch (taskError) {
+                 console.error(`Error processing individual task ID ${task.id} of type ${task.task_type}:`, taskError);
             }
-            await apiClient.post(`/api/tasks/${task.id}/complete`);
         }
     } catch (err) {
-        console.error(`Error processing Discord tasks: ${err.message}`);
+        console.error(`Error fetching Discord tasks: ${err.message}`);
     }
 }
 
