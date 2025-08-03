@@ -78,10 +78,10 @@ export const updateWithdrawalDetails = (requestId, details, token) => apiRequest
 // --- SETTINGS ---
 export const updatePassword = (passwordData, token) => apiRequest('/user/password', 'PUT', passwordData, token);
 export const unlinkRoblox = (token) => apiRequest('/user/unlink/roblox', 'POST', null, token);
-// [NEW] Add unlinkDiscord function
 export const unlinkDiscord = (token) => apiRequest('/user/unlink/discord', 'POST', null, token);
 export const deleteAccount = (password, token) => apiRequest('/user/delete/account', 'DELETE', { password }, token);
-export const updateNotificationPreference = (enabled, token) => apiRequest('/user/notification-preference', 'PUT', { enabled }, token);
+// [MODIFIED] The function is renamed for clarity to reflect its new purpose.
+export const updateDiscordNotificationPreference = (enabled, token) => apiRequest('/user/notification-preference', 'PUT', { enabled }, token);
 
 // --- TOURNAMENTS ---
 export const getTournaments = (token) => apiRequest('/tournaments', 'GET', null, token);
@@ -111,10 +111,8 @@ export const getAdminPayoutRequests = (token) => apiRequest('/admin/payout-reque
 export const getAdminUserDetailsForPayout = (userId, payoutId, token) => apiRequest(`/admin/users/${userId}/details-for-payout/${payoutId}`, 'GET', null, token);
 export const approvePayoutRequest = (requestId, token) => apiRequest(`/admin/payout-requests/${requestId}/approve`, 'POST', null, token);
 export const declinePayoutRequest = (requestId, reason, token) => apiRequest(`/admin/payout-requests/${requestId}/decline`, 'POST', { reason }, token);
-// [CORRECTED] Admin Tournament Functions now included.
 export const createTournament = (tournamentData, token) => apiRequest('/admin/tournaments', 'POST', tournamentData, token);
 export const getAdminTournaments = (token) => apiRequest('/admin/tournaments', 'GET', null, token);
 export const cancelTournament = (id, token) => apiRequest(`/admin/tournaments/${id}`, 'DELETE', null, token);
-// [NEW] Admin system status functions
 export const getSystemStatus = (token) => apiRequest('/admin/system-status', 'GET', null, token);
 export const updateSystemStatus = (statusData, token) => apiRequest('/admin/system-status', 'PUT', statusData, token);
