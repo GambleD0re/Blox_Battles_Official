@@ -1,13 +1,19 @@
-// backend/database/schema.sql
-
 -- This script defines the PostgreSQL-compatible structure of the database.
 
 -- Drop tables if they exist to ensure a clean slate. The CASCADE keyword will also drop dependent objects.
-DROP TABLE IF EXISTS users, duels, tasks, push_subscriptions, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, platform_status CASCADE;
+DROP TABLE IF EXISTS users, duels, tasks, push_subscriptions, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status CASCADE;
+
+-- [NEW] Table to manage the on/off status of site features.
+CREATE TABLE system_status (
+    feature_name VARCHAR(50) PRIMARY KEY,
+    is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    disabled_message TEXT
+);
+
 
 -- Create the 'users' table. 'SERIAL' is the PostgreSQL equivalent of AUTOINCREMENT.
 -- 'UUID' is a better type for your unique 'id' column.
--- [MODIFIED] Added 'discord_id', 'discord_username', and 'is_master_admin' columns.
+-- [MODIFIED] Added 'discord_id' and 'discord_username' columns for Discord account linking.
 CREATE TABLE users (
     user_index SERIAL PRIMARY KEY,
     id UUID NOT NULL UNIQUE,
@@ -20,7 +26,6 @@ CREATE TABLE users (
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
     is_admin BOOLEAN DEFAULT FALSE,
-    is_master_admin BOOLEAN DEFAULT FALSE, -- New column for the master admin
     linked_roblox_id VARCHAR(255),
     linked_roblox_username VARCHAR(255) UNIQUE,
     verification_phrase TEXT,
@@ -34,15 +39,6 @@ CREATE TABLE users (
     ban_reason TEXT,
     crypto_deposit_address VARCHAR(255) UNIQUE
 );
-
--- [NEW] Create the platform_status table for feature flags.
-CREATE TABLE platform_status (
-    feature_key VARCHAR(50) PRIMARY KEY,
-    is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    disabled_title TEXT NOT NULL DEFAULT 'Feature Unavailable',
-    disabled_message TEXT NOT NULL DEFAULT 'This feature is temporarily disabled by an administrator. Please check back later.'
-);
-
 
 -- Use NUMERIC for financial values and JSONB for JSON data.
 CREATE TABLE crypto_deposits (
@@ -215,3 +211,14 @@ CREATE TABLE game_servers (
     player_count INTEGER NOT NULL DEFAULT 0,
     last_heartbeat TIMESTAMP WITH TIME ZONE NOT NULL
 );
+
+-- [NEW] Insert default values for the system_status table.
+INSERT INTO system_status (feature_name, is_enabled, disabled_message) VALUES
+('site_wide_maintenance', FALSE, 'The platform is currently down for scheduled maintenance. Please check back later.'),
+('user_registration', TRUE, 'New user registrations are temporarily disabled.'),
+('dueling_website', TRUE, 'Website dueling is temporarily disabled.'),
+('dueling_discord', TRUE, 'Discord dueling is temporarily disabled.'),
+('deposits', TRUE, 'All deposit methods are temporarily offline.'),
+('withdrawals', TRUE, 'Withdrawals are temporarily unavailable.'),
+('tournaments', TRUE, 'Tournaments are currently offline.'),
+('roblox_linking', TRUE, 'Roblox account linking is temporarily disabled.');
