@@ -21,7 +21,6 @@ const Modal = ({ children, isOpen, onClose, title }) => {
 
 
 // --- Post Duel Result & Dispute Modal ---
-// [MODIFIED] The countdown timer is now server-authoritative.
 export const PostDuelModal = ({ isOpen, result, currentUser, onConfirm, onDispute }) => {
     const [view, setView] = useState('result');
     const [reason, setReason] = useState('');
@@ -36,23 +35,15 @@ export const PostDuelModal = ({ isOpen, result, currentUser, onConfirm, onDisput
             setView('result');
             setReason('');
             setHasVideo(false);
-
-            // Calculate the exact time the confirmation window ends.
             const endTime = new Date(result.result_posted_at).getTime() + (2 * 60 * 1000);
-
             const timer = setInterval(() => {
                 const now = Date.now();
                 const remainingSeconds = Math.max(0, Math.floor((endTime - now) / 1000));
                 setCountdown(remainingSeconds);
-
                 if (remainingSeconds <= 0) {
                     clearInterval(timer);
-                    // The server-side cron job will handle the auto-confirmation.
-                    // The client doesn't need to do anything, the modal will just close
-                    // when the `unseenResult` state becomes null after the next fetch.
                 }
             }, 1000);
-
             return () => clearInterval(timer);
         }
     }, [isOpen, result]);
@@ -87,45 +78,18 @@ export const PostDuelModal = ({ isOpen, result, currentUser, onConfirm, onDisput
                     </div>
                 </div>
             )}
-
             {view === 'dispute' && (
                 <form onSubmit={handleDisputeSubmit}>
                     <h3 className="text-2xl font-bold text-center mb-4">File a Dispute</h3>
                     <p className="text-gray-400 text-center mb-6">Provide a reason for the dispute. An admin will review the case. False reports may result in penalties.</p>
-                    <div className="form-group">
-                        <label htmlFor="dispute-reason">Reason</label>
-                        <textarea
-                            id="dispute-reason"
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value)}
-                            required
-                            className="form-input !h-24"
-                            placeholder="e.g., The player was exploiting a glitch, using banned items not declared, etc."
-                        ></textarea>
-                    </div>
-                    <div className="form-group">
-                        <label className="flex items-center gap-3 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={hasVideo}
-                                onChange={(e) => setHasVideo(e.target.checked)}
-                                className="h-5 w-5 rounded bg-gray-700 border-gray-600 text-blue-500 focus:ring-blue-500"
-                            />
-                            <span className="text-gray-300">I have a screen recording of the incident</span>
-                        </label>
-                    </div>
-                    <div className="modal-actions mt-6">
-                        <button type="button" onClick={() => setView('result')} className="btn btn-secondary">Back</button>
-                        <button type="submit" className="btn btn-danger">Submit Dispute</button>
-                    </div>
+                    <div className="form-group"><label htmlFor="dispute-reason">Reason</label><textarea id="dispute-reason" value={reason} onChange={(e) => setReason(e.target.value)} required className="form-input !h-24" placeholder="e.g., The player was exploiting a glitch, using banned items not declared, etc."></textarea></div>
+                    <div className="form-group"><label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={hasVideo} onChange={(e) => setHasVideo(e.target.checked)} className="h-5 w-5 rounded bg-gray-700 border-gray-600 text-blue-500 focus:ring-blue-500" /><span>I have a screen recording of the incident</span></label></div>
+                    <div className="modal-actions mt-6"><button type="button" onClick={() => setView('result')} className="btn btn-secondary">Back</button><button type="submit" className="btn btn-danger">Submit Dispute</button></div>
                 </form>
             )}
         </Modal>
     );
 };
-
-
-// --- Existing Modals ---
 
 export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameData, onChallengeSubmit, onError }) => {
     const [wager, setWager] = useState(100);
@@ -233,13 +197,13 @@ export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameDat
     );
 };
 
-export const DuelDetailsModal = ({ isOpen, onClose, duel, onRespond }) => {
+export const DuelDetailsModal = ({ isOpen, onClose, duel, onRespond, isViewingOnly = false }) => {
     if (!duel?.data) return null;
 
     const duelDetails = duel.data;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Incoming Challenge!">
+        <Modal isOpen={isOpen} onClose={onClose} title={isViewingOnly ? "Duel Details" : "Incoming Challenge!"}>
             <div id="duel-details-content" className="space-y-2">
                 <p><strong>Challenger:</strong> {duelDetails.challenger_username}</p>
                 <p><strong>Wager:</strong> <span className="font-bold text-[var(--accent-color)]">{duelDetails.wager} Gems</span></p>
@@ -253,10 +217,12 @@ export const DuelDetailsModal = ({ isOpen, onClose, duel, onRespond }) => {
                     </ul>
                 </div>
             </div>
-            <div className="modal-actions">
-                <button onClick={() => onRespond(duelDetails.id, 'decline')} className="btn btn-danger">Decline</button>
-                <button onClick={() => onRespond(duelDetails.id, 'accept')} className="btn btn-accept">Accept</button>
-            </div>
+            {!isViewingOnly && (
+                <div className="modal-actions">
+                    <button onClick={() => onRespond(duelDetails.id, 'decline')} className="btn btn-danger">Decline</button>
+                    <button onClick={() => onRespond(duelDetails.id, 'accept')} className="btn btn-accept">Accept</button>
+                </div>
+            )}
         </Modal>
     );
 };
