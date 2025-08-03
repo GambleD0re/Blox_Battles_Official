@@ -31,14 +31,15 @@ const createAdmin = async () => {
         const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
         const newUserId = crypto.randomUUID();
 
+        // [MODIFIED] Set is_admin and is_master_admin to TRUE
         const insertSql = `
-            INSERT INTO users (id, email, password_hash, is_admin, linked_roblox_username)
-            VALUES ($1, $2, $3, TRUE, $4)
+            INSERT INTO users (id, email, password_hash, is_admin, is_master_admin, linked_roblox_username)
+            VALUES ($1, $2, $3, TRUE, TRUE, $4)
         `;
 
         await client.query(insertSql, [newUserId, ADMIN_EMAIL, hashedPassword, ADMIN_ROBLOX_USERNAME]);
 
-        console.log('[SEED] Successfully created admin user:', ADMIN_EMAIL);
+        console.log('[SEED] Successfully created master admin user:', ADMIN_EMAIL);
 
     } catch (error) {
         console.error('[SEED] A critical error occurred while creating the admin user:', error);
