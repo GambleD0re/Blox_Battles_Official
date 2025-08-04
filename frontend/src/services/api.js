@@ -91,6 +91,11 @@ export const registerForTournament = (id, token) => apiRequest(`/tournaments/${i
 // --- DISCORD LINKING ---
 export const respondToDiscordLink = (messageId, response, token) => apiRequest('/discord/respond-link', 'POST', { messageId, response }, token);
 
+// --- CO-HOSTING ---
+export const getCohostStatus = (token) => apiRequest('/cohost/status', 'GET', null, token);
+export const startCohostSession = (token) => apiRequest('/cohost/start-session', 'POST', null, token);
+export const shutdownCohostSession = (token) => apiRequest('/cohost/shutdown', 'POST', null, token);
+
 // --- ADMIN ---
 export const getAdminStats = (token) => apiRequest('/admin/stats', 'GET', null, token);
 export const getAdminLogs = (token) => apiRequest('/admin/logs', 'GET', null, token);
