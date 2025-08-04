@@ -58,16 +58,16 @@ const SettingsPage = () => {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [deletePassword, setDeletePassword] = useState('');
-    // [MODIFIED] State is now for discord notifications, and default is true.
     const [notificationsEnabled, setNotificationsEnabled] = useState(user?.discord_notifications_enabled ?? true);
+    const [acceptingChallenges, setAcceptingChallenges] = useState(user?.accepting_challenges ?? true);
 
     const [isUnlinkModalOpen, setUnlinkModalOpen] = useState(false);
     const [isUnlinkDiscordModalOpen, setUnlinkDiscordModalOpen] = useState(false);
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
 
     useEffect(() => {
-        // [MODIFIED] Effect now syncs with the discord notification property.
         setNotificationsEnabled(user?.discord_notifications_enabled ?? true);
+        setAcceptingChallenges(user?.accepting_challenges ?? true);
     }, [user]);
 
     const showMessage = (text, type) => {
@@ -96,13 +96,25 @@ const SettingsPage = () => {
         const newPreference = !notificationsEnabled;
         setNotificationsEnabled(newPreference);
         try {
-            // [MODIFIED] Call the renamed API function.
             await api.updateDiscordNotificationPreference(newPreference, token);
             showMessage('Discord notification preferences updated.', 'success');
             refreshUser();
         } catch (error) {
             showMessage(error.message, 'error');
-            setNotificationsEnabled(!newPreference);
+            setNotificationsEnabled(!newPreference); // Revert on failure
+        }
+    };
+    
+    const handleChallengeToggle = async () => {
+        const newPreference = !acceptingChallenges;
+        setAcceptingChallenges(newPreference); // Optimistic UI update
+        try {
+            await api.updateChallengePreference(newPreference, token);
+            showMessage('Challenge preference updated.', 'success');
+            refreshUser();
+        } catch (error) {
+            showMessage(error.message, 'error');
+            setAcceptingChallenges(!newPreference); // Revert on failure
         }
     };
 
@@ -169,7 +181,16 @@ const SettingsPage = () => {
                     </div>
                 </SettingsCard>
 
-                {/* [MODIFIED] Notification section is completely overhauled */}
+                <SettingsCard title="Privacy Settings">
+                    <div className="flex justify-between items-center py-3">
+                        <div>
+                            <span className="text-gray-300 font-semibold">Accept Incoming Challenges</span>
+                            <p className="text-sm text-gray-500">Allow other players to send you duel challenges.</p>
+                        </div>
+                        <ToggleSwitch enabled={acceptingChallenges} onToggle={handleChallengeToggle} />
+                    </div>
+                </SettingsCard>
+
                 <SettingsCard title="Notifications">
                     {user.discord_id ? (
                         <div className="flex justify-between items-center py-3">
