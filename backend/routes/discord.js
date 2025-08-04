@@ -127,7 +127,7 @@ router.post('/duels/pre-check', authenticateBot,
     async (req, res) => {
         const { challengerDiscordId, opponentDiscordId } = req.body;
         try {
-            const sql = 'SELECT id, linked_roblox_username, discord_id, gems FROM users WHERE discord_id = ANY($1::varchar[])';
+            const sql = 'SELECT id, linked_roblox_username, discord_id, gems, accepting_challenges FROM users WHERE discord_id = ANY($1::varchar[])';
             const { rows: users } = await db.query(sql, [[challengerDiscordId, opponentDiscordId]]);
 
             const challenger = users.find(u => u.discord_id === challengerDiscordId);
@@ -135,6 +135,10 @@ router.post('/duels/pre-check', authenticateBot,
 
             if (!challenger) return res.status(400).json({ message: "You must link your Discord account before challenging others. Use `/link`." });
             if (!opponent) return res.status(400).json({ message: "Your opponent has not linked their Blox Battles account to Discord yet." });
+            
+            if (!opponent.accepting_challenges) {
+                return res.status(403).json({ message: "This player is not currently accepting challenges." });
+            }
 
             res.status(200).json({
                 message: "Both users are eligible.",
@@ -182,7 +186,6 @@ router.post('/duels/create', authenticateBot,
                 [challenger.id, opponent.id, wager, bannedWeaponsStr, map, region]
             );
 
-            // [MODIFIED] Add logic to create a DM notification task for the opponent.
             if (opponent.discord_id && opponent.discord_notifications_enabled) {
                 const mapInfo = GAME_DATA.maps.find(m => m.id === map);
                 const taskPayload = {
