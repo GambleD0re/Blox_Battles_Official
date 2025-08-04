@@ -80,8 +80,8 @@ export const updatePassword = (passwordData, token) => apiRequest('/user/passwor
 export const unlinkRoblox = (token) => apiRequest('/user/unlink/roblox', 'POST', null, token);
 export const unlinkDiscord = (token) => apiRequest('/user/unlink/discord', 'POST', null, token);
 export const deleteAccount = (password, token) => apiRequest('/user/delete/account', 'DELETE', { password }, token);
-// [MODIFIED] The function is renamed for clarity to reflect its new purpose.
 export const updateDiscordNotificationPreference = (enabled, token) => apiRequest('/user/notification-preference', 'PUT', { enabled }, token);
+export const updateChallengePreference = (enabled, token) => apiRequest('/user/challenge-preference', 'PUT', { enabled }, token);
 
 // --- TOURNAMENTS ---
 export const getTournaments = (token) => apiRequest('/tournaments', 'GET', null, token);
