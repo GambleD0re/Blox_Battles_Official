@@ -1,7 +1,7 @@
 -- This script defines the PostgreSQL-compatible structure of the database.
 
 -- Drop tables if they exist to ensure a clean slate. The CASCADE keyword will also drop dependent objects.
-DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status CASCADE;
+DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status, co_hosts, hosting_sessions CASCADE;
 
 -- Table to manage the on/off status of site features.
 CREATE TABLE system_status (
@@ -10,9 +10,6 @@ CREATE TABLE system_status (
     disabled_message TEXT
 );
 
-
--- Create the 'users' table.
--- [MODIFIED] Added 'accepting_challenges' column.
 CREATE TABLE users (
     user_index SERIAL PRIMARY KEY,
     id UUID NOT NULL UNIQUE,
@@ -40,7 +37,26 @@ CREATE TABLE users (
     crypto_deposit_address VARCHAR(255) UNIQUE
 );
 
--- Use NUMERIC for financial values and JSONB for JSON data.
+-- [NEW] Table to store persistent data for users who are co-hosts.
+CREATE TABLE co_hosts (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    reliability_tier INTEGER NOT NULL DEFAULT 3,
+    total_uptime_seconds BIGINT NOT NULL DEFAULT 0,
+    terms_agreed_at TIMESTAMP WITH TIME ZONE
+);
+
+-- [NEW] Table to log every individual co-hosting session.
+CREATE TABLE hosting_sessions (
+    id UUID PRIMARY KEY,
+    co_host_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    auth_token TEXT NOT NULL UNIQUE,
+    start_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    end_time TIMESTAMP WITH TIME ZONE,
+    last_heartbeat TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(50) NOT NULL CHECK(status IN ('initializing', 'active', 'winding_down', 'completed', 'crashed')),
+    gems_earned BIGINT NOT NULL DEFAULT 0
+);
+
 CREATE TABLE crypto_deposits (
     id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
