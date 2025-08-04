@@ -16,6 +16,8 @@ const duelHistoryRoutes = require('./duelHistory.js');
 const tournamentRoutes = require('./tournaments.js');
 const transcriptRoutes = require('./transcripts.js');
 const discordRoutes = require('./discord.js');
+// [NEW] Import the new co-host router.
+const cohostRoutes = require('./cohost.js');
 
 const router = express.Router();
 
@@ -35,6 +37,8 @@ router.use('/duel-history', duelHistoryRoutes);
 router.use('/tournaments', tournamentRoutes);
 router.use('/transcripts', transcriptRoutes);
 router.use('/discord', discordRoutes);
+// [NEW] Register the co-host router.
+router.use('/cohost', cohostRoutes);
 
 
 // The most general route ('/') should come LAST
