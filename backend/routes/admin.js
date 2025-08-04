@@ -5,6 +5,7 @@ const db = require('../database/database');
 const { authenticateToken, isAdmin, isMasterAdmin, handleValidationErrors } = require('../middleware/auth');
 const { getLogs } = require('../middleware/botLogger');
 const crypto = require('crypto');
+const GAME_DATA = require('../game-data-store');
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ const decrementPlayerCount = async (client, duelId) => {
     }
 };
 
-// --- [NEW] SYSTEM STATUS MANAGEMENT (MASTER ADMIN ONLY) ---
+// --- SYSTEM STATUS MANAGEMENT (MASTER ADMIN ONLY) ---
 router.get('/system-status', authenticateToken, isMasterAdmin, async (req, res) => {
     try {
         const { rows } = await db.query('SELECT feature_name, is_enabled, disabled_message FROM system_status ORDER BY feature_name');
@@ -51,8 +52,48 @@ router.put('/system-status', authenticateToken, isMasterAdmin, [
     }
 });
 
+// --- [NEW] HOST CONTRACT MANAGEMENT (ADMINS ONLY) ---
+const validRegions = GAME_DATA.regions.map(r => r.id);
+router.post('/host-contracts', authenticateToken, isAdmin, [
+    body('region').isIn(validRegions)
+], handleValidationErrors, async (req, res) => {
+    const { region } = req.body;
+    const adminId = req.user.userId;
+    try {
+        const contractId = crypto.randomUUID();
+        await db.query(
+            "INSERT INTO host_contracts (id, region, issued_by_admin_id) VALUES ($1, $2, $3)",
+            [contractId, region, adminId]
+        );
+        res.status(201).json({ message: `Host contract for ${region} has been successfully issued.` });
+    } catch (error) {
+        console.error("Error issuing host contract:", error);
+        res.status(500).json({ message: "Failed to issue host contract." });
+    }
+});
 
-// --- [NEW] TOURNAMENT MANAGEMENT ---
+router.get('/host-contracts', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+                hc.*, 
+                u.linked_roblox_username as co_host_username,
+                admin.linked_roblox_username as admin_username
+            FROM host_contracts hc
+            LEFT JOIN users u ON hc.claimed_by_user_id = u.id
+            LEFT JOIN users admin ON hc.issued_by_admin_id = admin.id
+            ORDER BY hc.issued_at DESC
+        `;
+        const { rows } = await db.query(sql);
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error("Error fetching host contracts:", error);
+        res.status(500).json({ message: "Failed to fetch host contracts." });
+    }
+});
+
+
+// --- TOURNAMENT MANAGEMENT ---
 router.post('/tournaments', authenticateToken, isAdmin, [
     body('name').trim().notEmpty(),
     body('region').trim().notEmpty(),
