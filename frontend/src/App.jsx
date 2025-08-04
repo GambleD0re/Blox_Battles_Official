@@ -2,7 +2,6 @@ import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
-// [NEW] Import the FeatureGuard component
 import FeatureGuard from './components/FeatureGuard.jsx';
 
 // Import pages that are always needed
@@ -22,6 +21,8 @@ const DuelHistoryPage = lazy(() => import('./pages/DuelHistoryPage.jsx'));
 const TournamentsPage = lazy(() => import('./pages/TournamentsPage.jsx'));
 const AdminTournamentCreatePage = lazy(() => import('./pages/AdminTournamentCreatePage.jsx'));
 const TranscriptViewerPage = lazy(() => import('./pages/TranscriptViewerPage.jsx'));
+// [NEW] Lazily load the new CoHostingPage.
+const CoHostingPage = lazy(() => import('./pages/CoHostingPage.jsx'));
 
 
 // --- UI COMPONENTS ---
@@ -43,7 +44,6 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
         return <Navigate to="/dashboard" />;
     }
     
-    // Check for Roblox linking only if the roblox_linking feature is enabled
     if (user?.systemStatus?.roblox_linking?.isEnabled && !user.linked_roblox_username) {
         const allowedPaths = ['/link-account', '/settings', '/history'];
         if (!allowedPaths.includes(window.location.pathname)) {
@@ -62,9 +62,7 @@ const App = () => {
         return <Loader fullScreen />;
     }
     
-    // [NEW] Check for site-wide maintenance first
     if (user && user.systemStatus?.site_wide_maintenance && !user.systemStatus.site_wide_maintenance.isEnabled) {
-        // Render a full-page maintenance notice
         const message = user.systemStatus.site_wide_maintenance.message || 'The platform is temporarily down for maintenance.';
         return (
              <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
@@ -89,7 +87,6 @@ const App = () => {
             <Routes>
                 {/* --- Public Routes --- */}
                 <Route path="/signin" element={!user ? <SignInPage /> : <Navigate to="/dashboard" />} />
-                {/* [MODIFIED] Wrap SignUpPage in a feature guard */}
                 <Route path="/signup" element={!user ? <FeatureGuard featureName="user_registration"><SignUpPage /></FeatureGuard> : <Navigate to="/dashboard" />} />
                 <Route path="/transcripts/:duelId" element={<Suspense fallback={<Loader fullScreen />}><TranscriptViewerPage /></Suspense>} />
 
@@ -98,12 +95,13 @@ const App = () => {
                 <Route path="/link-account" element={<ProtectedRoute><FeatureGuard featureName="roblox_linking"><LinkingView /></FeatureGuard></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
                 
-                {/* [MODIFIED] Wrap feature pages in their respective guards */}
                 <Route path="/deposit" element={<ProtectedRoute><FeatureGuard featureName="deposits"><Suspense fallback={<Loader fullScreen />}><DepositPage /></Suspense></FeatureGuard></ProtectedRoute>} />
                 <Route path="/withdraw" element={<ProtectedRoute><FeatureGuard featureName="withdrawals"><Suspense fallback={<Loader fullScreen />}><WithdrawPage /></Suspense></FeatureGuard></ProtectedRoute>} />
                 <Route path="/history" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><TransactionHistoryPage /></Suspense></ProtectedRoute>} />
                 <Route path="/duel-history" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><DuelHistoryPage /></Suspense></ProtectedRoute>} />
                 <Route path="/tournaments" element={<ProtectedRoute><FeatureGuard featureName="tournaments"><Suspense fallback={<Loader fullScreen />}><TournamentsPage /></Suspense></FeatureGuard></ProtectedRoute>} />
+                {/* [NEW] Add the route for the Co-Hosting page. */}
+                <Route path="/co-hosting" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><CoHostingPage /></Suspense></ProtectedRoute>} />
                 
                 {/* --- Admin Routes --- */}
                 <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
