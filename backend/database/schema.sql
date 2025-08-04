@@ -1,7 +1,6 @@
 -- This script defines the PostgreSQL-compatible structure of the database.
 
 -- Drop tables if they exist to ensure a clean slate. The CASCADE keyword will also drop dependent objects.
--- [MODIFIED] push_subscriptions table is removed from the drop list as it's being deleted.
 DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status CASCADE;
 
 -- Table to manage the on/off status of site features.
@@ -11,8 +10,9 @@ CREATE TABLE system_status (
     disabled_message TEXT
 );
 
+
 -- Create the 'users' table.
--- [MODIFIED] Renamed 'push_notifications_enabled' to 'discord_notifications_enabled' for clarity.
+-- [MODIFIED] Added 'accepting_challenges' column.
 CREATE TABLE users (
     user_index SERIAL PRIMARY KEY,
     id UUID NOT NULL UNIQUE,
@@ -32,6 +32,7 @@ CREATE TABLE users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     password_last_updated TIMESTAMP WITH TIME ZONE,
     discord_notifications_enabled BOOLEAN DEFAULT TRUE,
+    accepting_challenges BOOLEAN NOT NULL DEFAULT TRUE,
     status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'banned', 'terminated')),
     ban_applied_at TIMESTAMP WITH TIME ZONE,
     ban_expires_at TIMESTAMP WITH TIME ZONE,
