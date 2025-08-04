@@ -14,7 +14,7 @@ const decrementPlayerCount = async (client, duelId) => {
             await client.query('UPDATE game_servers SET player_count = GREATEST(0, player_count - 2) WHERE server_id = $1', [duel.assigned_server_id]);
             console.log(`[PlayerCount][CRON] Decremented player count for server ${duel.assigned_server_id} from duel ${duelId}.`);
         }
-    } catch (err) {
+    } catch (err).
         console.error(`[PlayerCount][CRON] Failed to decrement player count for duel ${duelId}:`, err);
     }
 };
@@ -26,14 +26,12 @@ async function runScheduledTasks() {
     // --- Task 1: Handle Tournament State Transitions ---
     const tournamentClient = await pool.connect();
     try {
-        // 1a: Open registration for scheduled tournaments
         const openRegSql = `UPDATE tournaments SET status = 'registration_open' WHERE status = 'scheduled' AND registration_opens_at <= NOW() RETURNING id`;
         const { rows: openedTournaments } = await tournamentClient.query(openRegSql);
         if (openedTournaments.length > 0) {
             console.log(`[CRON][TOURNAMENT] Opened registration for tournaments: ${openedTournaments.map(t => t.id).join(', ')}`);
         }
 
-        // 1b: Start tournaments and generate brackets
         const startTourneySql = `SELECT * FROM tournaments WHERE status = 'registration_open' AND starts_at <= NOW()`;
         const { rows: tournamentsToStart } = await tournamentClient.query(startTourneySql);
 
@@ -72,7 +70,6 @@ async function runScheduledTasks() {
             }
         }
         
-        // 1c: Finalize tournaments after dispute period and pay out prizes
         const finalizeSql = `SELECT * FROM tournaments WHERE status = 'dispute_period' AND ends_at <= NOW() - INTERVAL '${TOURNAMENT_DISPUTE_HOURS} hours'`;
         const { rows: tournamentsToFinalize } = await tournamentClient.query(finalizeSql);
         
@@ -270,33 +267,23 @@ async function runScheduledTasks() {
     const cohostClient = await pool.connect();
     try {
         const crashedSql = `
-            UPDATE hosting_sessions
+            UPDATE host_contracts
             SET status = 'crashed', end_time = NOW()
             WHERE status IN ('active', 'winding_down')
             AND last_heartbeat < NOW() - INTERVAL '${COHOST_HEARTBEAT_TIMEOUT_SECONDS} seconds'
-            RETURNING id, co_host_user_id, gems_earned;
+            RETURNING id, claimed_by_user_id, gems_earned;
         `;
-        const { rows: crashedSessions } = await cohostClient.query(crashedSql);
+        const { rows: crashedContracts } = await cohostClient.query(crashedSql);
 
-        for (const session of crashedSessions) {
-            const penalty = Math.floor(session.gems_earned * 0.5);
-            const finalEarnings = session.gems_earned - penalty;
-            
-            const txClient = await pool.connect();
-            try {
-                await txClient.query('BEGIN');
-                // Apply 50% gem penalty from the session's earnings
-                await txClient.query("UPDATE hosting_sessions SET gems_earned = $1 WHERE id = $2", [finalEarnings, session.id]);
-                // Demote reliability tier
-                await txClient.query("UPDATE co_hosts SET reliability_tier = LEAST(3, reliability_tier + 1) WHERE user_id = $1", [session.co_host_user_id]);
-                await txClient.query('COMMIT');
-                console.log(`[CRON][COHOST] Processed crash penalty for session ${session.id}. Fined ${penalty} gems. Demoted tier.`);
-            } catch (txError) {
-                await txClient.query('ROLLBACK');
-                console.error(`[CRON][COHOST] Failed to apply penalty for session ${session.id}:`, txError);
-            } finally {
-                txClient.release();
-            }
+        for (const contract of crashedContracts) {
+            // Note: Penalties are now handled by a separate, more robust task processor
+            // to avoid blocking the main cron job.
+            const taskPayload = { contract_id: contract.id };
+            await cohostClient.query(
+                "INSERT INTO tasks (task_type, payload) VALUES ('PROCESS_COHOST_PENALTY', $1)",
+                [JSON.stringify(taskPayload)]
+            );
+            console.log(`[CRON][COHOST] Detected crashed contract ${contract.id}. Created penalty processing task.`);
         }
     } catch (error) {
         console.error('[CRON][COHOST] Error checking for crashed co-host sessions:', error);
