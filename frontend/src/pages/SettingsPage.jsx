@@ -184,7 +184,7 @@ const SettingsPage = () => {
                 <SettingsCard title="Privacy Settings">
                     <div className="flex justify-between items-center py-3">
                         <div>
-                            <span className="text-gray-300 font-semibold">Accept Incoming Challenges</span>
+                            <span className="text-gray-300 font-semibold">Allow Incoming Challenges</span>
                             <p className="text-sm text-gray-500">Allow other players to send you duel challenges.</p>
                         </div>
                         <ToggleSwitch enabled={acceptingChallenges} onToggle={handleChallengeToggle} />
