@@ -39,12 +39,12 @@ async function sendUserResponse(user, res) {
 
 router.get('/user-data', authenticateToken, async (req, res) => {
     try {
-        // [MODIFIED] Corrected the column name from 'push_notifications_enabled' to 'discord_notifications_enabled'.
         const userSql = `
             SELECT id, email, google_id, gems, wins, losses, is_admin, 
                    linked_roblox_id, linked_roblox_username, verification_phrase,
                    discord_id, discord_username,
                    created_at, password_last_updated, discord_notifications_enabled,
+                   accepting_challenges,
                    status, ban_reason, ban_applied_at, ban_expires_at
             FROM users WHERE id = $1
         `;
@@ -63,15 +63,11 @@ router.get('/user-data', authenticateToken, async (req, res) => {
             return acc;
         }, {});
 
-        // Master Admin Maintenance Mode Bypass
-        // If the logged-in user is the master admin, override the maintenance flag
-        // in the response object so they can access the site. This does NOT change the database value.
         if (user.email === MASTER_ADMIN_EMAIL && systemStatus.site_wide_maintenance) {
             systemStatus.site_wide_maintenance.isEnabled = true;
         }
 
         user.systemStatus = systemStatus;
-
 
         if (!user.linked_roblox_id && !user.verification_phrase) {
             const newPhrase = generateUniquePhrase();
@@ -86,18 +82,31 @@ router.get('/user-data', authenticateToken, async (req, res) => {
     }
 });
 
-// [MODIFIED] Renamed the endpoint to be more specific.
 router.put('/user/notification-preference', authenticateToken,
     body('enabled').isBoolean().withMessage('A boolean value for "enabled" is required.'),
     handleValidationErrors,
     async (req, res) => {
         const { enabled } = req.body;
         try {
-            // [MODIFIED] Updated to modify the correct column.
             await db.query('UPDATE users SET discord_notifications_enabled = $1 WHERE id = $2', [enabled, req.user.userId]);
             res.status(200).json({ message: 'Notification preferences updated successfully.' });
         } catch (err) {
             console.error("Update Notification Preference Error:", err.message);
+            res.status(500).json({ message: 'An internal server error occurred.' });
+        }
+    }
+);
+
+router.put('/user/challenge-preference', authenticateToken,
+    body('enabled').isBoolean().withMessage('A boolean value for "enabled" is required.'),
+    handleValidationErrors,
+    async (req, res) => {
+        const { enabled } = req.body;
+        try {
+            await db.query('UPDATE users SET accepting_challenges = $1 WHERE id = $2', [enabled, req.user.userId]);
+            res.status(200).json({ message: 'Challenge preferences updated successfully.' });
+        } catch (err) {
+            console.error("Update Challenge Preference Error:", err.message);
             res.status(500).json({ message: 'An internal server error occurred.' });
         }
     }
