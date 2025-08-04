@@ -1,6 +1,6 @@
 // backend/routes/cohost.js
 const express = require('express');
-const { body } = require('express-validator');
+const { body, param } = require('express-validator');
 const db = require('../database/database');
 const { authenticateToken, handleValidationErrors } = require('../middleware/auth');
 const crypto = require('crypto');
@@ -14,14 +14,14 @@ const authenticateCohostBot = async (req, res, next) => {
         return res.status(401).json({ message: 'Unauthorized: Missing co-host token.' });
     }
     try {
-        const { rows: [session] } = await db.query(
-            "SELECT id, co_host_user_id, status FROM hosting_sessions WHERE auth_token = $1",
+        const { rows: [contract] } = await db.query(
+            "SELECT id, claimed_by_user_id, status FROM host_contracts WHERE auth_token = $1",
             [authToken]
         );
-        if (!session || (session.status !== 'active' && session.status !== 'winding_down')) {
-            return res.status(403).json({ message: 'Forbidden: Invalid or inactive session token.' });
+        if (!contract || (contract.status !== 'active' && contract.status !== 'winding_down' && contract.status !== 'claimed')) {
+            return res.status(403).json({ message: 'Forbidden: Invalid or inactive contract token.' });
         }
-        req.sessionData = session;
+        req.contractData = contract;
         next();
     } catch (error) {
         console.error('Co-host bot authentication error:', error);
@@ -30,19 +30,23 @@ const authenticateCohostBot = async (req, res, next) => {
 };
 
 
-// GET: Fetch the user's current co-host status and active session
+// GET: Fetch the user's current co-host status, active contract, and available contracts
 router.get('/status', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     try {
-        const { rows: [cohost] } = await db.query("SELECT * FROM co_hosts WHERE user_id = $1", [userId]);
-        const { rows: [activeSession] } = await db.query(
-            "SELECT id, start_time, status, gems_earned FROM hosting_sessions WHERE co_host_user_id = $1 AND status IN ('initializing', 'active', 'winding_down')",
+        const { rows: [user] } = await db.query("SELECT terms_agreed_at FROM users WHERE id = $1", [userId]);
+        const { rows: [activeContract] } = await db.query(
+            "SELECT * FROM host_contracts WHERE claimed_by_user_id = $1 AND status IN ('claimed', 'active', 'winding_down')",
             [userId]
+        );
+        const { rows: availableContracts } = await db.query(
+            "SELECT id, region, issued_at FROM host_contracts WHERE status = 'available' ORDER BY issued_at DESC"
         );
         
         res.status(200).json({
-            cohostData: cohost,
-            activeSession: activeSession || null
+            termsAgreed: !!user.terms_agreed_at,
+            activeContract: activeContract || null,
+            availableContracts: availableContracts || []
         });
     } catch (error) {
         console.error("Error fetching co-host status:", error);
@@ -50,83 +54,95 @@ router.get('/status', authenticateToken, async (req, res) => {
     }
 });
 
-// POST: Start a new hosting session
-router.post('/start-session', authenticateToken, async (req, res) => {
+// POST: A user agrees to the terms
+router.post('/agree-terms', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
+    try {
+        await db.query("UPDATE users SET terms_agreed_at = NOW() WHERE id = $1", [userId]);
+        res.status(200).json({ message: "Terms and conditions agreed." });
+    } catch (error) {
+        console.error("Error agreeing to co-host terms:", error);
+        res.status(500).json({ message: "Failed to agree to terms." });
+    }
+});
+
+// POST: A user claims an available contract
+router.post('/claim-contract', authenticateToken, [
+    body('contractId').isUUID(),
+    body('privateServerLink').isURL()
+], handleValidationErrors, async (req, res) => {
+    const userId = req.user.userId;
+    const { contractId, privateServerLink } = req.body;
     const client = await db.getPool().connect();
+
     try {
         await client.query('BEGIN');
 
-        const { rows: [user] } = await client.query("SELECT discord_id FROM users WHERE id = $1", [userId]);
+        const { rows: [user] } = await client.query("SELECT discord_id, terms_agreed_at FROM users WHERE id = $1", [userId]);
         if (!user.discord_id) {
             await client.query('ROLLBACK');
-            return res.status(403).json({ message: "You must link your Discord account to become a co-host." });
+            return res.status(403).json({ message: "You must link your Discord account to co-host." });
         }
-        
-        const { rows: [existingSession] } = await client.query(
-            "SELECT id FROM hosting_sessions WHERE co_host_user_id = $1 AND status IN ('initializing', 'active', 'winding_down')",
-            [userId]
-        );
-        if (existingSession) {
+        if (!user.terms_agreed_at) {
             await client.query('ROLLBACK');
-            return res.status(409).json({ message: "You already have an active hosting session." });
-        }
-        
-        const { rows: [cohost] } = await client.query("SELECT user_id FROM co_hosts WHERE user_id = $1", [userId]);
-        if (!cohost) {
-            await client.query("INSERT INTO co_hosts (user_id, terms_agreed_at) VALUES ($1, NOW())", [userId]);
-        } else if (!cohost.terms_agreed_at) {
-             await client.query("UPDATE co_hosts SET terms_agreed_at = NOW() WHERE user_id = $1", [userId]);
+            return res.status(403).json({ message: "You must agree to the co-hosting terms first." });
         }
 
-        const sessionId = crypto.randomUUID();
+        const { rows: [contract] } = await client.query("SELECT id FROM host_contracts WHERE id = $1 AND status = 'available' FOR UPDATE", [contractId]);
+        if (!contract) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: "This contract is no longer available." });
+        }
+
         const authToken = crypto.randomBytes(32).toString('hex');
+        const updateSql = `
+            UPDATE host_contracts
+            SET status = 'claimed', claimed_by_user_id = $1, private_server_link = $2, auth_token = $3, claimed_at = NOW()
+            WHERE id = $4
+        `;
+        await client.query(updateSql, [userId, privateServerLink, authToken, contractId]);
         
-        await client.query(
-            "INSERT INTO hosting_sessions (id, co_host_user_id, auth_token, status, last_heartbeat) VALUES ($1, $2, $3, 'initializing', NOW())",
-            [sessionId, userId, authToken]
-        );
-
         await client.query('COMMIT');
-        res.status(201).json({ message: "Session created. Please execute the provided script.", authToken: authToken });
+        res.status(200).json({ message: "Contract claimed! Please execute the provided script.", authToken });
 
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error("Error starting co-host session:", error);
-        res.status(500).json({ message: "Failed to start a new hosting session." });
+        console.error("Error claiming contract:", error);
+        res.status(500).json({ message: "Failed to claim the contract." });
     } finally {
         client.release();
     }
 });
 
-// POST: Receive a heartbeat from an active co-host bot
+
+// POST: Receives a heartbeat from an active co-host bot
 router.post('/heartbeat', authenticateCohostBot, body('gems_collected_since_last').isInt({ min: 0 }), handleValidationErrors, async (req, res) => {
-    const { sessionId, co_host_user_id, status } = req.sessionData;
+    const { id: contractId, claimed_by_user_id, status } = req.contractData;
     const { gems_collected_since_last } = req.body;
     
     try {
-        const { rows: [cohost] } = await db.query("SELECT reliability_tier FROM co_hosts WHERE user_id = $1", [co_host_user_id]);
-        if (!cohost) return res.status(404).json({ message: "Co-host record not found." });
+        const { rows: [cohostData] } = await db.query("SELECT total_uptime_seconds, reliability_tier FROM co_hosts WHERE user_id = $1", [claimed_by_user_id]);
+        const tier = cohostData ? cohostData.reliability_tier : 3;
 
         let gemShare = 0;
         if (gems_collected_since_last > 0) {
-            const tierRates = { 1: 0.50, 2: 0.333, 3: 0.25 };
-            const rate = tierRates[cohost.reliability_tier] || 0.25;
+            const tierRates = { 1: 0.50, 2: 1/3, 3: 0.25 };
+            const rate = tierRates[tier] || 0.25;
             gemShare = Math.floor(gems_collected_since_last * rate);
         }
 
         const updateQuery = `
-            UPDATE hosting_sessions 
-            SET last_heartbeat = NOW(), gems_earned = gems_earned + $1, status = CASE WHEN status = 'initializing' THEN 'active' ELSE status END
+            UPDATE host_contracts 
+            SET last_heartbeat = NOW(), gems_earned = gems_earned + $1, status = CASE WHEN status = 'claimed' THEN 'active' ELSE status END
             WHERE id = $2
         `;
-        await db.query(updateQuery, [gemShare, sessionId]);
+        await db.query(updateQuery, [gemShare, contractId]);
         
         const command = status === 'winding_down' ? 'shutdown' : 'continue';
         res.status(200).json({ command });
 
     } catch (error) {
-        console.error(`Heartbeat error for session ${sessionId}:`, error);
+        console.error(`Heartbeat error for contract ${contractId}:`, error);
         res.status(500).json({ message: "Failed to process heartbeat." });
     }
 });
@@ -137,7 +153,7 @@ router.post('/shutdown', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     try {
         const { rowCount } = await db.query(
-            "UPDATE hosting_sessions SET status = 'winding_down' WHERE co_host_user_id = $1 AND status = 'active'",
+            "UPDATE host_contracts SET status = 'winding_down' WHERE claimed_by_user_id = $1 AND status = 'active'",
             [userId]
         );
 
