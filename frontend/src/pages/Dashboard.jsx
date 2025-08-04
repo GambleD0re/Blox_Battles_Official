@@ -8,9 +8,7 @@ import PlayerHeader from '../components/Dashboard/PlayerHeader';
 import ChallengePlayer from '../components/Dashboard/ChallengePlayer';
 import Inbox from '../components/Dashboard/Inbox';
 import { ChallengeModal, DuelDetailsModal, ConfirmationModal, TranscriptModal, PostDuelModal } from '../components/Dashboard/Modals';
-// [NEW] Import the overlay component
 import FeatureUnavailableOverlay from '../components/FeatureUnavailableOverlay';
-
 
 // --- Reusable Helper Components ---
 const Loader = ({ fullScreen = false }) => (
@@ -54,6 +52,10 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <div className="p-4">
                     <h2 className="text-xl font-bold text-white mb-6">Navigation</h2>
                     <nav className="flex flex-col space-y-2">
+                        {/* [MODIFIED] Added the new Co-Hosting link */}
+                        <button onClick={() => handleNavigate('/co-hosting')} className="text-left text-gray-300 hover:bg-gray-700/50 hover:text-white p-3 rounded-lg transition-colors">
+                            Co-Hosting
+                        </button>
                         <button onClick={() => handleNavigate('/tournaments')} className="text-left text-gray-300 hover:bg-gray-700/50 hover:text-white p-3 rounded-lg transition-colors">
                             Tournaments
                         </button>
@@ -95,12 +97,12 @@ const Dashboard = () => {
     
     const [isChallengeModalOpen, setChallengeModalOpen] = useState(false);
     const [isDetailsModalOpen, setDetailsModalOpen] = useState(false);
+    const [isViewOnlyDetailsModalOpen, setViewOnlyDetailsModalOpen] = useState(false);
     const [isCancelDuelModalOpen, setIsCancelDuelModalOpen] = useState(false);
     const [isTranscriptModalOpen, setIsTranscriptModalOpen] = useState(false);
     const [isForfeitModalOpen, setIsForfeitModalOpen] = useState(false);
     const [isCancelWithdrawalModalOpen, setIsCancelWithdrawalModalOpen] = useState(false);
 
-    // [NEW] Destructure system status for easier access
     const systemStatus = user?.systemStatus || {};
     const duelingWebsiteStatus = systemStatus['dueling_website'];
 
@@ -149,6 +151,7 @@ const Dashboard = () => {
     const handleChallengePlayer = (player) => { setChallengeTarget(player); setChallengeModalOpen(true); };
     const handleChallengeSubmit = async (challengeData) => { try { const r = await api.sendChallenge(challengeData, token); showMessage(r.message, 'success'); setChallengeModalOpen(false); fetchData(); } catch (e) { showMessage(e.message, 'error'); } };
     const handleViewDetails = (duelNotificationObject) => { setSelectedItem(duelNotificationObject); setDetailsModalOpen(true); };
+    const handleViewActiveDuelDetails = (duelObject) => { setSelectedItem({ data: duelObject }); setViewOnlyDetailsModalOpen(true); };
     const handleCancelDuelClick = (duelNotificationObject) => { setSelectedItem(duelNotificationObject); setIsCancelDuelModalOpen(true); };
     const handleConfirmCancelDuel = async () => { if (!selectedItem?.data) return; try { const r = await api.cancelDuel(selectedItem.data.id, token); showMessage(r.message, 'success'); setIsCancelDuelModalOpen(false); fetchData(); } catch (e) { showMessage(e.message, 'error'); } };
     const handleRespondToDuel = async (duelId, response) => { try { const r = await api.respondToDuel({ duel_id: duelId, response }, token); showMessage(r.message, 'success'); setDetailsModalOpen(false); fetchData(); } catch (e) { showMessage(e.message, 'error'); } };
@@ -178,7 +181,6 @@ const Dashboard = () => {
             
             <div className="dashboard-grid">
                 <main className="main-content space-y-8">
-                    {/* [MODIFIED] Wrap ChallengePlayer in a div to position the overlay */}
                     <div className="relative">
                         {duelingWebsiteStatus && !duelingWebsiteStatus.isEnabled && (
                             <FeatureUnavailableOverlay message={duelingWebsiteStatus.message} />
@@ -187,12 +189,18 @@ const Dashboard = () => {
                     </div>
                 </main>
                 <aside className="sidebar space-y-8">
-                    <Inbox notifications={notifications} onViewDuel={handleViewDetails} onCancelDuel={handleCancelDuelClick} onStartDuel={handleStartDuel} onForfeitDuel={handleForfeitClick} onCancelWithdrawal={handleCancelWithdrawalClick} onRespondToLink={handleRespondToLink} />
+                    <Inbox notifications={notifications} onViewDuel={handleViewDetails} onCancelDuel={handleCancelDuelClick} onStartDuel={handleStartDuel} onForfeitDuel={handleForfeitClick} onCancelWithdrawal={handleCancelWithdrawalClick} onRespondToLink={handleRespondToLink} onViewActiveDuelDetails={handleViewActiveDuelDetails} />
                 </aside>
             </div>
 
             <ChallengeModal isOpen={isChallengeModalOpen} onClose={() => setChallengeModalOpen(false)} opponent={challengeTarget} currentUser={user} gameData={gameData} onChallengeSubmit={handleChallengeSubmit} onError={showMessage} token={token}/>
-            <DuelDetailsModal isOpen={isDetailsModalOpen} onClose={() => setDetailsModalOpen(false)} duel={selectedItem} onRespond={handleRespondToDuel} />
+            <DuelDetailsModal 
+                isOpen={isDetailsModalOpen || isViewOnlyDetailsModalOpen} 
+                onClose={() => { setDetailsModalOpen(false); setViewOnlyDetailsModalOpen(false); }} 
+                duel={selectedItem} 
+                onRespond={handleRespondToDuel} 
+                isViewingOnly={isViewOnlyDetailsModalOpen} 
+            />
             <ConfirmationModal isOpen={isCancelDuelModalOpen} onClose={() => setIsCancelDuelModalOpen(false)} onConfirm={handleConfirmCancelDuel} title="Cancel Duel?" text="Are you sure you want to cancel this duel?" confirmText="Yes, Cancel"/>
             <ConfirmationModal isOpen={isForfeitModalOpen} onClose={() => setIsForfeitModalOpen(false)} onConfirm={handleConfirmForfeit} title="Forfeit Duel?" text={`You will lose ${selectedItem?.data?.wager || 0} gems.`} confirmText="Yes, Forfeit"/>
             <ConfirmationModal isOpen={isCancelWithdrawalModalOpen} onClose={() => setIsCancelWithdrawalModalOpen(false)} onConfirm={handleConfirmCancelWithdrawal} title="Cancel Withdrawal?" text={`Your ${selectedItem?.data?.amount_gems || 0} gems will be returned.`} confirmText="Yes, Cancel Request"/>
