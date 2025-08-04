@@ -5,6 +5,7 @@ const DUEL_EXPIRATION_HOURS = 1;
 const DUEL_FORFEIT_MINUTES = 10;
 const RESULT_CONFIRMATION_MINUTES = 2;
 const TOURNAMENT_DISPUTE_HOURS = 1;
+const COHOST_HEARTBEAT_TIMEOUT_SECONDS = 90;
 
 const decrementPlayerCount = async (client, duelId) => {
     try {
@@ -263,6 +264,44 @@ async function runScheduledTasks() {
         console.error('[CRON] Error querying for expired confirmations:', error);
     } finally {
         confirmationClient.release();
+    }
+
+    // --- Task 5: Check for crashed co-host sessions ---
+    const cohostClient = await pool.connect();
+    try {
+        const crashedSql = `
+            UPDATE hosting_sessions
+            SET status = 'crashed', end_time = NOW()
+            WHERE status IN ('active', 'winding_down')
+            AND last_heartbeat < NOW() - INTERVAL '${COHOST_HEARTBEAT_TIMEOUT_SECONDS} seconds'
+            RETURNING id, co_host_user_id, gems_earned;
+        `;
+        const { rows: crashedSessions } = await cohostClient.query(crashedSql);
+
+        for (const session of crashedSessions) {
+            const penalty = Math.floor(session.gems_earned * 0.5);
+            const finalEarnings = session.gems_earned - penalty;
+            
+            const txClient = await pool.connect();
+            try {
+                await txClient.query('BEGIN');
+                // Apply 50% gem penalty from the session's earnings
+                await txClient.query("UPDATE hosting_sessions SET gems_earned = $1 WHERE id = $2", [finalEarnings, session.id]);
+                // Demote reliability tier
+                await txClient.query("UPDATE co_hosts SET reliability_tier = LEAST(3, reliability_tier + 1) WHERE user_id = $1", [session.co_host_user_id]);
+                await txClient.query('COMMIT');
+                console.log(`[CRON][COHOST] Processed crash penalty for session ${session.id}. Fined ${penalty} gems. Demoted tier.`);
+            } catch (txError) {
+                await txClient.query('ROLLBACK');
+                console.error(`[CRON][COHOST] Failed to apply penalty for session ${session.id}:`, txError);
+            } finally {
+                txClient.release();
+            }
+        }
+    } catch (error) {
+        console.error('[CRON][COHOST] Error checking for crashed co-host sessions:', error);
+    } finally {
+        cohostClient.release();
     }
 }
 
