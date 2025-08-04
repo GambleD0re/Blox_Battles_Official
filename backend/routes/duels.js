@@ -147,6 +147,7 @@ router.post('/challenge', authenticateToken,
     handleValidationErrors,
     async (req, res) => {
         const challenger_id = req.user.userId;
+        const { opponent_id, wager, banned_weapons, map, region } = req.body;
         const client = await db.getPool().connect();
         try {
             await client.query('BEGIN');
@@ -163,17 +164,20 @@ router.post('/challenge', authenticateToken,
                 }
             }
             
-            const { opponent_id, wager, banned_weapons, map, region } = req.body;
             if (parseInt(challenger.gems) < wager) {
                 await client.query('ROLLBACK');
                 return res.status(400).json({ message: 'You do not have enough gems for this wager.' });
             }
 
+            const { rows: [opponent] } = await client.query('SELECT discord_id, discord_notifications_enabled, accepting_challenges FROM users WHERE id = $1', [opponent_id]);
+            if (!opponent.accepting_challenges) {
+                await client.query('ROLLBACK');
+                return res.status(403).json({ message: 'This player is not currently accepting challenges.' });
+            }
+
             const bannedWeaponsStr = JSON.stringify(banned_weapons || []);
             await client.query('INSERT INTO duels (challenger_id, opponent_id, wager, banned_weapons, map, region) VALUES ($1, $2, $3, $4, $5, $6)', [challenger_id, opponent_id, wager, bannedWeaponsStr, map, region]);
             
-            const { rows: [opponent] } = await client.query('SELECT discord_id, discord_notifications_enabled FROM users WHERE id = $1', [opponent_id]);
-            // [MODIFIED] Check if opponent has Discord linked and notifications enabled before creating task.
             if (opponent && opponent.discord_id && opponent.discord_notifications_enabled) {
                 const mapInfo = GAME_DATA.maps.find(m => m.id === map);
                 const taskPayload = {
@@ -268,7 +272,6 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
         const starterId = userId;
         const otherPlayerId = duel.challenger_id.toString() === starterId ? duel.opponent_id : duel.challenger_id;
         const { rows: [otherPlayer] } = await client.query('SELECT discord_id, discord_notifications_enabled FROM users WHERE id = $1', [otherPlayerId]);
-        // [MODIFIED] Check if the other player has Discord linked and notifications enabled.
         if (otherPlayer && otherPlayer.discord_id && otherPlayer.discord_notifications_enabled) {
             const { rows: [starter] } = await client.query('SELECT linked_roblox_username FROM users WHERE id = $1', [starterId]);
             const notificationPayload = {
@@ -406,7 +409,6 @@ router.post('/respond', authenticateToken, body('duel_id').isInt(), body('respon
         
         await client.query('UPDATE duels SET status = $1, accepted_at = NOW(), pot = $2, tax_collected = $3 WHERE id = $4', ['accepted', finalPot, taxCollected, duel_id]);
         
-        // [MODIFIED] Check if challenger has Discord linked and notifications enabled.
         if (challenger.discord_id && challenger.discord_notifications_enabled) {
             const taskPayload = {
                 recipientDiscordId: challenger.discord_id,
