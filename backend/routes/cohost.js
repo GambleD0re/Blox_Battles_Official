@@ -117,7 +117,6 @@ router.post('/request-script', authenticateToken, [
             [contractId, userId, tempAuthToken, fullPrivateServerLink]
         );
         
-        // [NEW] Generate the full script on the backend.
         const templatePath = path.join(__dirname, '../scripts/cohost-template.lua');
         let scriptTemplate = fs.readFileSync(templatePath, 'utf8');
 
@@ -127,7 +126,8 @@ router.post('/request-script', authenticateToken, [
 
         res.status(200).json({ 
             message: "Script generated successfully!", 
-            script: scriptContent 
+            // [FIXED] Corrected the variable name from scriptContent to scriptTemplate.
+            script: scriptTemplate
         });
 
     } catch (error) {
