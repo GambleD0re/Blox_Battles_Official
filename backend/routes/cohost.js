@@ -29,8 +29,7 @@ const authenticateCohostBot = async (req, res, next) => {
     }
 };
 
-
-// GET: Fetch the user's current co-host status, active contract, and available contracts
+// GET: Fetch the user's current co-host status and contracts
 router.get('/status', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     try {
@@ -53,6 +52,40 @@ router.get('/status', authenticateToken, async (req, res) => {
         res.status(500).json({ message: "Failed to fetch co-host status." });
     }
 });
+
+// [NEW] GET: Endpoint for a co-host bot to fetch its assigned tasks
+router.get('/tasks', authenticateCohostBot, async (req, res) => {
+    const contractId = req.contractData.id;
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+        const sql = `
+            SELECT id, task_type, payload 
+            FROM tasks 
+            WHERE status = 'pending' 
+              AND task_type = 'REFEREE_DUEL' 
+              AND payload->>'serverId' = $1
+            FOR UPDATE SKIP LOCKED
+            LIMIT 10
+        `;
+        const { rows: tasksForBot } = await client.query(sql, [contractId]);
+
+        if (tasksForBot.length > 0) {
+            const idsToUpdate = tasksForBot.map(t => t.id);
+            await client.query(`UPDATE tasks SET status = 'processing' WHERE id = ANY($1::int[])`, [idsToUpdate]);
+        }
+
+        await client.query('COMMIT');
+        res.json(tasksForBot);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(`Co-host Task Fetch Error for contract ${contractId}:`, err);
+        res.status(500).json({ message: 'Failed to fetch tasks.' });
+    } finally {
+        client.release();
+    }
+});
+
 
 // POST: A user agrees to the terms
 router.post('/agree-terms', authenticateToken, async (req, res) => {
@@ -103,7 +136,11 @@ router.post('/claim-contract', authenticateToken, [
         await client.query(updateSql, [userId, privateServerLink, authToken, contractId]);
         
         await client.query('COMMIT');
-        res.status(200).json({ message: "Contract claimed! Please execute the provided script.", authToken });
+        res.status(200).json({ 
+            message: "Contract claimed! Please execute the provided script.", 
+            authToken: authToken,
+            contractId: contract.id // Return contractId to be used as serverId
+        });
 
     } catch (error) {
         await client.query('ROLLBACK');
@@ -121,6 +158,7 @@ router.post('/heartbeat', authenticateCohostBot, body('gems_collected_since_last
     const { gems_collected_since_last } = req.body;
     
     try {
+        // This query might be slow if co_hosts table is large, but for now it's fine.
         const { rows: [cohostData] } = await db.query("SELECT total_uptime_seconds, reliability_tier FROM co_hosts WHERE user_id = $1", [claimed_by_user_id]);
         const tier = cohostData ? cohostData.reliability_tier : 3;
 
@@ -133,7 +171,7 @@ router.post('/heartbeat', authenticateCohostBot, body('gems_collected_since_last
 
         const updateQuery = `
             UPDATE host_contracts 
-            SET last_heartbeat = NOW(), gems_earned = gems_earned + $1, status = CASE WHEN status = 'claimed' THEN 'active' ELSE status END
+            SET last_heartbeat = NOW(), gems_earned = gems_earned + $1, status = CASE WHEN status = 'claimed' THEN 'active' ELSE status END, start_time = CASE WHEN start_time IS NULL THEN NOW() ELSE start_time END
             WHERE id = $2
         `;
         await db.query(updateQuery, [gemShare, contractId]);
