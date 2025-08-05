@@ -7,7 +7,6 @@ const GAME_DATA = require('../game-data-store');
 
 const router = express.Router();
 
-// A helper function to decrement a server's player count.
 const decrementPlayerCount = async (client, duelId) => {
     try {
         const { rows: [duel] } = await client.query('SELECT assigned_server_id FROM duels WHERE id = $1', [duelId]);
@@ -224,7 +223,12 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
         }
 
         const BOT_OFFLINE_THRESHOLD_SECONDS = 60;
-        const serverSql = `
+        
+        // [MODIFIED] Logic to find an available server from either official or co-host pools.
+        let availableServer = null;
+
+        // 1. Prioritize official servers
+        const officialServerSql = `
             SELECT server_id, join_link
             FROM game_servers
             WHERE region = $1
@@ -232,16 +236,38 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
               AND last_heartbeat >= NOW() - INTERVAL '${BOT_OFFLINE_THRESHOLD_SECONDS} seconds'
             ORDER BY player_count ASC
             LIMIT 1
-            FOR UPDATE
+            FOR UPDATE SKIP LOCKED
         `;
-        const { rows: [availableServer] } = await client.query(serverSql, [duel.region]);
+        const { rows: [officialServer] } = await client.query(officialServerSql, [duel.region]);
+
+        if (officialServer) {
+            availableServer = { serverId: officialServer.server_id, joinLink: officialServer.join_link, type: 'official' };
+        } else {
+            // 2. If no official server, look for a co-host contract
+            const cohostContractSql = `
+                SELECT id, private_server_link
+                FROM host_contracts
+                WHERE region = $1 AND status = 'active'
+                AND last_heartbeat >= NOW() - INTERVAL '${BOT_OFFLINE_THRESHOLD_SECONDS} seconds'
+                -- Add ordering logic if needed, e.g., by oldest heartbeat to distribute load
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED
+            `;
+            const { rows: [cohostContract] } = await client.query(cohostContractSql, [duel.region]);
+            if(cohostContract) {
+                availableServer = { serverId: cohostContract.id, joinLink: cohostContract.private_server_link, type: 'cohost' };
+            }
+        }
 
         if (!availableServer) {
             await client.query('ROLLBACK');
             return res.status(400).json({ message: `All servers for the ${duel.region} region are currently full. Please try again shortly.` });
         }
-
-        await client.query('UPDATE game_servers SET player_count = player_count + 2 WHERE server_id = $1', [availableServer.server_id]);
+        
+        // Note: For co-host bots, we don't manage player count in a central table. This is a simplification.
+        if (availableServer.type === 'official') {
+             await client.query('UPDATE game_servers SET player_count = player_count + 2 WHERE server_id = $1', [availableServer.serverId]);
+        }
         
         const updateSql = `
             UPDATE duels 
@@ -251,7 +277,7 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
                 assigned_server_id = $2 
             WHERE id = $3
         `;
-        await client.query(updateSql, [availableServer.join_link, availableServer.server_id, duelId]);
+        await client.query(updateSql, [availableServer.joinLink, availableServer.serverId, duelId]);
 
         const { rows: [challengerInfo] } = await client.query('SELECT linked_roblox_username FROM users WHERE id = $1', [duel.challenger_id]);
         const { rows: [opponentInfo] } = await client.query('SELECT linked_roblox_username FROM users WHERE id = $1', [duel.opponent_id]);
@@ -259,8 +285,8 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
         
         const taskPayload = {
             websiteDuelId: duel.id,
-            serverId: availableServer.server_id,
-            serverLink: availableServer.join_link,
+            serverId: availableServer.serverId, // This will be the contractId for co-hosts
+            serverLink: availableServer.joinLink,
             challenger: challengerInfo.linked_roblox_username,
             opponent: opponentInfo.linked_roblox_username,
             map: mapInfo ? mapInfo.name : duel.map,
@@ -277,14 +303,14 @@ router.post('/:id/start', authenticateToken, param('id').isInt(), handleValidati
             const notificationPayload = {
                 recipientDiscordId: otherPlayer.discord_id,
                 starterUsername: starter.linked_roblox_username,
-                serverLink: availableServer.join_link,
+                serverLink: availableServer.joinLink,
                 duelId: duelId
             };
             await client.query("INSERT INTO tasks (task_type, payload) VALUES ('SEND_DUEL_STARTED_DM', $1)", [JSON.stringify(notificationPayload)]);
         }
 
         await client.query('COMMIT');
-        res.status(200).json({ message: 'Duel started! Server assigned.', serverLink: availableServer.join_link });
+        res.status(200).json({ message: 'Duel started! Server assigned.', serverLink: availableServer.joinLink });
 
     } catch (err) {
         await client.query('ROLLBACK');
