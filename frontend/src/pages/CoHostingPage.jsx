@@ -69,9 +69,18 @@ const CoHostingPage = () => {
     
     const handleRequestScript = async (contractId) => {
         const privateServerLink = privateLinkInputs[contractId];
-        if (!privateServerLink || !privateServerLink.startsWith("https://www.roblox.com/games/")) {
-            return showMessage("Please enter a valid Roblox private server link.", "error");
+
+        if (!privateServerLink) {
+            return showMessage("Please enter a private server link.", "error");
         }
+        // [MODIFIED] Improved validation to guide the user.
+        if (privateServerLink.includes("/share?code=")) {
+            return showMessage("Invalid Link: Please use the direct server link (from your browser's address bar), not the 'Share' link.", "error");
+        }
+        if (!privateServerLink.startsWith("https://www.roblox.com/games/")) {
+            return showMessage("Please enter a valid Roblox private server link, it should start with 'https://www.roblox.com/games/'.", "error");
+        }
+        
         setIsLoading(true);
         try {
             const response = await api.requestCohostScript(contractId, privateServerLink, token);
