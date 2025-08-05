@@ -74,16 +74,12 @@ const CoHostingPage = () => {
             return showMessage("Please enter your private server link code.", "error");
         }
         
-        const placeId = "17625359962";
-        const fullPrivateServerLink = `https://www.roblox.com/games/${placeId}/Blox-Battles?privateServerLinkCode=${privateServerLinkCode}`;
-        
         setIsLoading(true);
         try {
+            // [MODIFIED] This now sends the code and receives the full script in one go.
             const response = await api.requestCohostScript(contractId, privateServerLinkCode, token);
-            // [MODIFIED] The placeholder URL has been replaced with your actual raw GitHub link.
-            const scriptContent = `loadstring(game:HttpGet("https://raw.githubusercontent.com/GambleD0re/Blox_Battles_Official/refs/heads/main/backend/scripts/cohost-template.lua"))("${response.tempAuthToken}", "${response.contractId}", "${response.privateServerLink}")`;
-            setLoadstring(scriptContent);
-            showMessage('Script generated! The first person to run their script wins the contract.', 'success');
+            setLoadstring(response.script);
+            showMessage(response.message, 'success');
         } catch (error) {
             showMessage(error.message, 'error');
         } finally {
