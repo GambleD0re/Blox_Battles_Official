@@ -21,8 +21,9 @@ const DuelHistoryPage = lazy(() => import('./pages/DuelHistoryPage.jsx'));
 const TournamentsPage = lazy(() => import('./pages/TournamentsPage.jsx'));
 const AdminTournamentCreatePage = lazy(() => import('./pages/AdminTournamentCreatePage.jsx'));
 const TranscriptViewerPage = lazy(() => import('./pages/TranscriptViewerPage.jsx'));
-// [NEW] Lazily load the new CoHostingPage.
 const CoHostingPage = lazy(() => import('./pages/CoHostingPage.jsx'));
+// [NEW] Lazily load the new AdminHostManagerPage.
+const AdminHostManagerPage = lazy(() => import('./pages/AdminHostManagerPage.jsx'));
 
 
 // --- UI COMPONENTS ---
@@ -100,12 +101,13 @@ const App = () => {
                 <Route path="/history" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><TransactionHistoryPage /></Suspense></ProtectedRoute>} />
                 <Route path="/duel-history" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><DuelHistoryPage /></Suspense></ProtectedRoute>} />
                 <Route path="/tournaments" element={<ProtectedRoute><FeatureGuard featureName="tournaments"><Suspense fallback={<Loader fullScreen />}><TournamentsPage /></Suspense></FeatureGuard></ProtectedRoute>} />
-                {/* [NEW] Add the route for the Co-Hosting page. */}
                 <Route path="/co-hosting" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><CoHostingPage /></Suspense></ProtectedRoute>} />
                 
                 {/* --- Admin Routes --- */}
                 <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
                 <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><FeatureGuard featureName="tournaments"><Suspense fallback={<Loader fullScreen />}><AdminTournamentCreatePage /></Suspense></FeatureGuard></ProtectedRoute>} />
+                {/* [NEW] Add the route for the Admin Host Manager page. */}
+                <Route path="/admin/host-manager" element={<ProtectedRoute adminOnly={true}><Suspense fallback={<Loader fullScreen />}><AdminHostManagerPage /></Suspense></ProtectedRoute>} />
 
                 {/* --- Default Route --- */}
                 <Route path="*" element={<Navigate to={user ? "/dashboard" : "/signin"} />} />
