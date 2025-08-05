@@ -1,6 +1,6 @@
 --[[
     Blox Battles Co-Host Bot Script Template (Task-Pulling Version)
-    Version: 25.3.3 (Merged v4 Logic)
+    Version: 25.3.4 (Enhanced Success Logging)
     
     This script merges the robust, feature-rich logic from the v4 official bot script
     with the dynamic, task-pulling architecture of the co-hosting system.
@@ -18,7 +18,7 @@ return function()
         return
     end
 
-    print("Blox Battles Co-Host: Script started. Version 25.3.3 (Merged v4 Logic)")
+    print("Blox Battles Co-Host: Script started. Version 25.3.4 (Enhanced Success Logging)")
 
     --// Services & Static Configuration \\--
     local Players = game:GetService("Players")
@@ -95,9 +95,11 @@ return function()
         
         local success, response = sendRequest(req)
         if success and response and response.StatusCode == 200 then
+            -- [NEW] Added success log for heartbeat
+            print("Co-Host Bot: Heartbeat sent successfully.")
             local successBody, responseBody = pcall(function() return HttpService:JSONDecode(response.Body) end)
             if not successBody then print("Co-Host Bot: Heartbeat response was invalid JSON. Stopping."); isRunning = false; return end
-            if responseBody.newAuthToken then print("Co-Host Bot: Contract secured. Switching to permanent auth token."); authToken = responseBody.newAuthToken end
+            if responseBody.newAuthToken then print("Co-Host Bot: SUCCESS! Contract secured. Switching to permanent auth token."); authToken = responseBody.newAuthToken end
             if responseBody.command == "shutdown" then print("Co-Host Bot: Shutdown command received from backend."); isRunning = false end
         else
             warn("Co-Host Bot: Heartbeat failed. Stopping script. Status: " .. tostring(response and response.StatusCode))
@@ -236,7 +238,8 @@ return function()
             return
         end
         
-        print("Co-Host Bot: Modules loaded! Initializing for contract " .. serverId)
+        -- [NEW] Added explicit success log for initialization.
+        print("Co-Host Bot: SUCCESS! Modules loaded. Initializing for contract " .. serverId)
         
         DuelController.ObjectAdded:Connect(trackDuel)
         DuelController.ObjectRemoved:Connect(untrackDuel)
@@ -247,7 +250,8 @@ return function()
         task.spawn(function() while isRunning do task.wait(TASK_FETCH_INTERVAL); fetchAndProcessTasks() end end)
         task.spawn(function() local idx=1; while isRunning do task.wait(GHOST_SPECTATE_CYCLE_DELAY); local l={}; for d in pairs(trackedDuels) do table.insert(l,d) end; if #l>0 then idx=(idx%#l)+1; local t=l[idx]; if t and trackedDuels[t] and t.Duelers[1] and t.Duelers[1].ClientFighter then pcall(SpectateController.SetCurrentSubject,SpectateController,t.Duelers[1].ClientFighter,true) end end end end)
         
-        print("Co-Host Bot: Main loops started. Sending initial heartbeat...")
+        -- [NEW] Added explicit success log for starting main loops.
+        print("Co-Host Bot: SUCCESS! Main loops started. Sending initial heartbeat to claim contract...")
         sendHeartbeat()
 
         while isRunning do task.wait(1) end
