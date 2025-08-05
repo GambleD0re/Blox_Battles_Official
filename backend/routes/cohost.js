@@ -1,4 +1,3 @@
-javascript
 // backend/routes/cohost.js
 const express = require('express');
 const { body } = require('express-validator');
@@ -9,6 +8,9 @@ const fs = require('fs');
 const path = require('path');
 
 const router = express.Router();
+
+// [NEW] Define a configurable tax rate for co-host earnings.
+const COHOST_TAX_RATE = 0.10; // 10% platform fee on co-host earnings.
 
 // Middleware to authenticate co-host bot via EITHER a temp or permanent token
 const authenticateCohostBot = async (req, res, next) => {
@@ -118,15 +120,14 @@ router.post('/request-script', authenticateToken, [
             [contractId, userId, tempAuthToken, fullPrivateServerLink]
         );
         
-        // [MODIFIED] Use the new unified template and generate the final loadstring here.
         const templatePath = path.join(__dirname, '../scripts/unified-bot-template.lua');
         const scriptTemplate = fs.readFileSync(templatePath, 'utf8');
-        
+
         const config = {
-            mode = 'cohost',
-            authToken = tempAuthToken,
-            serverId = contractId,
-            privateServerLink = fullPrivateServerLink
+            mode: 'cohost',
+            authToken: tempAuthToken,
+            serverId: contractId,
+            privateServerLink: fullPrivateServerLink
         };
         
         const finalScript = `loadstring(game:HttpGet("https://raw.githubusercontent.com/GambleD0re/Blox_Battles_Official/main/backend/scripts/unified-bot-template.lua"))(${HttpService.JSONEncode(config)})`
@@ -176,14 +177,29 @@ router.post('/heartbeat', authenticateCohostBot, body('gems_collected_since_last
             
             const { rows: [cohostData] } = await client.query("SELECT reliability_tier FROM co_hosts WHERE user_id = $1", [claimed_by_user_id]);
             const tier = cohostData ? cohostData.reliability_tier : 3;
-            let gemShare = 0;
+
+            // [MODIFIED] Implement the new taxation logic for co-host earnings.
+            let netGemShare = 0;
             if (gems_collected_since_last > 0) {
                 const tierRates = { 1: 0.50, 2: 1/3, 3: 0.25 };
                 const rate = tierRates[tier] || 0.25;
-                gemShare = Math.floor(gems_collected_since_last * rate);
+
+                // 1. Calculate the co-host's gross share of the duel tax revenue.
+                const grossGemShare = Math.floor(gems_collected_since_last * rate);
+
+                // 2. Apply the platform tax/fee to the co-host's earnings.
+                const taxOnShare = Math.floor(grossGemShare * COHOST_TAX_RATE);
+                netGemShare = grossGemShare - taxOnShare;
             }
 
-            await client.query("UPDATE host_contracts SET last_heartbeat = NOW(), gems_earned = gems_earned + $1 WHERE id = $1", [gemShare, contractId]);
+            if (netGemShare > 0) {
+                // [FIXED] Corrected the parameter index from $1 to $2 for the WHERE clause.
+                await client.query("UPDATE host_contracts SET last_heartbeat = NOW(), gems_earned = gems_earned + $1 WHERE id = $2", [netGemShare, contractId]);
+            } else {
+                // If there's no net gain, just update the heartbeat to keep the session alive.
+                await client.query("UPDATE host_contracts SET last_heartbeat = NOW() WHERE id = $1", [contractId]);
+            }
+            
             const command = status === 'winding_down' ? 'shutdown' : 'continue';
             return res.status(200).json({ command });
         }
