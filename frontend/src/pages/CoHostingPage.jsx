@@ -21,7 +21,7 @@ const StatCard = ({ title, value, icon, color = 'text-white' }) => (
 );
 
 const CoHostingPage = () => {
-    const { user, token } = useAuth();
+    const { user, token, refreshUser } = useAuth();
     const navigate = useNavigate();
 
     const [status, setStatus] = useState(null);
@@ -29,6 +29,8 @@ const CoHostingPage = () => {
     const [message, setMessage] = useState({ text: '', type: '' });
     const [isShutdownModalOpen, setIsShutdownModalOpen] = useState(false);
     const [loadstring, setLoadstring] = useState('');
+    const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
+    const [privateLink, setPrivateLink] = useState('');
 
     const showMessage = (text, type = 'success') => {
         setMessage({ text, type });
@@ -49,18 +51,34 @@ const CoHostingPage = () => {
 
     useEffect(() => {
         fetchStatus();
-        const interval = setInterval(fetchStatus, 15000); // Poll for updates
+        const interval = setInterval(fetchStatus, 15000);
         return () => clearInterval(interval);
     }, [fetchStatus]);
 
-    const handleStartSession = async () => {
+    const handleAgreeToTerms = async () => {
+        setIsTermsModalOpen(false);
+        try {
+            await api.agreeToCohostTerms(token);
+            showMessage("Terms agreed. You can now claim contracts.", "success");
+            await refreshUser(); // This is important to get the new user state
+            await fetchStatus();
+        } catch(error) {
+            showMessage(error.message, 'error');
+        }
+    };
+
+    const handleClaimContract = async (contractId) => {
+        if (!privateLink || !privateLink.startsWith("https://www.roblox.com/games/")) {
+            return showMessage("Please enter a valid Roblox private server link.", "error");
+        }
         setIsLoading(true);
         try {
-            const response = await api.startCohostSession(token);
-            const scriptContent = `local authToken="${response.authToken}"; loadstring(game:HttpGet("https://your-raw-script-url.com/v4.txt"))(authToken)`;
-            setLoadstring(scriptContent);
-            showMessage('Session started! Copy the script below.', 'success');
-            await fetchStatus(); // Refresh status immediately
+            const response = await api.claimCohostContract(contractId, privateLink, token);
+            // This logic is now handled in the scriptService on the backend
+            // const scriptContent = `...`; 
+            setLoadstring(response.script);
+            showMessage('Contract claimed! Copy the script below.', 'success');
+            await fetchStatus();
         } catch (error) {
             showMessage(error.message, 'error');
         } finally {
@@ -92,22 +110,50 @@ const CoHostingPage = () => {
             <h2 className="widget-title">Become a Co-Host</h2>
             <div className="p-4 space-y-4 text-gray-300">
                 <p>Help decentralize the Blox Battles network by hosting a bot on your machine. In return, you'll earn a percentage of the gems collected from duels your bot referees.</p>
-                {!user.discord_id ? (
+                {!user.discord_id && (
                     <div className="p-4 bg-yellow-900/50 border border-yellow-700 rounded-lg">
                         <p className="font-bold text-yellow-300">Requirement: Link Your Discord Account</p>
                         <p className="text-sm mt-2">You must link your Discord account before you can start co-hosting. Use the <code className="bg-gray-700 p-1 rounded-md">/link</code> command in our server.</p>
                     </div>
-                ) : (
-                    <button onClick={handleStartSession} className="btn btn-primary" disabled={isLoading}>
-                        {isLoading ? 'Starting...' : 'Agree & Start a Hosting Session'}
+                )}
+                {user.discord_id && !status?.termsAgreed && (
+                    <button onClick={() => setIsTermsModalOpen(true)} className="btn btn-primary" disabled={isLoading}>
+                        View & Agree to Terms
                     </button>
                 )}
             </div>
         </div>
     );
+    
+    const AvailableContracts = () => (
+        <div className="widget mb-8">
+            <h2 className="widget-title">Available Contracts</h2>
+            {status.availableContracts.length > 0 ? (
+                <div className="space-y-4">
+                    {status.availableContracts.map(c => (
+                        <div key={c.id} className="p-4 bg-gray-900/50 rounded-lg flex items-center justify-between">
+                            <div>
+                                <p className="font-bold text-lg">Bot Contract for <span className="text-cyan-400">{c.region}</span></p>
+                                <p className="text-xs text-gray-400">Issued: {new Date(c.issued_at).toLocaleString()}</p>
+                            </div>
+                            <div className="flex items-end gap-2">
+                                <div className="w-72">
+                                    <label className="text-xs text-gray-400">Your Private Server Link</label>
+                                    <input type="text" onChange={(e) => setPrivateLink(e.target.value)} placeholder="https://www.roblox.com/games/..." className="form-input !text-sm"/>
+                                </div>
+                                <button onClick={() => handleClaimContract(c.id)} className="btn btn-primary !mt-0">Claim & Get Script</button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-center text-gray-500 p-4">No available contracts at this time. Check back later!</p>
+            )}
+        </div>
+    );
 
     const DashboardView = () => {
-        const { cohostData, activeSession } = status;
+        const { activeContract } = status;
         const tierInfo = {
             1: { share: '50%', color: 'text-green-400' },
             2: { share: '33.3%', color: 'text-yellow-400' },
@@ -117,10 +163,10 @@ const CoHostingPage = () => {
         return (
             <div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <StatCard title="Session Status" value={activeSession.status.toUpperCase()} icon={activeSession.status === 'active' ? '🟢' : '🟡'} />
-                    <StatCard title="Reliability Tier" value={`Tier ${cohostData.reliability_tier}`} icon="🏆" color={tierInfo[cohostData.reliability_tier]?.color} />
-                    <StatCard title="Gem Share" value={`${tierInfo[cohostData.reliability_tier]?.share}`} icon="💰" />
-                    <StatCard title="Gems Earned This Session" value={activeSession.gems_earned.toLocaleString()} icon="💎" color="text-cyan-400" />
+                    <StatCard title="Session Status" value={activeContract.status.replace('_', ' ').toUpperCase()} icon={activeContract.status === 'active' ? '🟢' : '🟡'} />
+                    <StatCard title="Reliability Tier" value={`Tier ${status.cohostData?.reliability_tier || 3}`} icon="🏆" color={tierInfo[status.cohostData?.reliability_tier || 3]?.color} />
+                    <StatCard title="Gem Share" value={`${tierInfo[status.cohostData?.reliability_tier || 3]?.share}`} icon="💰" />
+                    <StatCard title="Gems Earned This Session" value={activeContract.gems_earned.toLocaleString()} icon="💎" color="text-cyan-400" />
                 </div>
                 {loadstring ? (
                     <div className="widget text-center">
@@ -133,8 +179,8 @@ const CoHostingPage = () => {
                     </div>
                 ) : (
                      <div className="text-center">
-                        <button onClick={() => setIsShutdownModalOpen(true)} className="btn bg-red-600 hover:bg-red-700" disabled={isLoading || activeSession.status === 'winding_down'}>
-                            {isLoading ? 'Processing...' : (activeSession.status === 'winding_down' ? 'Shutdown Initiated' : 'Close Bot')}
+                        <button onClick={() => setIsShutdownModalOpen(true)} className="btn bg-red-600 hover:bg-red-700" disabled={isLoading || activeContract.status !== 'active'}>
+                            {isLoading ? 'Processing...' : (activeContract.status === 'winding_down' ? 'Shutdown Initiated' : 'Close Bot')}
                         </button>
                     </div>
                 )}
@@ -146,11 +192,26 @@ const CoHostingPage = () => {
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
             {message.text && <div className={`fixed top-5 right-5 p-4 rounded-lg text-white font-bold shadow-lg z-50 ${message.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{message.text}</div>}
             <header className="flex justify-between items-center mb-8">
-                <h1 className="text-4xl font-bold text-white">Co-Hosting Dashboard</h1>
+                <h1 className="text-4xl font-bold text-white">Co-Hosting</h1>
                 <button onClick={() => navigate('/dashboard')} className="btn btn-secondary !mt-0">Back to Main Dashboard</button>
             </header>
             
-            {isLoading && !status ? <Loader /> : (status?.activeSession ? <DashboardView /> : <OnboardingView />)}
+            {isLoading && !status ? <Loader /> : (
+                <>
+                    {!status?.activeContract && status?.termsAgreed && <AvailableContracts />}
+                    {status?.activeContract ? <DashboardView /> : <OnboardingView />}
+                </>
+            )}
+
+            <ConfirmationModal
+                isOpen={isTermsModalOpen}
+                onClose={() => setIsTermsModalOpen(false)}
+                onConfirm={handleAgreeToTerms}
+                title="Co-Hosting Terms of Service"
+                confirmText="I Agree"
+            >
+                <p className="text-gray-300">By becoming a co-host, you agree to run the bot software as provided and not to tamper with its operation. Improper shutdowns will result in penalties. Do you agree to these terms?</p>
+            </ConfirmationModal>
 
             <ConfirmationModal
                 isOpen={isShutdownModalOpen}
