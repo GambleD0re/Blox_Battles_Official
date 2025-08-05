@@ -68,7 +68,7 @@ const AdminHostManagerPage = () => {
             ]);
             setContracts(contractsData);
             setGameData(gData);
-            if (gData.regions && gData.regions.length > 0) {
+            if (gData.regions && gData.regions.length > 0 && !selectedRegion) {
                 setSelectedRegion(gData.regions[0].id);
             }
         } catch (error) {
@@ -76,7 +76,7 @@ const AdminHostManagerPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [token]);
+    }, [token, selectedRegion]);
 
     useEffect(() => {
         fetchData();
