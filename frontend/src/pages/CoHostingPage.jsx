@@ -68,23 +68,18 @@ const CoHostingPage = () => {
     };
     
     const handleRequestScript = async (contractId) => {
-        const privateServerLink = privateLinkInputs[contractId];
+        const privateServerLinkCode = privateLinkInputs[contractId];
 
-        if (!privateServerLink) {
-            return showMessage("Please enter a private server link.", "error");
-        }
-        // [MODIFIED] Improved validation to guide the user.
-        if (privateServerLink.includes("/share?code=")) {
-            return showMessage("Invalid Link: Please use the direct server link (from your browser's address bar), not the 'Share' link.", "error");
-        }
-        if (!privateServerLink.startsWith("https://www.roblox.com/games/")) {
-            return showMessage("Please enter a valid Roblox private server link, it should start with 'https://www.roblox.com/games/'.", "error");
+        if (!privateServerLinkCode || privateServerLinkCode.trim() === '') {
+            return showMessage("Please enter your private server link code.", "error");
         }
         
         setIsLoading(true);
         try {
-            const response = await api.requestCohostScript(contractId, privateServerLink, token);
-            const scriptContent = `loadstring(game:HttpGet("https://your-raw-script-url.com/v5-cohost.txt"))("${response.tempAuthToken}", "${contractId}", "${privateServerLink}")`;
+            // [MODIFIED] Send the code to the API, which now expects it.
+            const response = await api.requestCohostScript(contractId, privateServerLinkCode, token);
+            // [MODIFIED] The backend now conveniently returns the full link for the Lua script.
+            const scriptContent = `loadstring(game:HttpGet("https://your-raw-script-url.com/v5-cohost.txt"))("${response.tempAuthToken}", "${response.contractId}", "${response.privateServerLink}")`;
             setLoadstring(scriptContent);
             showMessage('Script generated! The first person to run their script wins the contract.', 'success');
             await fetchStatus();
@@ -139,17 +134,18 @@ const CoHostingPage = () => {
             {status.availableContracts.length > 0 ? (
                 <div className="space-y-4">
                     {status.availableContracts.map(c => (
-                        <div key={c.id} className="p-4 bg-gray-900/50 rounded-lg flex items-center justify-between">
+                        <div key={c.id} className="p-4 bg-gray-900/50 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4">
                             <div>
                                 <p className="font-bold text-lg">Bot Contract for <span className="text-cyan-400">{c.region}</span></p>
                                 <p className="text-xs text-gray-400">Issued: {new Date(c.issued_at).toLocaleString()}</p>
                             </div>
-                            <div className="flex items-end gap-2">
-                                <div className="w-72">
-                                    <label className="text-xs text-gray-400">Your Private Server Link</label>
-                                    <input type="text" onChange={(e) => setPrivateLinkInputs(prev => ({...prev, [c.id]: e.target.value}))} value={privateLinkInputs[c.id] || ''} placeholder="https://www.roblox.com/games/..." className="form-input !text-sm"/>
+                            <div className="w-full sm:w-auto flex-grow flex items-end gap-2">
+                                <div className="flex-grow">
+                                    <label className="text-xs text-gray-400">Your Private Server Link Code</label>
+                                    <input type="text" onChange={(e) => setPrivateLinkInputs(prev => ({...prev, [c.id]: e.target.value}))} value={privateLinkInputs[c.id] || ''} placeholder="Paste the code from your server link..." className="form-input !text-sm"/>
+                                    <p className="text-xs text-gray-500 mt-1">On Roblox, go to Servers → Your Server → Configure → Generate Link. Copy the long code part.</p>
                                 </div>
-                                <button onClick={() => handleRequestScript(c.id)} className="btn btn-primary !mt-0">Get Script</button>
+                                <button onClick={() => handleRequestScript(c.id)} className="btn btn-primary !mt-0 !h-[38px]">Get Script</button>
                             </div>
                         </div>
                     ))}
