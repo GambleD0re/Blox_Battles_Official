@@ -19,11 +19,11 @@ const ContractRow = ({ contract }) => {
         crashed: 'bg-red-800 text-red-200',
     };
     
-    const formatUptime = (start) => {
+    const formatUptime = (start, end) => {
         if (!start) return '00:00:00';
-        const now = new Date();
         const startTime = new Date(start);
-        let diff = (now - startTime) / 1000;
+        const endTime = end ? new Date(end) : new Date();
+        let diff = Math.max(0, (endTime - startTime) / 1000);
         const hours = Math.floor(diff / 3600).toString().padStart(2, '0');
         diff %= 3600;
         const minutes = Math.floor(diff / 60).toString().padStart(2, '0');
@@ -33,12 +33,13 @@ const ContractRow = ({ contract }) => {
 
     return (
         <tr className="border-b border-gray-800 hover:bg-gray-800/50">
-            <td className="p-3 font-mono text-xs text-gray-400">{contract.id}</td>
-            <td className="p-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusStyles[contract.status]}`}>{contract.status.toUpperCase()}</span></td>
+            <td className="p-3 font-mono text-xs text-gray-400" title={contract.id}>{contract.id.substring(0, 8)}...</td>
+            <td className="p-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusStyles[contract.status]}`}>{contract.status.replace('_', ' ').toUpperCase()}</span></td>
             <td className="p-3 font-semibold">{contract.co_host_username || 'N/A'}</td>
             <td className="p-3">{contract.region}</td>
-            <td className="p-3">{contract.status === 'active' ? formatUptime(contract.start_time) : 'N/A'}</td>
+            <td className="p-3">{contract.start_time ? formatUptime(contract.start_time, contract.end_time) : 'N/A'}</td>
             <td className="p-3 text-cyan-400">{contract.gems_earned.toLocaleString()}</td>
+            <td className="p-3 text-gray-400">{contract.admin_username}</td>
         </tr>
     );
 };
@@ -67,6 +68,9 @@ const AdminHostManagerPage = () => {
             ]);
             setContracts(contractsData);
             setGameData(gData);
+            if (gData.regions && gData.regions.length > 0) {
+                setSelectedRegion(gData.regions[0].id);
+            }
         } catch (error) {
             showMessage(error.message, 'error');
         } finally {
@@ -125,12 +129,13 @@ const AdminHostManagerPage = () => {
                                 <th className="p-3">Region</th>
                                 <th className="p-3">Uptime</th>
                                 <th className="p-3">Gems Earned</th>
+                                <th className="p-3">Issued By</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {isLoading ? (<tr><td colSpan="6"><Loader /></td></tr>)
+                            {isLoading ? (<tr><td colSpan="7"><Loader /></td></tr>)
                             : contracts.length > 0 ? (contracts.map(c => <ContractRow key={c.id} contract={c} />))
-                            : (<tr><td colSpan="6" className="p-8 text-center text-gray-500">No contracts found.</td></tr>)}
+                            : (<tr><td colSpan="7" className="p-8 text-center text-gray-500">No contracts found.</td></tr>)}
                         </tbody>
                     </table>
                 </div>
