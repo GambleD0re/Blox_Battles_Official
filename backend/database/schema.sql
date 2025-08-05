@@ -1,7 +1,7 @@
 -- This script defines the PostgreSQL-compatible structure of the database.
 
 -- Drop tables if they exist to ensure a clean slate. The CASCADE keyword will also drop dependent objects.
-DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status, co_hosts, hosting_sessions, host_contracts CASCADE;
+DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status, co_hosts, hosting_sessions, host_contracts, host_contract_bids CASCADE;
 
 -- Table to manage the on/off status of site features.
 CREATE TABLE system_status (
@@ -11,8 +11,6 @@ CREATE TABLE system_status (
 );
 
 
--- Create the 'users' table.
--- [MODIFIED] Added 'terms_agreed_at' for co-hosting.
 CREATE TABLE users (
     user_index SERIAL PRIMARY KEY,
     id UUID NOT NULL UNIQUE,
@@ -33,21 +31,16 @@ CREATE TABLE users (
     password_last_updated TIMESTAMP WITH TIME ZONE,
     discord_notifications_enabled BOOLEAN DEFAULT TRUE,
     accepting_challenges BOOLEAN NOT NULL DEFAULT TRUE,
-    terms_agreed_at TIMESTAMP WITH TIME ZONE,
-    status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'banned', 'terminated')),
-    ban_applied_at TIMESTAMP WITH TIME ZONE,
-    ban_expires_at TIMESTAMP WITH TIME ZONE,
-    ban_reason TEXT,
-    crypto_deposit_address VARCHAR(255) UNIQUE
+    terms_agreed_at TIMESTAMP WITH TIME ZONE
 );
 
--- [NEW] Redesigned table for the admin-driven contract system.
 CREATE TABLE host_contracts (
     id UUID PRIMARY KEY,
     region VARCHAR(50) NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'available' CHECK(status IN ('available', 'claimed', 'active', 'winding_down', 'completed', 'crashed')),
+    status VARCHAR(50) NOT NULL DEFAULT 'available' CHECK(status IN ('available', 'active', 'winding_down', 'completed', 'crashed')),
     issued_by_admin_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
     claimed_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    -- [MODIFIED] The main auth token is now nullable, as it's set upon successful claim.
     auth_token TEXT UNIQUE,
     private_server_link TEXT,
     start_time TIMESTAMP WITH TIME ZONE,
@@ -56,6 +49,18 @@ CREATE TABLE host_contracts (
     gems_earned BIGINT NOT NULL DEFAULT 0,
     issued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     claimed_at TIMESTAMP WITH TIME ZONE
+);
+
+-- [NEW] Table to manage temporary tokens for users bidding on a contract.
+CREATE TABLE host_contract_bids (
+    id SERIAL PRIMARY KEY,
+    contract_id UUID NOT NULL REFERENCES host_contracts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    temp_auth_token TEXT NOT NULL UNIQUE,
+    private_server_link TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'won', 'lost')),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(contract_id, user_id) -- A user can only bid once per contract.
 );
 
 CREATE TABLE crypto_deposits (
