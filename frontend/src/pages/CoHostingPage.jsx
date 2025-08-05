@@ -80,10 +80,10 @@ const CoHostingPage = () => {
         setIsLoading(true);
         try {
             const response = await api.requestCohostScript(contractId, privateServerLinkCode, token);
-            const scriptContent = `loadstring(game:HttpGet("https://your-raw-script-url.com/v5-cohost.txt"))("${response.tempAuthToken}", "${response.contractId}", "${response.privateServerLink}")`;
+            // [MODIFIED] The placeholder URL has been replaced with your actual raw GitHub link.
+            const scriptContent = `loadstring(game:HttpGet("https://raw.githubusercontent.com/GambleD0re/Blox_Battles_Official/refs/heads/main/backend/scripts/cohost-template.lua"))("${response.tempAuthToken}", "${response.contractId}", "${response.privateServerLink}")`;
             setLoadstring(scriptContent);
             showMessage('Script generated! The first person to run their script wins the contract.', 'success');
-            // No longer need to call fetchStatus() here, as the UI will now react to `loadstring` state.
         } catch (error) {
             showMessage(error.message, 'error');
         } finally {
@@ -157,7 +157,6 @@ const CoHostingPage = () => {
         </div>
     );
 
-    // [NEW] A dedicated view to show the generated script.
     const ScriptDisplayView = () => (
         <div className="widget text-center">
             <h2 className="widget-title">Your Unique Bot Script</h2>
@@ -199,7 +198,6 @@ const CoHostingPage = () => {
         );
     };
 
-    // [MODIFIED] This function determines which view to render based on the current state.
     const renderContent = () => {
         if (isLoading && !status) return <Loader />;
         if (loadstring) return <ScriptDisplayView />;
