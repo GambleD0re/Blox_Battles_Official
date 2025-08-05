@@ -52,7 +52,6 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <div className="p-4">
                     <h2 className="text-xl font-bold text-white mb-6">Navigation</h2>
                     <nav className="flex flex-col space-y-2">
-                        {/* [MODIFIED] Added the new Co-Hosting link */}
                         <button onClick={() => handleNavigate('/co-hosting')} className="text-left text-gray-300 hover:bg-gray-700/50 hover:text-white p-3 rounded-lg transition-colors">
                             Co-Hosting
                         </button>
