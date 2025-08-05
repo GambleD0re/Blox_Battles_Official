@@ -47,18 +47,7 @@ CREATE TABLE co_hosts (
     terms_agreed_at TIMESTAMP WITH TIME ZONE
 );
 
--- Table to manage temporary tokens for users bidding on a contract.
-CREATE TABLE host_contract_bids (
-    id SERIAL PRIMARY KEY,
-    contract_id UUID NOT NULL REFERENCES host_contracts(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    temp_auth_token TEXT NOT NULL UNIQUE,
-    private_server_link TEXT NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'won', 'lost')),
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(contract_id, user_id)
-);
-
+-- [FIXED] This table must be created BEFORE host_contract_bids.
 CREATE TABLE host_contracts (
     id UUID PRIMARY KEY,
     region VARCHAR(50) NOT NULL,
@@ -73,6 +62,18 @@ CREATE TABLE host_contracts (
     gems_earned BIGINT NOT NULL DEFAULT 0,
     issued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     claimed_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Table to manage temporary tokens for users bidding on a contract.
+CREATE TABLE host_contract_bids (
+    id SERIAL PRIMARY KEY,
+    contract_id UUID NOT NULL REFERENCES host_contracts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    temp_auth_token TEXT NOT NULL UNIQUE,
+    private_server_link TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'won', 'lost')),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(contract_id, user_id)
 );
 
 CREATE TABLE crypto_deposits (
