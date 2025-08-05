@@ -93,9 +93,9 @@ export const respondToDiscordLink = (messageId, response, token) => apiRequest('
 
 // --- CO-HOSTING ---
 export const getCohostStatus = (token) => apiRequest('/cohost/status', 'GET', null, token);
-// [NEW] Added missing co-host API functions
 export const agreeToCohostTerms = (token) => apiRequest('/cohost/agree-terms', 'POST', null, token);
-export const requestCohostScript = (contractId, privateServerLink, token) => apiRequest('/cohost/request-script', 'POST', { contractId, privateServerLink }, token);
+// [MODIFIED] This function now sends the link *code* instead of the full link.
+export const requestCohostScript = (contractId, privateServerLinkCode, token) => apiRequest('/cohost/request-script', 'POST', { contractId, privateServerLinkCode }, token);
 export const shutdownCohostSession = (token) => apiRequest('/cohost/shutdown', 'POST', null, token);
 
 // --- ADMIN ---
@@ -123,6 +123,5 @@ export const getAdminTournaments = (token) => apiRequest('/admin/tournaments', '
 export const cancelTournament = (id, token) => apiRequest(`/admin/tournaments/${id}`, 'DELETE', null, token);
 export const getSystemStatus = (token) => apiRequest('/admin/system-status', 'GET', null, token);
 export const updateSystemStatus = (statusData, token) => apiRequest('/admin/system-status', 'PUT', statusData, token);
-// [NEW] Added missing admin host management API functions
 export const getAdminHostContracts = (token) => apiRequest('/admin/host-contracts', 'GET', null, token);
 export const issueHostContract = (region, token) => apiRequest('/admin/host-contracts', 'POST', { region }, token);
