@@ -5,7 +5,6 @@ import * as api from '../services/api';
 import UserActionsModal from '../components/Admin/UserActionsModal';
 import { ConfirmationModal, TranscriptModal } from '../components/Dashboard/Modals';
 
-// --- Helper Components ---
 const StatCard = ({ title, value, icon }) => (
     <div className="widget flex items-center p-4 gap-4">
         <div className="text-3xl">{icon}</div>
@@ -125,7 +124,6 @@ const DeclineModal = ({ isOpen, onClose, onSubmit }) => {
     );
 };
 
-// [NEW] System Controls Component for Master Admin
 const SystemControls = ({ token, showMessage }) => {
     const [status, setStatus] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -212,7 +210,6 @@ const SystemControls = ({ token, showMessage }) => {
 };
 
 
-// --- Main Admin Dashboard Component ---
 const AdminDashboard = () => {
     const { user, token } = useAuth();
     const navigate = useNavigate();
@@ -271,7 +268,6 @@ const AdminDashboard = () => {
     const handleDeclinePayoutClick = (request) => { setSelectedPayoutRequest(request); setIsPayoutDetailModalOpen(false); setIsDeclineModalOpen(true); };
     const handleConfirmDecline = async (reason) => { try { const r = await api.declinePayoutRequest(selectedPayoutRequest.id, reason, token); showMessage(r.message, 'success'); setIsDeclineModalOpen(false); setSelectedPayoutRequest(null); fetchData(); } catch (e) { showMessage(e.message, 'error'); } };
 
-    // [NEW] Check if the current user is the master admin.
     const isMasterAdmin = user?.email === 'scriptmail00@gmail.com';
 
     return (
@@ -283,11 +279,14 @@ const AdminDashboard = () => {
                 <StatCard title="Total Users" value={stats.totalUsers} icon="👥" /><StatCard title="Gems in Circulation" value={stats.gemsInCirculation.toLocaleString()} icon="💎" /><StatCard title="Pending Disputes" value={stats.pendingDisputes} icon="⚖️" /><StatCard title="Pending Payouts" value={stats.pendingPayouts} icon="💸" /><StatCard title="Total Tax Collected" value={stats.taxCollected.toLocaleString()} icon="📈" />
             </div>
             
+            {/* [MODIFIED] Added Host Manager button */}
+            <div className="flex justify-end mb-8 gap-4">
+                <button onClick={() => navigate('/admin/host-manager')} className="btn btn-secondary !mt-0">Host Manager</button>
+                <button onClick={() => navigate('/admin/tournaments/create')} className="btn btn-primary !mt-0">Create Tournament</button>
+            </div>
+            
             <div className="widget mb-8">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="widget-title !mb-0">Tournament Management</h2>
-                    <button onClick={() => navigate('/admin/tournaments/create')} className="btn btn-primary !mt-0">Create Tournament</button>
-                </div>
+                <h2 className="widget-title">Tournament Management</h2>
                 <div className="overflow-x-auto">
                      <table className="w-full">
                         <thead><tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-700"><th className="p-3">Name</th><th className="p-3">Status</th><th className="p-3">Starts At</th><th className="p-3"></th></tr></thead>
@@ -381,7 +380,7 @@ const AdminDashboard = () => {
                             <tbody>
                                 {servers.length > 0 ? servers.map(server => {
                                     const lastBeat = new Date(server.last_heartbeat);
-                                    const isOnline = (new Date() - lastBeat) < 60000; // 60 seconds threshold
+                                    const isOnline = (new Date() - lastBeat) < 60000;
                                     return (
                                         <tr key={server.server_id} className="border-t border-gray-800">
                                             <td className="p-2 font-mono font-semibold">{server.server_id}</td>
@@ -402,7 +401,6 @@ const AdminDashboard = () => {
                 </div>
             </div>
 
-            {/* [NEW] Conditionally render the master controls */}
             {isMasterAdmin && <SystemControls token={token} showMessage={showMessage} />}
 
             <UserActionsModal isOpen={!!selectedUser} onClose={() => setSelectedUser(null)} user={selectedUser} token={token} onActionComplete={handleActionComplete}/>
