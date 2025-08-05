@@ -90,10 +90,12 @@ router.post('/agree-terms', authenticateToken, async (req, res) => {
 
 router.post('/request-script', authenticateToken, [
     body('contractId').isUUID(),
-    body('privateServerLink').isURL()
+    // [MODIFIED] Validate the link *code* instead of the full URL.
+    body('privateServerLinkCode').isString().notEmpty().withMessage('Private server link code is required.')
 ], handleValidationErrors, async (req, res) => {
     const userId = req.user.userId;
-    const { contractId, privateServerLink } = req.body;
+    // [MODIFIED] Destructure the code from the request body.
+    const { contractId, privateServerLinkCode } = req.body;
     
     try {
         const { rows: [user] } = await db.query("SELECT discord_id FROM users WHERE id = $1", [userId]);
@@ -106,16 +108,23 @@ router.post('/request-script', authenticateToken, [
             return res.status(404).json({ message: "This contract is no longer available." });
         }
 
+        // [NEW] Construct the full URL on the backend for reliability.
+        const placeId = "17625359962";
+        const fullPrivateServerLink = `https://www.roblox.com/games/${placeId}/Blox-Battles?privateServerLinkCode=${privateServerLinkCode}`;
+
         const tempAuthToken = crypto.randomBytes(32).toString('hex');
         await db.query(
             "INSERT INTO host_contract_bids (contract_id, user_id, temp_auth_token, private_server_link) VALUES ($1, $2, $3, $4) ON CONFLICT (contract_id, user_id) DO UPDATE SET temp_auth_token = $3, private_server_link = $4",
-            [contractId, userId, tempAuthToken, privateServerLink]
+            // [MODIFIED] Store the fully constructed link.
+            [contractId, userId, tempAuthToken, fullPrivateServerLink]
         );
         
         res.status(200).json({ 
             message: "Script request successful. The first bot to connect wins the contract.", 
             tempAuthToken: tempAuthToken,
-            contractId: contractId 
+            contractId: contractId,
+            // [MODIFIED] Also pass back the full link for the Lua script template.
+            privateServerLink: fullPrivateServerLink 
         });
 
     } catch (error) {
