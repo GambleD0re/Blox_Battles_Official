@@ -52,7 +52,7 @@ router.put('/system-status', authenticateToken, isMasterAdmin, [
     }
 });
 
-// --- [NEW] HOST CONTRACT MANAGEMENT (ADMINS ONLY) ---
+// --- HOST CONTRACT MANAGEMENT (ADMINS ONLY) ---
 const validRegions = GAME_DATA.regions.map(r => r.id);
 router.post('/host-contracts', authenticateToken, isAdmin, [
     body('region').isIn(validRegions)
