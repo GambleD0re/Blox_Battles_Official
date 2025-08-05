@@ -74,15 +74,16 @@ const CoHostingPage = () => {
             return showMessage("Please enter your private server link code.", "error");
         }
         
+        const placeId = "17625359962";
+        const fullPrivateServerLink = `https://www.roblox.com/games/${placeId}/Blox-Battles?privateServerLinkCode=${privateServerLinkCode}`;
+        
         setIsLoading(true);
         try {
-            // [MODIFIED] Send the code to the API, which now expects it.
             const response = await api.requestCohostScript(contractId, privateServerLinkCode, token);
-            // [MODIFIED] The backend now conveniently returns the full link for the Lua script.
             const scriptContent = `loadstring(game:HttpGet("https://your-raw-script-url.com/v5-cohost.txt"))("${response.tempAuthToken}", "${response.contractId}", "${response.privateServerLink}")`;
             setLoadstring(scriptContent);
             showMessage('Script generated! The first person to run their script wins the contract.', 'success');
-            await fetchStatus();
+            // No longer need to call fetchStatus() here, as the UI will now react to `loadstring` state.
         } catch (error) {
             showMessage(error.message, 'error');
         } finally {
@@ -156,6 +157,22 @@ const CoHostingPage = () => {
         </div>
     );
 
+    // [NEW] A dedicated view to show the generated script.
+    const ScriptDisplayView = () => (
+        <div className="widget text-center">
+            <h2 className="widget-title">Your Unique Bot Script</h2>
+            <p className="text-gray-300 mb-2">Your unique, one-time use script has been generated. Execute this in your Roblox client to claim the hosting contract.</p>
+            <p className="text-yellow-400 font-bold text-sm mb-4">Do not share this script. The first person to run their script successfully will claim the contract.</p>
+            <div className="p-4 bg-gray-900 rounded-lg font-mono text-left text-sm text-yellow-300 overflow-x-auto my-4">
+                {loadstring}
+            </div>
+            <div className="flex justify-center items-center gap-4">
+                <button onClick={() => setLoadstring('')} className="btn btn-secondary">Back to Contracts</button>
+                <button onClick={copyLoadstring} className="btn btn-primary">Copy Script</button>
+            </div>
+        </div>
+    );
+
     const DashboardView = () => {
         const { activeContract } = status;
         const tier = status.activeContract?.reliability_tier || 3;
@@ -173,24 +190,22 @@ const CoHostingPage = () => {
                     <StatCard title="Gem Share" value={`${tierInfo[tier]?.share}`} icon="💰" />
                     <StatCard title="Gems Earned This Session" value={activeContract.gems_earned.toLocaleString()} icon="💎" color="text-cyan-400" />
                 </div>
-                {loadstring ? (
-                    <div className="widget text-center">
-                        <h3 className="widget-title">Your Unique Bot Script</h3>
-                        <p className="text-gray-400 mb-4">Execute this one-time script in your Roblox client. Do not share it.</p>
-                        <div className="p-4 bg-gray-900 rounded-lg font-mono text-left text-sm text-yellow-300 overflow-x-auto">
-                            {loadstring}
-                        </div>
-                        <button onClick={copyLoadstring} className="btn btn-secondary mt-4">Copy Script</button>
-                    </div>
-                ) : (
-                     <div className="text-center">
-                        <button onClick={() => setIsShutdownModalOpen(true)} className="btn bg-red-600 hover:bg-red-700" disabled={isLoading || activeContract.status !== 'active'}>
-                            {isLoading ? 'Processing...' : (activeContract.status === 'winding_down' ? 'Shutdown Initiated' : 'Close Bot')}
-                        </button>
-                    </div>
-                )}
+                <div className="text-center">
+                    <button onClick={() => setIsShutdownModalOpen(true)} className="btn bg-red-600 hover:bg-red-700" disabled={isLoading || activeContract.status !== 'active'}>
+                        {isLoading ? 'Processing...' : (activeContract.status === 'winding_down' ? 'Shutdown Initiated' : 'Close Bot')}
+                    </button>
+                </div>
             </div>
         );
+    };
+
+    // [MODIFIED] This function determines which view to render based on the current state.
+    const renderContent = () => {
+        if (isLoading && !status) return <Loader />;
+        if (loadstring) return <ScriptDisplayView />;
+        if (status?.activeContract) return <DashboardView />;
+        if (status?.termsAgreed) return <AvailableContracts />;
+        return <OnboardingView />;
     };
 
     return (
@@ -201,12 +216,7 @@ const CoHostingPage = () => {
                 <button onClick={() => navigate('/dashboard')} className="btn btn-secondary !mt-0">Back to Main Dashboard</button>
             </header>
             
-            {isLoading && !status ? <Loader /> : (
-                <>
-                    {!status?.activeContract && status?.termsAgreed && <AvailableContracts />}
-                    {status?.activeContract ? <DashboardView /> : <OnboardingView />}
-                </>
-            )}
+            {renderContent()}
 
             <ConfirmationModal
                 isOpen={isTermsModalOpen}
@@ -232,4 +242,7 @@ const CoHostingPage = () => {
     );
 };
 
-export default CoHostingPage;
+export default CoHostingPage;```
+<div align="center">
+  <kbd>frontend-src-pages-CoHostingPage.jsx</kbd>
+</div>
