@@ -1,3 +1,4 @@
+javascript
 // backend/routes/cohost.js
 const express = require('express');
 const { body } = require('express-validator');
@@ -117,17 +118,22 @@ router.post('/request-script', authenticateToken, [
             [contractId, userId, tempAuthToken, fullPrivateServerLink]
         );
         
-        const templatePath = path.join(__dirname, '../scripts/cohost-template.lua');
-        let scriptTemplate = fs.readFileSync(templatePath, 'utf8');
-
-        scriptTemplate = scriptTemplate.replace('%%TEMP_AUTH_TOKEN%%', tempAuthToken);
-        scriptTemplate = scriptTemplate.replace('%%CONTRACT_ID%%', contractId);
-        scriptTemplate = scriptTemplate.replace('%%PRIVATE_SERVER_LINK%%', fullPrivateServerLink);
+        // [MODIFIED] Use the new unified template and generate the final loadstring here.
+        const templatePath = path.join(__dirname, '../scripts/unified-bot-template.lua');
+        const scriptTemplate = fs.readFileSync(templatePath, 'utf8');
+        
+        const config = {
+            mode = 'cohost',
+            authToken = tempAuthToken,
+            serverId = contractId,
+            privateServerLink = fullPrivateServerLink
+        };
+        
+        const finalScript = `loadstring(game:HttpGet("https://raw.githubusercontent.com/GambleD0re/Blox_Battles_Official/main/backend/scripts/unified-bot-template.lua"))(${HttpService.JSONEncode(config)})`
 
         res.status(200).json({ 
             message: "Script generated successfully!", 
-            // [FIXED] Corrected the variable name from scriptContent to scriptTemplate.
-            script: scriptTemplate
+            script: finalScript
         });
 
     } catch (error) {
