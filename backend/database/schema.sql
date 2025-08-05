@@ -11,6 +11,8 @@ CREATE TABLE system_status (
 );
 
 
+-- Create the 'users' table.
+-- [CORRECTED] Added the 'crypto_deposit_address' column back.
 CREATE TABLE users (
     user_index SERIAL PRIMARY KEY,
     id UUID NOT NULL UNIQUE,
@@ -31,27 +33,15 @@ CREATE TABLE users (
     password_last_updated TIMESTAMP WITH TIME ZONE,
     discord_notifications_enabled BOOLEAN DEFAULT TRUE,
     accepting_challenges BOOLEAN NOT NULL DEFAULT TRUE,
-    terms_agreed_at TIMESTAMP WITH TIME ZONE
+    terms_agreed_at TIMESTAMP WITH TIME ZONE,
+    crypto_deposit_address VARCHAR(255) UNIQUE,
+    status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'banned', 'terminated')),
+    ban_applied_at TIMESTAMP WITH TIME ZONE,
+    ban_expires_at TIMESTAMP WITH TIME ZONE,
+    ban_reason TEXT
 );
 
-CREATE TABLE host_contracts (
-    id UUID PRIMARY KEY,
-    region VARCHAR(50) NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'available' CHECK(status IN ('available', 'active', 'winding_down', 'completed', 'crashed')),
-    issued_by_admin_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
-    claimed_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    -- [MODIFIED] The main auth token is now nullable, as it's set upon successful claim.
-    auth_token TEXT UNIQUE,
-    private_server_link TEXT,
-    start_time TIMESTAMP WITH TIME ZONE,
-    end_time TIMESTAMP WITH TIME ZONE,
-    last_heartbeat TIMESTAMP WITH TIME ZONE,
-    gems_earned BIGINT NOT NULL DEFAULT 0,
-    issued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    claimed_at TIMESTAMP WITH TIME ZONE
-);
-
--- [NEW] Table to manage temporary tokens for users bidding on a contract.
+-- Table to manage temporary tokens for users bidding on a contract.
 CREATE TABLE host_contract_bids (
     id SERIAL PRIMARY KEY,
     contract_id UUID NOT NULL REFERENCES host_contracts(id) ON DELETE CASCADE,
@@ -61,6 +51,22 @@ CREATE TABLE host_contract_bids (
     status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'won', 'lost')),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(contract_id, user_id) -- A user can only bid once per contract.
+);
+
+CREATE TABLE host_contracts (
+    id UUID PRIMARY KEY,
+    region VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'available' CHECK(status IN ('available', 'active', 'winding_down', 'completed', 'crashed')),
+    issued_by_admin_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    claimed_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    auth_token TEXT UNIQUE,
+    private_server_link TEXT,
+    start_time TIMESTAMP WITH TIME ZONE,
+    end_time TIMESTAMP WITH TIME ZONE,
+    last_heartbeat TIMESTAMP WITH TIME ZONE,
+    gems_earned BIGINT NOT NULL DEFAULT 0,
+    issued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    claimed_at TIMESTAMP WITH TIME ZONE
 );
 
 CREATE TABLE crypto_deposits (
