@@ -51,16 +51,18 @@ const authenticateCohostBot = async (req, res, next) => {
 router.get('/status', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     try {
-        const { rows: [user] } = await db.query("SELECT terms_agreed_at FROM users WHERE id = $1", [userId]);
+        const { rows: [cohost] } = await db.query("SELECT * FROM co_hosts WHERE user_id = $1", [userId]);
         const { rows: [activeContract] } = await db.query(
-            "SELECT * FROM host_contracts WHERE claimed_by_user_id = $1 AND status IN ('active', 'winding_down')", [userId]
+            "SELECT * FROM host_contracts WHERE claimed_by_user_id = $1 AND status IN ('claimed', 'active', 'winding_down')",
+            [userId]
         );
         const { rows: availableContracts } = await db.query(
             "SELECT id, region, issued_at FROM host_contracts WHERE status = 'available' ORDER BY issued_at DESC"
         );
         
         res.status(200).json({
-            termsAgreed: !!user.terms_agreed_at,
+            cohostData: cohost, // Will be null if user is not a co-host yet
+            termsAgreed: !!cohost?.terms_agreed_at,
             activeContract: activeContract || null,
             availableContracts: availableContracts || []
         });
@@ -73,7 +75,12 @@ router.get('/status', authenticateToken, async (req, res) => {
 router.post('/agree-terms', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     try {
-        await db.query("UPDATE users SET terms_agreed_at = NOW() WHERE id = $1", [userId]);
+        // Use ON CONFLICT to either insert a new co-host record or update the terms agreement timestamp
+        await db.query(
+            `INSERT INTO co_hosts (user_id, terms_agreed_at) VALUES ($1, NOW())
+             ON CONFLICT (user_id) DO UPDATE SET terms_agreed_at = NOW()`,
+            [userId]
+        );
         res.status(200).json({ message: "Terms and conditions agreed." });
     } catch (error) {
         console.error("Error agreeing to co-host terms:", error);
@@ -89,8 +96,9 @@ router.post('/request-script', authenticateToken, [
     const { contractId, privateServerLink } = req.body;
     
     try {
-        const { rows: [user] } = await db.query("SELECT discord_id, terms_agreed_at FROM users WHERE id = $1", [userId]);
-        if (!user.discord_id || !user.terms_agreed_at) {
+        const { rows: [user] } = await db.query("SELECT discord_id FROM users WHERE id = $1", [userId]);
+        const { rows: [cohost] } = await db.query("SELECT terms_agreed_at FROM co_hosts WHERE user_id = $1", [userId]);
+        if (!user.discord_id || !cohost?.terms_agreed_at) {
             return res.status(403).json({ message: "You must link Discord and agree to the terms first." });
         }
         const { rows: [contract] } = await db.query("SELECT status FROM host_contracts WHERE id = $1", [contractId]);
@@ -104,13 +112,18 @@ router.post('/request-script', authenticateToken, [
             [contractId, userId, tempAuthToken, privateServerLink]
         );
         
-        res.status(200).json({ message: "Script request successful. The first bot to connect wins the contract.", tempAuthToken });
+        res.status(200).json({ 
+            message: "Script request successful. The first bot to connect wins the contract.", 
+            tempAuthToken: tempAuthToken,
+            contractId: contractId 
+        });
 
     } catch (error) {
         console.error("Error requesting script:", error);
         res.status(500).json({ message: "Failed to request script." });
     }
 });
+
 
 router.post('/heartbeat', authenticateCohostBot, body('gems_collected_since_last').isInt({ min: 0 }), handleValidationErrors, async (req, res) => {
     const { gems_collected_since_last } = req.body;
@@ -119,11 +132,11 @@ router.post('/heartbeat', authenticateCohostBot, body('gems_collected_since_last
     try {
         if (req.tokenType === 'temporary') {
             await client.query('BEGIN');
-            const { contract_id, user_id, private_server_link } = req.bidData;
+            const { contract_id, user_id, private_server_link, id: bid_id } = req.bidData;
 
             const { rows: [contract] } = await client.query("SELECT status FROM host_contracts WHERE id = $1 FOR UPDATE", [contract_id]);
             if (contract.status !== 'available') {
-                await client.query("UPDATE host_contract_bids SET status = 'lost' WHERE id = $1", [req.bidData.id]);
+                await client.query("UPDATE host_contract_bids SET status = 'lost' WHERE id = $1", [bid_id]);
                 await client.query('COMMIT');
                 return res.status(409).json({ message: "Contract was claimed by another host.", action: 'terminate' });
             }
@@ -133,7 +146,7 @@ router.post('/heartbeat', authenticateCohostBot, body('gems_collected_since_last
                 "UPDATE host_contracts SET status = 'active', claimed_by_user_id = $1, private_server_link = $2, auth_token = $3, claimed_at = NOW(), start_time = NOW(), last_heartbeat = NOW() WHERE id = $4",
                 [user_id, private_server_link, permanentAuthToken, contract_id]
             );
-            await client.query("UPDATE host_contract_bids SET status = 'won' WHERE id = $1", [req.bidData.id]);
+            await client.query("UPDATE host_contract_bids SET status = 'won' WHERE id = $1", [bid_id]);
             await client.query("UPDATE host_contract_bids SET status = 'lost' WHERE contract_id = $1 AND status = 'pending'", [contract_id]);
             
             await client.query('COMMIT');
@@ -143,7 +156,7 @@ router.post('/heartbeat', authenticateCohostBot, body('gems_collected_since_last
         if (req.tokenType === 'permanent') {
             const { id: contractId, claimed_by_user_id, status } = req.contractData;
             
-            const { rows: [cohostData] } = await client.query("SELECT total_uptime_seconds, reliability_tier FROM co_hosts WHERE user_id = $1", [claimed_by_user_id]);
+            const { rows: [cohostData] } = await client.query("SELECT reliability_tier FROM co_hosts WHERE user_id = $1", [claimed_by_user_id]);
             const tier = cohostData ? cohostData.reliability_tier : 3;
             let gemShare = 0;
             if (gems_collected_since_last > 0) {
@@ -152,7 +165,7 @@ router.post('/heartbeat', authenticateCohostBot, body('gems_collected_since_last
                 gemShare = Math.floor(gems_collected_since_last * rate);
             }
 
-            await client.query("UPDATE host_contracts SET last_heartbeat = NOW(), gems_earned = gems_earned + $1 WHERE id = $2", [gemShare, contractId]);
+            await client.query("UPDATE host_contracts SET last_heartbeat = NOW(), gems_earned = gems_earned + $1 WHERE id = $1", [gemShare, contractId]);
             const command = status === 'winding_down' ? 'shutdown' : 'continue';
             return res.status(200).json({ command });
         }
