@@ -302,4 +302,7 @@ const CoHostingPage = () => {
     );
 };
 
-export default CoHostingPage;
+export default CoHostingPage;```
+<div align="center">
+  <kbd>frontend-src-pages-CoHostingPage.jsx</kbd>
+</div>
