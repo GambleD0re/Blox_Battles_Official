@@ -66,8 +66,8 @@ async function getLatestPrice(tokenSymbol) {
     try {
         console.log(`[PriceFeed] Fetching price for ${feedSymbol} using address ${address}...`);
         
-        // [MODIFIED] Simplified contract instantiation for better compatibility.
-        // Ethers v6 handles checksumming internally when an address is used.
+        // [FIXED] The arguments for the ethers.Contract constructor were in the wrong order.
+        // It should be (address, abi, provider).
         const priceFeed = new ethers.Contract(address, PRICE_FEED_ABI, provider);
         
         const roundData = await priceFeed.latestRoundData();
