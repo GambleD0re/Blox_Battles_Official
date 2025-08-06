@@ -20,6 +20,59 @@ const StatCard = ({ title, value, icon, color = 'text-white' }) => (
     </div>
 );
 
+// [NEW] A dedicated component to show co-host stats and progression.
+const CoHostStats = ({ cohostData }) => {
+    const TIER_UPTIME_MILESTONES = {
+        2: 40 * 3600,
+        1: 120 * 3600,
+    };
+    const TIER_INFO = {
+        1: { name: 'Tier 1', share: '50%', nextTierHours: null, color: 'text-green-400' },
+        2: { name: 'Tier 2', share: '33.3%', nextTierHours: TIER_UPTIME_MILESTONES[1], color: 'text-yellow-400' },
+        3: { name: 'Tier 3', share: '25%', nextTierHours: TIER_UPTIME_MILESTONES[2], color: 'text-cyan-400' },
+    };
+
+    const currentTierInfo = TIER_INFO[cohostData.reliability_tier] || TIER_INFO[3];
+    const nextTierInfo = TIER_INFO[cohostData.reliability_tier - 1];
+
+    const currentUptimeHours = cohostData.total_uptime_seconds / 3600;
+    const hoursNeededForNextTier = (currentTierInfo.nextTierHours || 0) / 3600;
+    
+    const progressPercentage = nextTierInfo ? Math.min(100, (currentUptimeHours / hoursNeededForNextTier) * 100) : 100;
+
+    return (
+        <div className="widget mb-8">
+            <h2 className="widget-title">Your Co-Host Status</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4">
+                <div className="text-center">
+                    <p className="text-sm text-gray-400">Reliability Tier</p>
+                    <p className={`text-3xl font-bold ${currentTierInfo.color}`}>{currentTierInfo.name}</p>
+                </div>
+                <div className="text-center">
+                    <p className="text-sm text-gray-400">Current Gem Share</p>
+                    <p className="text-3xl font-bold">{currentTierInfo.share}</p>
+                </div>
+                <div className="text-center">
+                    <p className="text-sm text-gray-400">Total Uptime</p>
+                    <p className="text-3xl font-bold">{currentUptimeHours.toFixed(1)} Hours</p>
+                </div>
+            </div>
+            {nextTierInfo && (
+                <div className="px-4 pb-4">
+                    <div className="flex justify-between items-center mb-1 text-sm">
+                        <span className="font-semibold">Progress to {nextTierInfo.name}</span>
+                        <span>{currentUptimeHours.toFixed(1)} / {hoursNeededForNextTier.toFixed(0)} hrs</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2.5">
+                        <div className="bg-blue-500 h-2.5 rounded-full" style={{ width: `${progressPercentage}%` }}></div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
 const CoHostingPage = () => {
     const { user, token, refreshUser } = useAuth();
     const navigate = useNavigate();
@@ -51,7 +104,7 @@ const CoHostingPage = () => {
 
     useEffect(() => {
         fetchStatus();
-        const interval = setInterval(fetchStatus, 15000); // Poll for updates
+        const interval = setInterval(fetchStatus, 15000);
         return () => clearInterval(interval);
     }, [fetchStatus]);
 
@@ -69,14 +122,13 @@ const CoHostingPage = () => {
     
     const handleRequestScript = async (contractId) => {
         const privateServerLinkCode = privateLinkInputs[contractId];
-
         if (!privateServerLinkCode || privateServerLinkCode.trim() === '') {
             return showMessage("Please enter your private server link code.", "error");
         }
-        
         setIsLoading(true);
         try {
-            // [MODIFIED] This now sends the code and receives the full script in one go.
+            // [MODIFIED] The frontend now simply passes the code and receives the complete script.
+            // No more placeholders or frontend script construction.
             const response = await api.requestCohostScript(contractId, privateServerLinkCode, token);
             setLoadstring(response.script);
             showMessage(response.message, 'success');
@@ -125,33 +177,49 @@ const CoHostingPage = () => {
         </div>
     );
     
-    const AvailableContracts = () => (
-        <div className="widget mb-8">
-            <h2 className="widget-title">Available Contracts</h2>
-            {status.availableContracts.length > 0 ? (
-                <div className="space-y-4">
-                    {status.availableContracts.map(c => (
-                        <div key={c.id} className="p-4 bg-gray-900/50 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <div>
-                                <p className="font-bold text-lg">Bot Contract for <span className="text-cyan-400">{c.region}</span></p>
-                                <p className="text-xs text-gray-400">Issued: {new Date(c.issued_at).toLocaleString()}</p>
+    const AvailableContracts = () => {
+        const banExpires = status.cohostData?.cohost_ban_until ? new Date(status.cohostData.cohost_ban_until) : null;
+        const isBanned = banExpires && banExpires > new Date();
+
+        return (
+            <>
+                {status.cohostData && <CoHostStats cohostData={status.cohostData} />}
+                {isBanned ? (
+                    <div className="widget text-center bg-red-900/30 border border-red-700">
+                        <h2 className="widget-title text-red-300">Co-Hosting Suspended</h2>
+                        <p className="text-gray-300">Your co-hosting privileges are suspended due to an improper shutdown.</p>
+                        <p className="text-white font-bold mt-2">Access will be restored on: {banExpires.toLocaleString()}</p>
+                    </div>
+                ) : (
+                    <div className="widget">
+                        <h2 className="widget-title">Available Contracts</h2>
+                        {status.availableContracts.length > 0 ? (
+                            <div className="space-y-4">
+                                {status.availableContracts.map(c => (
+                                    <div key={c.id} className="p-4 bg-gray-900/50 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+                                        <div>
+                                            <p className="font-bold text-lg">Bot Contract for <span className="text-cyan-400">{c.region}</span></p>
+                                            <p className="text-xs text-gray-400">Issued: {new Date(c.issued_at).toLocaleString()}</p>
+                                        </div>
+                                        <div className="w-full sm:w-auto flex-grow flex items-end gap-2">
+                                            <div className="flex-grow">
+                                                <label className="text-xs text-gray-400">Your Private Server Link Code</label>
+                                                <input type="text" onChange={(e) => setPrivateLinkInputs(prev => ({...prev, [c.id]: e.target.value}))} value={privateLinkInputs[c.id] || ''} placeholder="Paste the code from your server link..." className="form-input !text-sm"/>
+                                                <p className="text-xs text-gray-500 mt-1">On Roblox, go to Servers → Your Server → Configure → Generate Link. Copy the long code part.</p>
+                                            </div>
+                                            <button onClick={() => handleRequestScript(c.id)} className="btn btn-primary !mt-0 !h-[38px]">Get Script</button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                            <div className="w-full sm:w-auto flex-grow flex items-end gap-2">
-                                <div className="flex-grow">
-                                    <label className="text-xs text-gray-400">Your Private Server Link Code</label>
-                                    <input type="text" onChange={(e) => setPrivateLinkInputs(prev => ({...prev, [c.id]: e.target.value}))} value={privateLinkInputs[c.id] || ''} placeholder="Paste the code from your server link..." className="form-input !text-sm"/>
-                                    <p className="text-xs text-gray-500 mt-1">On Roblox, go to Servers → Your Server → Configure → Generate Link. Copy the long code part.</p>
-                                </div>
-                                <button onClick={() => handleRequestScript(c.id)} className="btn btn-primary !mt-0 !h-[38px]">Get Script</button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <p className="text-center text-gray-500 p-4">No available contracts at this time. Check back later!</p>
-            )}
-        </div>
-    );
+                        ) : (
+                            <p className="text-center text-gray-500 p-4">No available contracts at this time. Check back later!</p>
+                        )}
+                    </div>
+                )}
+            </>
+        );
+    };
 
     const ScriptDisplayView = () => (
         <div className="widget text-center">
@@ -170,19 +238,20 @@ const CoHostingPage = () => {
 
     const DashboardView = () => {
         const { activeContract } = status;
-        const tier = status.activeContract?.reliability_tier || 3;
+        const tier = status.cohostData?.reliability_tier || 3;
         const tierInfo = {
-            1: { share: '50%', color: 'text-green-400' },
-            2: { share: '33.3%', color: 'text-yellow-400' },
-            3: { share: '25%', color: 'text-cyan-400' },
+            1: { name: 'Tier 1', share: '50%', color: 'text-green-400' },
+            2: { name: 'Tier 2', share: '33.3%', color: 'text-yellow-400' },
+            3: { name: 'Tier 3', share: '25%', color: 'text-cyan-400' },
         };
+        const currentTierInfo = tierInfo[tier] || tierInfo[3];
 
         return (
             <div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <StatCard title="Session Status" value={activeContract.status.replace('_', ' ').toUpperCase()} icon={activeContract.status === 'active' ? '🟢' : '🟡'} />
-                    <StatCard title="Reliability Tier" value={`Tier ${tier}`} icon="🏆" color={tierInfo[tier]?.color} />
-                    <StatCard title="Gem Share" value={`${tierInfo[tier]?.share}`} icon="💰" />
+                    <StatCard title="Reliability Tier" value={currentTierInfo.name} icon="🏆" color={currentTierInfo.color} />
+                    <StatCard title="Gem Share" value={currentTierInfo.share} icon="💰" />
                     <StatCard title="Gems Earned This Session" value={activeContract.gems_earned.toLocaleString()} icon="💎" color="text-cyan-400" />
                 </div>
                 <div className="text-center">
