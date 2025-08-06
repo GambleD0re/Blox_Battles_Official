@@ -19,7 +19,6 @@ const authenticateCohostBot = async (req, res, next) => {
         return res.status(401).json({ message: 'Unauthorized: Missing co-host token.' });
     }
     try {
-        // First, check if it's a permanent token for an active contract
         let { rows: [contract] } = await db.query(
             "SELECT id, claimed_by_user_id, status FROM host_contracts WHERE auth_token = $1", [authToken]
         );
@@ -32,7 +31,6 @@ const authenticateCohostBot = async (req, res, next) => {
             return next();
         }
 
-        // If not, check if it's a temporary token from a pending bid
         let { rows: [bid] } = await db.query(
             "SELECT id, contract_id, user_id, status, private_server_link FROM host_contract_bids WHERE temp_auth_token = $1", [authToken]
         );
@@ -131,7 +129,6 @@ router.post('/request-script', authenticateToken, [
         const templatePath = path.join(__dirname, '../scripts/unified-bot-template.lua');
         const scriptTemplate = fs.readFileSync(templatePath, 'utf8');
         
-        // [MODIFIED] Inject the static BOT_API_KEY from the environment into the config.
         const config = {
             mode: 'cohost',
             authToken: tempAuthToken,
@@ -154,10 +151,8 @@ router.post('/request-script', authenticateToken, [
 });
 
 
-router.post('/heartbeat', authenticateCohostBot, body('gems_collected_since_last').isInt({ min: 0 }), handleValidationErrors, async (req, res) => {
-    const { gems_collected_since_last } = req.body;
+router.post('/heartbeat', authenticateCohostBot, async (req, res) => {
     const client = await db.getPool().connect();
-    
     try {
         if (req.tokenType === 'temporary') {
             await client.query('BEGIN');
@@ -183,27 +178,8 @@ router.post('/heartbeat', authenticateCohostBot, body('gems_collected_since_last
         }
         
         if (req.tokenType === 'permanent') {
-            const { id: contractId, claimed_by_user_id, status } = req.contractData;
-            
-            const { rows: [cohostData] } = await client.query("SELECT reliability_tier FROM co_hosts WHERE user_id = $1", [claimed_by_user_id]);
-            const tier = cohostData ? cohostData.reliability_tier : 3;
-
-            let netGemShare = 0;
-            if (gems_collected_since_last > 0) {
-                const tierRates = { 1: 0.50, 2: 1/3, 3: 0.25 };
-                const rate = tierRates[tier] || 0.25;
-
-                const grossGemShare = Math.floor(gems_collected_since_last * rate);
-                const taxOnShare = Math.floor(grossGemShare * COHOST_TAX_RATE);
-                netGemShare = grossGemShare - taxOnShare;
-            }
-
-            if (netGemShare > 0) {
-                await client.query("UPDATE host_contracts SET last_heartbeat = NOW(), gems_earned = gems_earned + $1 WHERE id = $2", [netGemShare, contractId]);
-            } else {
-                await client.query("UPDATE host_contracts SET last_heartbeat = NOW() WHERE id = $1", [contractId]);
-            }
-            
+            const { id: contractId, status } = req.contractData;
+            await client.query("UPDATE host_contracts SET last_heartbeat = NOW() WHERE id = $1", [contractId]);
             const command = status === 'winding_down' ? 'shutdown' : 'continue';
             return res.status(200).json({ command });
         }
