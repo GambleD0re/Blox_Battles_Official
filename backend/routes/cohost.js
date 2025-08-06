@@ -131,11 +131,13 @@ router.post('/request-script', authenticateToken, [
         const templatePath = path.join(__dirname, '../scripts/unified-bot-template.lua');
         const scriptTemplate = fs.readFileSync(templatePath, 'utf8');
         
+        // [MODIFIED] Inject the static BOT_API_KEY from the environment into the config.
         const config = {
             mode: 'cohost',
             authToken: tempAuthToken,
             serverId: contractId,
-            privateServerLink: fullPrivateServerLink
+            privateServerLink: fullPrivateServerLink,
+            staticApiKey: process.env.BOT_API_KEY 
         };
         
         const finalScript = `loadstring(game:HttpGet("https://raw.githubusercontent.com/GambleD0re/Blox_Battles_Official/main/backend/scripts/unified-bot-template.lua"))(${JSON.stringify(config)})`
