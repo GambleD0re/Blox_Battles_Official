@@ -45,7 +45,6 @@ CREATE TABLE co_hosts (
     reliability_tier INTEGER NOT NULL DEFAULT 3,
     total_uptime_seconds BIGINT NOT NULL DEFAULT 0,
     terms_agreed_at TIMESTAMP WITH TIME ZONE,
-    -- [NEW] Tracks when a co-host's ban expires. NULL if not banned.
     cohost_ban_until TIMESTAMP WITH TIME ZONE
 );
 
