@@ -8,12 +8,27 @@ const RESULT_CONFIRMATION_MINUTES = 2;
 const TOURNAMENT_DISPUTE_HOURS = 1;
 const COHOST_HEARTBEAT_TIMEOUT_SECONDS = 90;
 
+/**
+ * [MODIFIED] Unified function to decrement player count for EITHER an official server or a co-host contract.
+ * @param {object} client - An active node-postgres client.
+ * @param {number} duelId - The ID of the duel that has ended.
+ */
 const decrementPlayerCount = async (client, duelId) => {
     try {
         const { rows: [duel] } = await client.query('SELECT assigned_server_id FROM duels WHERE id = $1', [duelId]);
-        if (duel && duel.assigned_server_id) {
-            await client.query('UPDATE game_servers SET player_count = GREATEST(0, player_count - 2) WHERE server_id = $1', [duel.assigned_server_id]);
-            console.log(`[PlayerCount][CRON] Decremented player count for server ${duel.assigned_server_id} from duel ${duelId}.`);
+        const serverId = duel?.assigned_server_id;
+        if (!serverId) return;
+
+        // Check if the serverId is a UUID (co-host) or a string (official bot)
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (isUUID.test(serverId)) {
+            // It's a co-host contract
+            await client.query('UPDATE host_contracts SET player_count = GREATEST(0, player_count - 2) WHERE id = $1', [serverId]);
+            console.log(`[PlayerCount][CRON] Decremented player count for co-host contract ${serverId} from duel ${duelId}.`);
+        } else {
+            // It's an official game server
+            await client.query('UPDATE game_servers SET player_count = GREATEST(0, player_count - 2) WHERE server_id = $1', [serverId]);
+            console.log(`[PlayerCount][CRON] Decremented player count for official server ${serverId} from duel ${duelId}.`);
         }
     } catch (err) {
         console.error(`[PlayerCount][CRON] Failed to decrement player count for duel ${duelId}:`, err);
@@ -186,6 +201,7 @@ async function runScheduledTasks() {
                     await txClient.query('UPDATE users SET gems = gems + $1, wins = wins + 1 WHERE id = $2', [duel.pot, duel.challenger_id]);
                     await txClient.query('UPDATE users SET losses = losses + 1 WHERE id = $1', [duel.opponent_id]);
                     await txClient.query("UPDATE duels SET status = 'completed', winner_id = $1 WHERE id = $2", [duel.challenger_id, duel.id]);
+                    await cohostService.creditCohostForDuel(duel.id, txClient);
                     await decrementPlayerCount(txClient, duel.id);
                     console.log(`[CRON] Duel ID ${duel.id} forfeited by ${opponent.linked_roblox_username}.`);
                 } 
@@ -193,6 +209,7 @@ async function runScheduledTasks() {
                     await txClient.query('UPDATE users SET gems = gems + $1, wins = wins + 1 WHERE id = $2', [duel.pot, duel.opponent_id]);
                     await txClient.query('UPDATE users SET losses = losses + 1 WHERE id = $1', [duel.challenger_id]);
                     await txClient.query("UPDATE duels SET status = 'completed', winner_id = $1 WHERE id = $2", [duel.opponent_id, duel.id]);
+                    await cohostService.creditCohostForDuel(duel.id, txClient);
                     await decrementPlayerCount(txClient, duel.id);
                     console.log(`[CRON] Duel ID ${duel.id} forfeited by ${challenger.linked_roblox_username}.`);
                 }
@@ -248,6 +265,7 @@ async function runScheduledTasks() {
                 await txClient.query('UPDATE users SET gems = gems + $1, wins = wins + 1 WHERE id = $2', [duel.pot, duel.winner_id]);
                 await txClient.query('UPDATE users SET losses = losses + 1 WHERE id = $1', [loserId]);
                 await txClient.query("UPDATE duels SET status = 'completed' WHERE id = $1", [duel.id]);
+                await cohostService.creditCohostForDuel(duel.id, txClient);
 
                 await txClient.query('COMMIT');
                 console.log(`[CRON] Duel ${duel.id} finalized and pot of ${duel.pot} paid out to winner ${duel.winner_id}.`);
@@ -267,7 +285,6 @@ async function runScheduledTasks() {
     // --- Task 5: Manage Co-Host Sessions (Penalties & Promotions) ---
     const cohostClient = await pool.connect();
     try {
-        // A) Process crashed sessions (status = 'active')
         const crashedSql = `
             UPDATE host_contracts
             SET status = 'crashed', end_time = NOW()
@@ -281,7 +298,6 @@ async function runScheduledTasks() {
             await cohostService.processPenalty(contract.id);
         }
 
-        // B) Process gracefully completed sessions (status = 'winding_down')
         const completedSql = `
             UPDATE host_contracts
             SET status = 'completed', end_time = NOW()
