@@ -39,15 +39,17 @@ CREATE TABLE users (
     crypto_deposit_address VARCHAR(255) UNIQUE
 );
 
--- [CORRECTED] Re-introduced the co_hosts table to store persistent co-host data.
+-- Stores persistent data for users who have engaged with the co-hosting program.
 CREATE TABLE co_hosts (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     reliability_tier INTEGER NOT NULL DEFAULT 3,
     total_uptime_seconds BIGINT NOT NULL DEFAULT 0,
-    terms_agreed_at TIMESTAMP WITH TIME ZONE
+    terms_agreed_at TIMESTAMP WITH TIME ZONE,
+    -- [NEW] Tracks when a co-host's ban expires. NULL if not banned.
+    cohost_ban_until TIMESTAMP WITH TIME ZONE
 );
 
--- [FIXED] This table must be created BEFORE host_contract_bids.
+-- This table must be created BEFORE host_contract_bids.
 CREATE TABLE host_contracts (
     id UUID PRIMARY KEY,
     region VARCHAR(50) NOT NULL,
@@ -105,7 +107,7 @@ CREATE TABLE gem_purchases (
 CREATE TABLE transaction_history (
     id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type VARCHAR(50) NOT NULL CHECK(type IN ('deposit_stripe', 'deposit_crypto', 'withdrawal', 'duel_wager', 'duel_win', 'admin_adjustment', 'tournament_buy_in', 'tournament_prize', 'tournament_duel')),
+    type VARCHAR(50) NOT NULL CHECK(type IN ('deposit_stripe', 'deposit_crypto', 'withdrawal', 'duel_wager', 'duel_win', 'admin_adjustment', 'tournament_buy_in', 'tournament_prize', 'tournament_duel', 'cohost_penalty')),
     amount_gems BIGINT NOT NULL,
     description TEXT,
     reference_id TEXT,
