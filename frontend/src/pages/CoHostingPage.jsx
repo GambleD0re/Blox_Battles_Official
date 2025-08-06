@@ -20,7 +20,6 @@ const StatCard = ({ title, value, icon, color = 'text-white' }) => (
     </div>
 );
 
-// [NEW] A dedicated component to show co-host stats and progression.
 const CoHostStats = ({ cohostData }) => {
     const TIER_UPTIME_MILESTONES = {
         2: 40 * 3600,
@@ -127,8 +126,6 @@ const CoHostingPage = () => {
         }
         setIsLoading(true);
         try {
-            // [MODIFIED] The frontend now simply passes the code and receives the complete script.
-            // No more placeholders or frontend script construction.
             const response = await api.requestCohostScript(contractId, privateServerLinkCode, token);
             setLoadstring(response.script);
             showMessage(response.message, 'success');
