@@ -261,6 +261,6 @@ return function(config)
         print("Bot: Shutdown complete. Client will now close.")
         game:Shutdown()
     end
-
+    print("Successful Injection")
     pcall(main)
 end
