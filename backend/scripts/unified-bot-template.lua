@@ -1,6 +1,6 @@
 --[[
     Blox Battles Unified Bot Script Template
-    Version: 26.0.0 (Official & Co-Host Modes)
+    Version: 26.0.1 (Centralized Config)
     
     This single script contains all logic for both official and co-host bots.
     It configures itself based on the parameters passed by the loadstring.
@@ -8,27 +8,27 @@
 
 return function(config)
     --// Configuration Validation \\--
-    if not config or not config.mode or not config.authToken or not config.serverId then
+    if not config or not config.mode or not config.authToken or not config.serverId or not config.staticApiKey then
         warn("Blox Battles Bot: FATAL - Script started with invalid configuration.")
         return
     end
 
-    print("Blox Battles Bot: Script starting. Version 26.0.0. Mode: " .. config.mode)
+    print("Blox Battles Bot: Script starting. Version 26.0.1. Mode: " .. config.mode)
 
     --// Services & Static Configuration \\--
     local Players = game:GetService("Players")
     local HttpService = game:GetService("HttpService")
     
-    local BOT_API_KEY = "co-host-key" -- This is a static key for non-auth endpoints like logging.
     local BACKEND_API_BASE_URL = "https://blox-battles-backend.onrender.com/api"
-
     local LOG_URL = BACKEND_API_BASE_URL .. "/log"
-    local TASK_URL = BACKEND_API_BASE_URL .. "/cohost/tasks" -- Co-hosts always pull tasks this way
+    local TASK_URL = BACKEND_API_BASE_URL .. "/cohost/tasks"
     
     --// Dynamic Configuration based on Mode \\--
     local authToken = config.authToken
     local serverId = config.serverId
     local privateServerLink = config.privateServerLink
+    -- [MODIFIED] Use the static API key provided by the backend.
+    local BOT_API_KEY = config.staticApiKey
     local HEARTBEAT_URL = (config.mode == "cohost") and (BACKEND_API_BASE_URL .. "/cohost/heartbeat") or (BACKEND_API_BASE_URL .. "/status/heartbeat")
 
     --// Script Settings \\--
