@@ -1,5 +1,6 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, './.env') });
 const db = require('./database/database');
+const cohostService = require('./services/cohostService');
 
 const DUEL_EXPIRATION_HOURS = 1;
 const DUEL_FORFEIT_MINUTES = 10;
@@ -14,7 +15,7 @@ const decrementPlayerCount = async (client, duelId) => {
             await client.query('UPDATE game_servers SET player_count = GREATEST(0, player_count - 2) WHERE server_id = $1', [duel.assigned_server_id]);
             console.log(`[PlayerCount][CRON] Decremented player count for server ${duel.assigned_server_id} from duel ${duelId}.`);
         }
-    } catch (err).
+    } catch (err) {
         console.error(`[PlayerCount][CRON] Failed to decrement player count for duel ${duelId}:`, err);
     }
 };
@@ -263,30 +264,39 @@ async function runScheduledTasks() {
         confirmationClient.release();
     }
 
-    // --- Task 5: Check for crashed co-host sessions ---
+    // --- Task 5: Manage Co-Host Sessions (Penalties & Promotions) ---
     const cohostClient = await pool.connect();
     try {
+        // A) Process crashed sessions (status = 'active')
         const crashedSql = `
             UPDATE host_contracts
             SET status = 'crashed', end_time = NOW()
-            WHERE status IN ('active', 'winding_down')
+            WHERE status = 'active'
             AND last_heartbeat < NOW() - INTERVAL '${COHOST_HEARTBEAT_TIMEOUT_SECONDS} seconds'
-            RETURNING id, claimed_by_user_id, gems_earned;
+            RETURNING id;
         `;
         const { rows: crashedContracts } = await cohostClient.query(crashedSql);
-
         for (const contract of crashedContracts) {
-            // Note: Penalties are now handled by a separate, more robust task processor
-            // to avoid blocking the main cron job.
-            const taskPayload = { contract_id: contract.id };
-            await cohostClient.query(
-                "INSERT INTO tasks (task_type, payload) VALUES ('PROCESS_COHOST_PENALTY', $1)",
-                [JSON.stringify(taskPayload)]
-            );
-            console.log(`[CRON][COHOST] Detected crashed contract ${contract.id}. Created penalty processing task.`);
+            console.log(`[CRON][COHOST] Detected crashed contract ${contract.id}. Processing penalty.`);
+            await cohostService.processPenalty(contract.id);
         }
+
+        // B) Process gracefully completed sessions (status = 'winding_down')
+        const completedSql = `
+            UPDATE host_contracts
+            SET status = 'completed', end_time = NOW()
+            WHERE status = 'winding_down'
+            AND last_heartbeat < NOW() - INTERVAL '${COHOST_HEARTBEAT_TIMEOUT_SECONDS} seconds'
+            RETURNING id;
+        `;
+        const { rows: completedContracts } = await cohostClient.query(completedSql);
+        for (const contract of completedContracts) {
+            console.log(`[CRON][COHOST] Detected completed contract ${contract.id}. Processing for promotion.`);
+            await cohostService.processCompletion(contract.id);
+        }
+
     } catch (error) {
-        console.error('[CRON][COHOST] Error checking for crashed co-host sessions:', error);
+        console.error('[CRON][COHOST] Error managing co-host sessions:', error);
     } finally {
         cohostClient.release();
     }
