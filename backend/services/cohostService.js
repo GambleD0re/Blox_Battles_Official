@@ -5,9 +5,56 @@ const TIER_UPTIME_MILESTONES = {
     2: 40 * 3600,  // 40 hours to reach Tier 2
     1: 120 * 3600, // 120 hours to reach Tier 1
 };
-
+const TIER_RATES = { 1: 0.50, 2: 1/3, 3: 0.25 };
+const COHOST_TAX_RATE = 0.10; // 10% platform fee on co-host earnings.
 const PENALTY_FINE_RATE = 0.50; // 50% fine
 const BAN_DURATION_DAYS = 7;
+
+/**
+ * [NEW] Calculates and awards a co-host their share of a duel's tax.
+ * This is the new, server-authoritative method for crediting co-hosts.
+ * @param {number} duelId The ID of the completed duel.
+ * @param {object} client An active node-postgres client.
+ */
+async function creditCohostForDuel(duelId, client) {
+    console.log(`[COHOST_SERVICE] Checking for co-host credit for duel: ${duelId}`);
+    const { rows: [duel] } = await client.query("SELECT assigned_server_id, tax_collected FROM duels WHERE id = $1", [duelId]);
+
+    // Check if the assigned_server_id is a UUID, which indicates a co-host contract.
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!duel || !duel.assigned_server_id || !isUUID.test(duel.assigned_server_id)) {
+        console.log(`[COHOST_SERVICE] Duel ${duelId} was not on a co-host server. No credit processed.`);
+        return;
+    }
+    const contractId = duel.assigned_server_id;
+
+    try {
+        const { rows: [contract] } = await client.query("SELECT claimed_by_user_id FROM host_contracts WHERE id = $1", [contractId]);
+        if (!contract || !contract.claimed_by_user_id) {
+            throw new Error(`Contract ${contractId} not found or not claimed.`);
+        }
+
+        const userId = contract.claimed_by_user_id;
+        const { rows: [cohost] } = await client.query("SELECT reliability_tier FROM co_hosts WHERE user_id = $1", [userId]);
+        if (!cohost) {
+            throw new Error(`Co-host data not found for user ${userId}`);
+        }
+        
+        const rate = TIER_RATES[cohost.reliability_tier] || TIER_RATES[3];
+        const grossShare = Math.floor(duel.tax_collected * rate);
+        const taxOnShare = Math.floor(grossShare * COHOST_TAX_RATE);
+        const netShare = grossShare - taxOnShare;
+        
+        if (netShare > 0) {
+            await client.query("UPDATE host_contracts SET gems_earned = gems_earned + $1 WHERE id = $2", [netShare, contractId]);
+            console.log(`[COHOST_SERVICE] Credited co-host ${userId} with ${netShare} gems for duel ${duelId} on contract ${contractId}.`);
+        }
+    } catch (error) {
+        // We catch the error but don't re-throw to avoid halting the parent transaction (e.g., duel finalization).
+        console.error(`[COHOST_SERVICE] CRITICAL: Failed to credit co-host for duel ${duelId}. Error:`, error);
+    }
+}
+
 
 async function processPenalty(contractId) {
     console.log(`[COHOST_SERVICE] Processing penalty for crashed contract: ${contractId}`);
@@ -96,5 +143,6 @@ async function processCompletion(contractId) {
 module.exports = {
     processPenalty,
     processCompletion,
+    creditCohostForDuel,
     TIER_UPTIME_MILESTONES
 };
