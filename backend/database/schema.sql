@@ -61,6 +61,8 @@ CREATE TABLE host_contracts (
     end_time TIMESTAMP WITH TIME ZONE,
     last_heartbeat TIMESTAMP WITH TIME ZONE,
     gems_earned BIGINT NOT NULL DEFAULT 0,
+    -- [NEW] Tracks assigned players, same as game_servers.
+    player_count INTEGER NOT NULL DEFAULT 0,
     issued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     claimed_at TIMESTAMP WITH TIME ZONE
 );
