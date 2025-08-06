@@ -6,11 +6,11 @@ const { authenticateToken, handleValidationErrors } = require('../middleware/aut
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { TIER_UPTIME_MILESTONES } = require('../services/cohostService');
 
 const router = express.Router();
 
-// [NEW] Define a configurable tax rate for co-host earnings.
-const COHOST_TAX_RATE = 0.10; // 10% platform fee on co-host earnings.
+const COHOST_TAX_RATE = 0.10;
 
 // Middleware to authenticate co-host bot via EITHER a temp or permanent token
 const authenticateCohostBot = async (req, res, next) => {
@@ -66,7 +66,7 @@ router.get('/status', authenticateToken, async (req, res) => {
         );
         
         res.status(200).json({
-            cohostData: cohost, // Will be null if user is not a co-host yet
+            cohostData: cohost,
             termsAgreed: !!cohost?.terms_agreed_at,
             activeContract: activeContract || null,
             availableContracts: availableContracts || []
@@ -80,7 +80,6 @@ router.get('/status', authenticateToken, async (req, res) => {
 router.post('/agree-terms', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     try {
-        // Use ON CONFLICT to either insert a new co-host record or update the terms agreement timestamp
         await db.query(
             `INSERT INTO co_hosts (user_id, terms_agreed_at) VALUES ($1, NOW())
              ON CONFLICT (user_id) DO UPDATE SET terms_agreed_at = NOW()`,
@@ -102,10 +101,19 @@ router.post('/request-script', authenticateToken, [
     
     try {
         const { rows: [user] } = await db.query("SELECT discord_id FROM users WHERE id = $1", [userId]);
-        const { rows: [cohost] } = await db.query("SELECT terms_agreed_at FROM co_hosts WHERE user_id = $1", [userId]);
-        if (!user.discord_id || !cohost?.terms_agreed_at) {
-            return res.status(403).json({ message: "You must link Discord and agree to the terms first." });
+        if (!user.discord_id) {
+            return res.status(403).json({ message: "You must link your Discord account before you can co-host." });
         }
+        
+        const { rows: [cohost] } = await db.query("SELECT terms_agreed_at, cohost_ban_until FROM co_hosts WHERE user_id = $1", [userId]);
+        if (!cohost?.terms_agreed_at) {
+            return res.status(403).json({ message: "You must agree to the co-host terms and conditions first." });
+        }
+        if (cohost.cohost_ban_until && new Date(cohost.cohost_ban_until) > new Date()) {
+            const banExpiresDate = new Date(cohost.cohost_ban_until).toLocaleString();
+            return res.status(403).json({ message: `Your co-hosting privileges are suspended until ${banExpiresDate}.` });
+        }
+
         const { rows: [contract] } = await db.query("SELECT status FROM host_contracts WHERE id = $1", [contractId]);
         if (!contract || contract.status !== 'available') {
             return res.status(404).json({ message: "This contract is no longer available." });
@@ -122,7 +130,7 @@ router.post('/request-script', authenticateToken, [
         
         const templatePath = path.join(__dirname, '../scripts/unified-bot-template.lua');
         const scriptTemplate = fs.readFileSync(templatePath, 'utf8');
-
+        
         const config = {
             mode: 'cohost',
             authToken: tempAuthToken,
@@ -130,7 +138,7 @@ router.post('/request-script', authenticateToken, [
             privateServerLink: fullPrivateServerLink
         };
         
-        const finalScript = `loadstring(game:HttpGet("https://raw.githubusercontent.com/GambleD0re/Blox_Battles_Official/main/backend/scripts/unified-bot-template.lua"))(${HttpService.JSONEncode(config)})`
+        const finalScript = `loadstring(game:HttpGet("https://raw.githubusercontent.com/GambleD0re/Blox_Battles_Official/main/backend/scripts/unified-bot-template.lua"))(${JSON.stringify(config)})`
 
         res.status(200).json({ 
             message: "Script generated successfully!", 
@@ -178,25 +186,19 @@ router.post('/heartbeat', authenticateCohostBot, body('gems_collected_since_last
             const { rows: [cohostData] } = await client.query("SELECT reliability_tier FROM co_hosts WHERE user_id = $1", [claimed_by_user_id]);
             const tier = cohostData ? cohostData.reliability_tier : 3;
 
-            // [MODIFIED] Implement the new taxation logic for co-host earnings.
             let netGemShare = 0;
             if (gems_collected_since_last > 0) {
                 const tierRates = { 1: 0.50, 2: 1/3, 3: 0.25 };
                 const rate = tierRates[tier] || 0.25;
 
-                // 1. Calculate the co-host's gross share of the duel tax revenue.
                 const grossGemShare = Math.floor(gems_collected_since_last * rate);
-
-                // 2. Apply the platform tax/fee to the co-host's earnings.
                 const taxOnShare = Math.floor(grossGemShare * COHOST_TAX_RATE);
                 netGemShare = grossGemShare - taxOnShare;
             }
 
             if (netGemShare > 0) {
-                // [FIXED] Corrected the parameter index from $1 to $2 for the WHERE clause.
                 await client.query("UPDATE host_contracts SET last_heartbeat = NOW(), gems_earned = gems_earned + $1 WHERE id = $2", [netGemShare, contractId]);
             } else {
-                // If there's no net gain, just update the heartbeat to keep the session alive.
                 await client.query("UPDATE host_contracts SET last_heartbeat = NOW() WHERE id = $1", [contractId]);
             }
             
