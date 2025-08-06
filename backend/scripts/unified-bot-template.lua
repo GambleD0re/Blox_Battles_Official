@@ -21,15 +21,14 @@ return function(config)
     
     local BACKEND_API_BASE_URL = "https://blox-battles-backend.onrender.com/api"
     local LOG_URL = BACKEND_API_BASE_URL .. "/log"
-    local TASK_URL = BACKEND_API_BASE_URL .. "/cohost/tasks"
     
     --// Dynamic Configuration based on Mode \\--
     local authToken = config.authToken
     local serverId = config.serverId
     local privateServerLink = config.privateServerLink
-    -- [MODIFIED] Use the static API key provided by the backend.
     local BOT_API_KEY = config.staticApiKey
     local HEARTBEAT_URL = (config.mode == "cohost") and (BACKEND_API_BASE_URL .. "/cohost/heartbeat") or (BACKEND_API_BASE_URL .. "/status/heartbeat")
+    local TASK_URL = (config.mode == "cohost") and (BACKEND_API_BASE_URL .. "/cohost/tasks") or (BACKEND_API_BASE_URL .. "/tasks/" .. serverId)
 
     --// Script Settings \\--
     local EVENT_BATCH_SIZE = 10
@@ -48,8 +47,7 @@ return function(config)
     local lastSendTime = tick()
     local activeTasks = {}
     local isRunning = true
-    local lastTaxCheck = {}
-
+    
     --// Web Request & Event Buffering System \\--
     local function sendRequest(requestData)
         local success, response = pcall(function() return (syn and syn.request or request)(requestData) end)
@@ -77,16 +75,7 @@ return function(config)
         
         local payload
         if config.mode == "cohost" then
-             local totalTaxCollectedSinceLast = 0
-            for duel, state in pairs(trackedDuels) do
-                local currentTotalTax = duel:Get("TotalTax") or 0
-                local lastKnownTax = lastTaxCheck[duel] or 0
-                if currentTotalTax > lastKnownTax then
-                    totalTaxCollectedSinceLast = totalTaxCollectedSinceLast + (currentTotalTax - lastKnownTax)
-                    lastTaxCheck[duel] = currentTotalTax
-                end
-            end
-            payload = HttpService:JSONEncode({ gems_collected_since_last = totalTaxCollectedSinceLast })
+            payload = HttpService:JSONEncode({}) -- Co-host heartbeat is now just a keep-alive signal
         else -- Official Bot Heartbeat
             payload = HttpService:JSONEncode({ serverId = serverId, joinLink = privateServerLink })
         end
@@ -113,9 +102,8 @@ return function(config)
     
     local function fetchAndProcessTasks()
         if not isRunning then return end
-        local taskUrl = (config.mode == "cohost") and TASK_URL or (BACKEND_API_BASE_URL .. "/tasks/" .. serverId)
         local headers = (config.mode == "cohost") and { ["X-Cohost-Token"] = authToken } or { ["X-API-Key"] = authToken }
-        local req = { Url = taskUrl, Method = "GET", Headers = headers }
+        local req = { Url = TASK_URL, Method = "GET", Headers = headers }
 
         local success, response = sendRequest(req)
         if success and response and response.StatusCode == 200 then
@@ -147,7 +135,6 @@ return function(config)
         local state = trackedDuels[duel]
         if not state then return end
         for _, conn in ipairs(state.connections) do conn:Disconnect() end
-        lastTaxCheck[duel] = nil
         trackedDuels[duel] = nil
     end
     
@@ -197,8 +184,7 @@ return function(config)
 
         local state = { id = matchedWebsiteDuelId, taskId = matchedTaskId, bannedWeapons = matchedBannedWeapons or {}, duel = duel, connections = {}, isInitialized = false }
         trackedDuels[duel] = state
-        lastTaxCheck[duel] = duel:Get("TotalTax") or 0
-
+        
         table.insert(state.connections, duel.DuelerAdded:Connect(function(dueler) if state.isInitialized then pcall(hookDueler, dueler, state) end end))
         table.insert(state.connections, duel.MapAdded:Connect(function(map)
             if state.isInitialized then return end
@@ -261,6 +247,6 @@ return function(config)
         print("Bot: Shutdown complete. Client will now close.")
         game:Shutdown()
     end
-    print("Successful Injection")
+
     pcall(main)
 end
