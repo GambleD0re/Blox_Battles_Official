@@ -60,8 +60,9 @@ CREATE TABLE host_contracts (
     start_time TIMESTAMP WITH TIME ZONE,
     end_time TIMESTAMP WITH TIME ZONE,
     last_heartbeat TIMESTAMP WITH TIME ZONE,
-    gems_earned BIGINT NOT NULL DEFAULT 0,
-    -- [NEW] Tracks assigned players, same as game_servers.
+    -- [MODIFIED] Renamed gems_earned to total_tax_generated for clarity
+    total_tax_generated BIGINT NOT NULL DEFAULT 0,
+    -- [MODIFIED] Added player_count to enable unified server load tracking.
     player_count INTEGER NOT NULL DEFAULT 0,
     issued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     claimed_at TIMESTAMP WITH TIME ZONE
@@ -108,7 +109,8 @@ CREATE TABLE gem_purchases (
 CREATE TABLE transaction_history (
     id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type VARCHAR(50) NOT NULL CHECK(type IN ('deposit_stripe', 'deposit_crypto', 'withdrawal', 'duel_wager', 'duel_win', 'admin_adjustment', 'tournament_buy_in', 'tournament_prize', 'tournament_duel', 'cohost_penalty')),
+    -- [MODIFIED] Added 'cohost_penalty' and 'cohost_payout' types.
+    type VARCHAR(50) NOT NULL CHECK(type IN ('deposit_stripe', 'deposit_crypto', 'withdrawal', 'duel_wager', 'duel_win', 'admin_adjustment', 'tournament_buy_in', 'tournament_prize', 'tournament_duel', 'cohost_penalty', 'cohost_payout')),
     amount_gems BIGINT NOT NULL,
     description TEXT,
     reference_id TEXT,
