@@ -24,14 +24,14 @@ const decrementPlayerCount = async (client, duelId) => {
         if (isUUID.test(serverId)) {
             // It's a co-host contract
             await client.query('UPDATE host_contracts SET player_count = GREATEST(0, player_count - 2) WHERE id = $1', [serverId]);
-            console.log(`[PlayerCount][CRON] Decremented player count for co-host contract ${serverId} from duel ${duelId}.`);
+            console.log(`[PlayerCount] Decremented player count for co-host contract ${serverId} from duel ${duelId}.`);
         } else {
             // It's an official game server
             await client.query('UPDATE game_servers SET player_count = GREATEST(0, player_count - 2) WHERE server_id = $1', [serverId]);
-            console.log(`[PlayerCount][CRON] Decremented player count for official server ${serverId} from duel ${duelId}.`);
+            console.log(`[PlayerCount] Decremented player count for official server ${serverId} from duel ${duelId}.`);
         }
     } catch (err) {
-        console.error(`[PlayerCount][CRON] Failed to decrement player count for duel ${duelId}:`, err);
+        console.error(`[PlayerCount] Failed to decrement player count for duel ${duelId}:`, err);
     }
 };
 
@@ -184,18 +184,12 @@ async function runScheduledTasks() {
                 const opponentJoined = joinedPlayers.has(opponent.linked_roblox_username);
 
                 if (!challengerJoined && !opponentJoined) {
-                    let adjustedTax = parseInt(duel.tax_collected);
-                    if (adjustedTax % 2 !== 0) {
-                        adjustedTax++;
-                    }
-                    await txClient.query('UPDATE duels SET tax_collected = $1 WHERE id = $2', [adjustedTax, duel.id]);
-                    const refundAmount = parseInt(duel.wager) - (adjustedTax / 2);
-                    
+                    const refundAmount = parseInt(duel.wager);
                     await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.challenger_id]);
                     await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.opponent_id]);
                     await txClient.query("UPDATE duels SET status = 'canceled', winner_id = NULL WHERE id = $1", [duel.id]);
                     await decrementPlayerCount(txClient, duel.id);
-                    console.log(`[CRON] Duel ID ${duel.id} canceled (no-show from both). Tax of ${adjustedTax} applied. Refunded ${refundAmount} to each player.`);
+                    console.log(`[CRON] Duel ID ${duel.id} canceled (no-show from both). Players refunded.`);
                 } 
                 else if (challengerJoined && !opponentJoined) {
                     await txClient.query('UPDATE users SET gems = gems + $1, wins = wins + 1 WHERE id = $2', [duel.pot, duel.challenger_id]);
@@ -214,18 +208,12 @@ async function runScheduledTasks() {
                     console.log(`[CRON] Duel ID ${duel.id} forfeited by ${challenger.linked_roblox_username}.`);
                 }
                 else {
-                    let adjustedTax = parseInt(duel.tax_collected);
-                    if (adjustedTax % 2 !== 0) {
-                        adjustedTax++;
-                    }
-                    await txClient.query('UPDATE duels SET tax_collected = $1 WHERE id = $2', [adjustedTax, duel.id]);
-                    const refundAmount = parseInt(duel.wager) - (adjustedTax / 2);
-                    
+                    const refundAmount = parseInt(duel.wager);
                     await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.challenger_id]);
                     await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.opponent_id]);
                     await txClient.query("UPDATE duels SET status = 'canceled', winner_id = NULL WHERE id = $1", [duel.id]);
                     await decrementPlayerCount(txClient, duel.id);
-                    console.log(`[CRON] Duel ID ${duel.id} timed out after both players joined but never started. Voiding with tax.`);
+                    console.log(`[CRON] Duel ID ${duel.id} timed out after both players joined but never started. Refunding.`);
                 }
 
                 await txClient.query('COMMIT');
@@ -257,7 +245,6 @@ async function runScheduledTasks() {
             const txClient = await pool.connect();
             try {
                 await txClient.query('BEGIN');
-
                 console.log(`[CRON] Auto-confirming duel ID ${duel.id} after 2-minute timeout.`);
                 
                 const loserId = (duel.winner_id.toString() === duel.challenger_id.toString()) ? duel.opponent_id : duel.challenger_id;
