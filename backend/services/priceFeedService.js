@@ -6,6 +6,7 @@ const { ethers } = require('ethers');
 
 // --- Configuration ---
 const ALCHEMY_POLYGON_URL = process.env.ALCHEMY_POLYGON_URL;
+const PRICE_FETCH_TIMEOUT = 10000; // 10 seconds
 
 const PRICE_FEED_ADDRESSES = {
     'MATIC_USD': '0xAB594600376Ec9fD91F8e885dADF0CE036862dE0',
@@ -48,10 +49,20 @@ function initializePriceFeedService() {
 }
 
 /**
- * Fetches the latest USD price for a given token.
- * @param {string} tokenSymbol The symbol of the token ('POL_USD', 'USDC_USD', 'USDT_USD').
- * @returns {Promise<number>} The latest price in USD.
+ * [NEW] A robust race-condition wrapper to prevent hangs on network requests.
+ * @param {Promise} promise The async operation to execute.
+ * @param {number} timeout The timeout in milliseconds.
+ * @returns {Promise<any>}
  */
+function withTimeout(promise, timeout) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`Operation timed out after ${timeout}ms`)), timeout)
+        )
+    ]);
+}
+
 async function getLatestPrice(tokenSymbol) {
     if (!isInitialized) {
         throw new Error("Price Feed Service is not initialized.");
@@ -66,12 +77,11 @@ async function getLatestPrice(tokenSymbol) {
     try {
         console.log(`[PriceFeed] Fetching price for ${feedSymbol} using address ${address}...`);
         
-        // [FIXED] The arguments for the ethers.Contract constructor were in the wrong order.
-        // It should be (address, abi, provider).
         const priceFeed = new ethers.Contract(address, PRICE_FEED_ABI, provider);
         
-        const roundData = await priceFeed.latestRoundData();
-        const decimals = await priceFeed.decimals();
+        // [MODIFIED] Wrap the async calls in the timeout helper.
+        const roundData = await withTimeout(priceFeed.latestRoundData(), PRICE_FETCH_TIMEOUT);
+        const decimals = await withTimeout(priceFeed.decimals(), PRICE_FETCH_TIMEOUT);
         
         const price = Number(roundData.answer) / (10**Number(decimals));
         
