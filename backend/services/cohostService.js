@@ -11,67 +11,58 @@ const PENALTY_FINE_RATE = 0.50; // 50% fine
 const BAN_DURATION_DAYS = 7;
 
 /**
- * [NEW] Calculates and awards a co-host their share of a duel's tax.
- * This is the new, server-authoritative method for crediting co-hosts.
- * @param {number} duelId The ID of the completed duel.
- * @param {object} client An active node-postgres client.
+ * [NEW] Calculates the final payout at the end of a session and applies it.
+ * @param {object} contract - The host_contracts record.
+ * @param {object} client - An active node-postgres client.
  */
-async function creditCohostForDuel(duelId, client) {
-    console.log(`[COHOST_SERVICE] Checking for co-host credit for duel: ${duelId}`);
-    const { rows: [duel] } = await client.query("SELECT assigned_server_id, tax_collected FROM duels WHERE id = $1", [duelId]);
-
-    // Check if the assigned_server_id is a UUID, which indicates a co-host contract.
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!duel || !duel.assigned_server_id || !isUUID.test(duel.assigned_server_id)) {
-        console.log(`[COHOST_SERVICE] Duel ${duelId} was not on a co-host server. No credit processed.`);
+async function processFinalPayout(contract, client) {
+    if (!contract || !contract.claimed_by_user_id || contract.total_tax_generated <= 0) {
+        console.log(`[COHOST_SERVICE] No payout to process for contract ${contract.id}.`);
         return;
     }
-    const contractId = duel.assigned_server_id;
 
-    try {
-        const { rows: [contract] } = await client.query("SELECT claimed_by_user_id FROM host_contracts WHERE id = $1", [contractId]);
-        if (!contract || !contract.claimed_by_user_id) {
-            throw new Error(`Contract ${contractId} not found or not claimed.`);
-        }
+    const userId = contract.claimed_by_user_id;
+    const { rows: [cohost] } = await client.query("SELECT reliability_tier FROM co_hosts WHERE user_id = $1", [userId]);
+    if (!cohost) {
+        throw new Error(`Co-host data not found for user ${userId} during payout.`);
+    }
 
-        const userId = contract.claimed_by_user_id;
-        const { rows: [cohost] } = await client.query("SELECT reliability_tier FROM co_hosts WHERE user_id = $1", [userId]);
-        if (!cohost) {
-            throw new Error(`Co-host data not found for user ${userId}`);
-        }
-        
-        const rate = TIER_RATES[cohost.reliability_tier] || TIER_RATES[3];
-        const grossShare = Math.floor(duel.tax_collected * rate);
-        const taxOnShare = Math.floor(grossShare * COHOST_TAX_RATE);
-        const netShare = grossShare - taxOnShare;
-        
-        if (netShare > 0) {
-            await client.query("UPDATE host_contracts SET gems_earned = gems_earned + $1 WHERE id = $2", [netShare, contractId]);
-            console.log(`[COHOST_SERVICE] Credited co-host ${userId} with ${netShare} gems for duel ${duelId} on contract ${contractId}.`);
-        }
-    } catch (error) {
-        // We catch the error but don't re-throw to avoid halting the parent transaction (e.g., duel finalization).
-        console.error(`[COHOST_SERVICE] CRITICAL: Failed to credit co-host for duel ${duelId}. Error:`, error);
+    const rate = TIER_RATES[cohost.reliability_tier] || TIER_RATES[3];
+    const grossShare = Math.floor(contract.total_tax_generated * rate);
+    const taxOnShare = Math.floor(grossShare * COHOST_TAX_RATE);
+    const netEarnings = grossShare - taxOnShare;
+
+    if (netEarnings > 0) {
+        await client.query("UPDATE users SET gems = gems + $1 WHERE id = $2", [netEarnings, userId]);
+        await client.query(
+            `INSERT INTO transaction_history (user_id, type, amount_gems, description, reference_id) VALUES ($1, 'cohost_payout', $2, $3, $4)`,
+            [userId, netEarnings, `Payout for co-host session`, contract.id]
+        );
+        console.log(`[COHOST_SERVICE] Paid out ${netEarnings} gems to user ${userId} for contract ${contract.id}.`);
     }
 }
-
 
 async function processPenalty(contractId) {
     console.log(`[COHOST_SERVICE] Processing penalty for crashed contract: ${contractId}`);
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
-        const { rows: [contract] } = await client.query("SELECT * FROM host_contracts WHERE id = $1", [contractId]);
+        const { rows: [contract] } = await client.query("SELECT * FROM host_contracts WHERE id = $1 FOR UPDATE", [contractId]);
         if (!contract || !contract.claimed_by_user_id) {
             throw new Error("Contract not found or not claimed.");
         }
+
+        // First, process any earnings the bot made before it crashed.
+        await processFinalPayout(contract, client);
+
+        // Now, apply penalties.
         const userId = contract.claimed_by_user_id;
         const { rows: [cohost] } = await client.query("SELECT * FROM co_hosts WHERE user_id = $1 FOR UPDATE", [userId]);
         if (!cohost) {
             throw new Error(`Co-host data not found for user ${userId}`);
         }
 
-        const fineAmount = Math.floor(contract.gems_earned * PENALTY_FINE_RATE);
+        const fineAmount = Math.floor(contract.total_tax_generated * PENALTY_FINE_RATE);
         if (fineAmount > 0) {
             await client.query("UPDATE users SET gems = gems - $1 WHERE id = $2", [fineAmount, userId]);
             await client.query(
@@ -104,11 +95,15 @@ async function processCompletion(contractId) {
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
-        const { rows: [contract] } = await client.query("SELECT * FROM host_contracts WHERE id = $1", [contractId]);
+        const { rows: [contract] } = await client.query("SELECT * FROM host_contracts WHERE id = $1 FOR UPDATE", [contractId]);
         if (!contract || !contract.claimed_by_user_id || !contract.start_time || !contract.end_time) {
             throw new Error("Contract data is insufficient for completion processing.");
         }
+
+        // 1. Pay the user for the session's earnings.
+        await processFinalPayout(contract, client);
         
+        // 2. Process uptime and check for promotion.
         const userId = contract.claimed_by_user_id;
         const sessionUptime = Math.floor((new Date(contract.end_time) - new Date(contract.start_time)) / 1000);
         
@@ -143,6 +138,5 @@ async function processCompletion(contractId) {
 module.exports = {
     processPenalty,
     processCompletion,
-    creditCohostForDuel,
     TIER_UPTIME_MILESTONES
 };
