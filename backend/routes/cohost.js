@@ -10,8 +10,6 @@ const { TIER_UPTIME_MILESTONES } = require('../services/cohostService');
 
 const router = express.Router();
 
-const COHOST_TAX_RATE = 0.10;
-
 // Middleware to authenticate co-host bot via EITHER a temp or permanent token
 const authenticateCohostBot = async (req, res, next) => {
     const authToken = req.headers['x-cohost-token'];
@@ -150,7 +148,7 @@ router.post('/request-script', authenticateToken, [
     }
 });
 
-
+// [MODIFIED] Heartbeat logic is now simplified to only be a keep-alive signal.
 router.post('/heartbeat', authenticateCohostBot, async (req, res) => {
     const client = await db.getPool().connect();
     try {
