@@ -315,6 +315,49 @@ async function runScheduledTasks() {
     } finally {
         crashClient.release();
     }
+
+    // --- Task 6: Forfeit Expired Discord Dispute Prompts ---
+    const disputeForfeitClient = await pool.connect();
+    try {
+        const disputeSql = `
+            SELECT d.id, d.duel_id, d.reported_id, du.pot
+            FROM disputes d
+            JOIN duels du ON d.duel_id = du.id
+            WHERE d.status = 'awaiting_user_discord_link' 
+              AND d.discord_forwarded_at < NOW() - INTERVAL '24 hours'
+        `;
+        const { rows: forfeitableDisputes } = await disputeForfeitClient.query(disputeSql);
+
+        for (const dispute of forfeitableDisputes) {
+            const txClient = await pool.connect();
+            try {
+                await txClient.query('BEGIN');
+                console.log(`[CRON][DISPUTE] Forfeiting dispute ${dispute.id} due to user inaction.`);
+                
+                // The reported player was the original winner, so they get the pot
+                await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [dispute.pot, dispute.reported_id]);
+                
+                // Finalize the duel and dispute records
+                await txClient.query("UPDATE duels SET status = 'completed' WHERE id = $1", [dispute.duel_id]);
+                const resolutionText = "Forfeited by reporter due to inaction after 24 hours.";
+                await txClient.query("UPDATE disputes SET status = 'resolved', resolution = $1, resolved_at = NOW() WHERE id = $2", [resolutionText, dispute.id]);
+
+                // Clean up the inbox message
+                await txClient.query("DELETE FROM inbox_messages WHERE type = 'dispute_discord_link_prompt' AND reference_id = $1", [dispute.id.toString()]);
+
+                await txClient.query('COMMIT');
+            } catch (txError) {
+                await txClient.query('ROLLBACK');
+                console.error(`[CRON][DISPUTE] Error forfeiting dispute ${dispute.id}:`, txError);
+            } finally {
+                txClient.release();
+            }
+        }
+    } catch (error) {
+        console.error('[CRON][DISPUTE] Error querying for expired dispute prompts:', error);
+    } finally {
+        disputeForfeitClient.release();
+    }
 }
 
 runScheduledTasks()
