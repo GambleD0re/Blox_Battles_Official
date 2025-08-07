@@ -57,9 +57,6 @@ const Sidebar = ({ isOpen, onClose }) => {
                         <button onClick={() => handleNavigate('/tournaments')} className="text-left text-gray-300 hover:bg-gray-700/50 hover:text-white p-3 rounded-lg transition-colors">
                             Tournaments
                         </button>
-                        <button onClick={() => handleNavigate('/duel-history')} className="text-left text-gray-300 hover:bg-gray-700/50 hover:text-white p-3 rounded-lg transition-colors">
-                            Duel History
-                        </button>
                         <button onClick={() => handleNavigate('/deposit')} className="text-left text-gray-300 hover:bg-gray-700/50 hover:text-white p-3 rounded-lg transition-colors">
                             Deposit
                         </button>
@@ -68,6 +65,9 @@ const Sidebar = ({ isOpen, onClose }) => {
                         </button>
                         <button onClick={() => handleNavigate('/history')} className="text-left text-gray-300 hover:bg-gray-700/50 hover:text-white p-3 rounded-lg transition-colors">
                             Transaction History
+                        </button>
+                        <button onClick={() => handleNavigate('/duel-history')} className="text-left text-gray-300 hover:bg-gray-700/50 hover:text-white p-3 rounded-lg transition-colors">
+                            Duel History
                         </button>
                     </nav>
                 </div>
