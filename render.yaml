@@ -58,6 +58,16 @@ services:
         sync: false
       - key: VAPID_PRIVATE_KEY
         sync: false
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
 
   # ---------------------
   # 2. The Frontend Static Site (React/Vite)
@@ -101,7 +111,6 @@ services:
   # ---------------------
   # 4. The Discord Bot Worker
   # ---------------------
-  # [FIX] The hyphen for the worker service was incorrectly indented. It has been aligned with the other services.
   - type: worker
     name: blox-battles-discord-bot
     runtime: node
