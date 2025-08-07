@@ -402,7 +402,7 @@ router.post('/respond', authenticateToken, body('duel_id').isInt(), body('respon
         
         const totalPot = parseInt(duel.wager) * 2;
         let taxCollected = 0;
-        if (totalPot > 100) {
+        if (totalPot > 99) {
             taxCollected = Math.ceil(totalPot * 0.04);
         }
         const finalPot = totalPot - taxCollected;
