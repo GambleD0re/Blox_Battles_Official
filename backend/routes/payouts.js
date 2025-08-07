@@ -8,7 +8,7 @@ const { sendCryptoPayout } = require('../services/cryptoPayoutService');
 
 const router = express.Router();
 
-const GEM_TO_USD_CONVERSION_RATE = 110;
+const GEM_TO_USD_CONVERSION_RATE = 105;
 const MINIMUM_GEM_WITHDRAWAL = 11;
 
 // --- CRYPTO WITHDRAWAL REQUEST (MANUAL REVIEW) ---
