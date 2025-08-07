@@ -1,7 +1,6 @@
 import React from 'react';
 
 // --- Sub-component for standard Duel notifications ---
-// [MODIFIED] Added onViewActiveDuelDetails prop
 const DuelNotification = ({ duel, onStartDuel, onViewDuel, onCancelDuel, onForfeitDuel, onViewActiveDuelDetails }) => {
     return (
         <div className="duel-item">
@@ -15,14 +14,12 @@ const DuelNotification = ({ duel, onStartDuel, onViewDuel, onCancelDuel, onForfe
             <div className="flex items-center gap-2">
                 {duel.status === 'accepted' && (
                     <>
-                        {/* [NEW] "Details" button for accepted duels */}
                         <button onClick={() => onViewActiveDuelDetails(duel)} className="btn btn-secondary !py-2 !px-3">Details</button>
                         <button onClick={() => onStartDuel(duel)} className="btn btn-primary">Start</button>
                     </>
                 )}
                 {duel.status === 'started' && (
                     <>
-                        {/* [NEW] "Details" button for started duels */}
                         <button onClick={() => onViewActiveDuelDetails(duel)} className="btn btn-secondary !py-2 !px-3">Details</button>
                         <a href={duel.server_invite_link || '#'} target="_blank" rel="noopener noreferrer" className="btn btn-primary" onClick={(e) => { if (!duel.server_invite_link) e.preventDefault(); }}>
                             Join Server
@@ -121,8 +118,22 @@ const DiscordLinkNotification = ({ message, onRespondToLink }) => {
     );
 };
 
+// --- Sub-component for Server Crash Refund messages ---
+const ServerCrashNotification = ({ message }) => {
+    return (
+        <div className="duel-item bg-yellow-900/30 border-l-4 border-yellow-500">
+             <div className="flex-grow flex items-center gap-3">
+                <span className="text-yellow-400 text-xl">⚠️</span>
+                <div>
+                    <p className="font-semibold text-yellow-400">{message.title}</p>
+                    <p className="text-sm text-gray-300">{message.message}</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- Main Inbox Component (Dispatcher) ---
-// [MODIFIED] Added onViewActiveDuelDetails prop
 const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeitDuel, onCancelWithdrawal, onRespondToLink, onViewActiveDuelDetails }) => {
     
     const renderNotification = (notification) => {
@@ -139,7 +150,6 @@ const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeit
                         onCancelDuel={() => onCancelDuel(notification)}
                         onStartDuel={() => onStartDuel(notification.data)}
                         onForfeitDuel={() => onForfeitDuel(notification)}
-                        // [MODIFIED] Pass the handler down
                         onViewActiveDuelDetails={() => onViewActiveDuelDetails(notification.data)}
                     />
                 );
@@ -164,6 +174,13 @@ const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeit
                         key={notification.id}
                         message={notification}
                         onRespondToLink={onRespondToLink}
+                    />
+                );
+            case 'server_crash_refund':
+                return (
+                    <ServerCrashNotification
+                        key={notification.id}
+                        message={notification.data}
                     />
                 );
             default:
