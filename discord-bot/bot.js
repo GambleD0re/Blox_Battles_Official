@@ -5,7 +5,7 @@ const {
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder,
     ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder,
     TextInputStyle, InteractionType, MessageFlags,
-    StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ApplicationCommandOptionType
+    StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ApplicationCommandOptionType, ChannelType, PermissionsBitField
 } = require('discord.js');
 
 // --- Configuration ---
@@ -58,13 +58,11 @@ function buildDuelBuilderMessage(state) {
         )
         .setFooter({ text: 'This builder will expire in 5 minutes.' });
 
-    // [MODIFIED] Placeholder text is now dynamic.
     const regionMenu = new StringSelectMenuBuilder()
         .setCustomId(`duel_builder_region_${state.interactionId}`)
         .setPlaceholder(state.region ? 'Change Server Region' : 'Select a Server Region')
         .addOptions(gameData.regions.map(region => new StringSelectMenuOptionBuilder().setLabel(region.name).setValue(region.id)));
 
-    // [MODIFIED] Placeholder text is now dynamic.
     const mapMenu = new StringSelectMenuBuilder()
         .setCustomId(`duel_builder_map_${state.interactionId}`)
         .setPlaceholder(state.map ? 'Change Map' : 'Select a Map')
@@ -87,7 +85,7 @@ function buildDuelBuilderMessage(state) {
             .setCustomId(`duel_builder_send_${state.interactionId}`)
             .setLabel('Send Challenge')
             .setStyle(ButtonStyle.Success)
-            .setDisabled(!state.wager || !state.map || !state.region) // [MODIFIED] Region is now also required to send.
+            .setDisabled(!state.wager || !state.map || !state.region)
     );
 
     return {
@@ -105,7 +103,6 @@ function buildDuelBuilderMessage(state) {
 
 // --- Main Interaction Router ---
 client.on('interactionCreate', async interaction => {
-    // [MODIFIED] Added a try/catch block to the entire handler to prevent crashes.
     try {
         if (interaction.isChatInputCommand()) {
             const { commandName } = interaction;
@@ -417,6 +414,54 @@ async function sendDuelStartedDM(task) {
     }
 }
 
+async function createDisputeTicket(task) {
+    const { discord_id, dispute_id, reason } = task.payload;
+    try {
+        const guild = client.guilds.cache.first();
+        if (!guild) throw new Error("Bot is not in any guild.");
+
+        const channelName = `dispute-${dispute_id}`;
+        const existingChannel = guild.channels.cache.find(c => c.name === channelName);
+        if (existingChannel) {
+            console.log(`Dispute ticket channel for dispute ${dispute_id} already exists.`);
+            return;
+        }
+
+        const channel = await guild.channels.create({
+            name: channelName,
+            type: ChannelType.GuildText,
+            permissionOverwrites: [
+                {
+                    id: guild.id, // @everyone role
+                    deny: [PermissionsBitField.Flags.ViewChannel],
+                },
+                {
+                    id: client.user.id, // Bot
+                    allow: [PermissionsBitField.Flags.ViewChannel],
+                },
+                {
+                    id: discord_id, // The user involved in the dispute
+                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages],
+                },
+            ],
+        });
+
+        console.log(`Created dispute ticket channel: ${channel.name}`);
+        
+        const embed = new EmbedBuilder()
+            .setColor(0xFFA500)
+            .setTitle(`Dispute #${dispute_id} Review`)
+            .setDescription(`This private channel has been created to discuss the dispute. An admin will be with you shortly.\n\nPlease provide any video evidence or further details here.`)
+            .addFields({ name: 'Original Reason', value: reason })
+            .setTimestamp();
+
+        await channel.send({ content: `<@${discord_id}>`, embeds: [embed] });
+
+    } catch (error) {
+        console.error(`Failed to create dispute ticket for dispute ID ${dispute_id}:`, error);
+    }
+}
+
 async function processDiscordTasks() {
     console.log('Fetching general Discord tasks...');
     try {
@@ -437,6 +482,7 @@ async function processDiscordTasks() {
                     case 'SEND_DUEL_CHALLENGE_DM': await sendDuelChallengeDM(task); break;
                     case 'SEND_DUEL_ACCEPTED_DM': await sendDuelAcceptedDM(task); break;
                     case 'SEND_DUEL_STARTED_DM': await sendDuelStartedDM(task); break;
+                    case 'CREATE_DISPUTE_TICKET': await createDisputeTicket(task); break;
                 }
                 await apiClient.post(`/api/tasks/${task.id}/complete`);
             } catch (taskError) {
