@@ -244,7 +244,7 @@ router.post('/duels/respond', authenticateBot,
             await client.query('UPDATE users SET gems = gems - $1 WHERE id = $2', [duel.wager, duel.challenger_id]);
             
             const totalPot = parseInt(duel.wager) * 2;
-            const taxCollected = totalPot > 100 ? Math.ceil(totalPot * 0.01) : 0;
+            const taxCollected = totalPot > 100 ? Math.ceil(totalPot * 0.04) : 0;
             const finalPot = totalPot - taxCollected;
             
             await client.query('UPDATE duels SET status = $1, accepted_at = NOW(), pot = $2, tax_collected = $3 WHERE id = $4', ['accepted', finalPot, taxCollected, duelId]);
