@@ -96,7 +96,7 @@ CREATE TABLE payout_requests (
 CREATE TABLE inbox_messages (
     id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type VARCHAR(50) NOT NULL CHECK(type IN ('withdrawal_update', 'admin_message', 'discord_link_request', 'server_crash_refund')),
+    type VARCHAR(50) NOT NULL CHECK(type IN ('withdrawal_update', 'admin_message', 'discord_link_request', 'server_crash_refund', 'dispute_discord_link_prompt')),
     title TEXT NOT NULL,
     message TEXT NOT NULL,
     reference_id TEXT,
@@ -136,11 +136,12 @@ CREATE TABLE disputes (
     reported_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     reason TEXT NOT NULL,
     has_video_evidence BOOLEAN DEFAULT FALSE,
-    status VARCHAR(50) DEFAULT 'pending',
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'awaiting_user_discord_link', 'discord_ticket_created')),
     resolution TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     resolved_at TIMESTAMP WITH TIME ZONE,
-    admin_resolver_id UUID REFERENCES users(id) ON DELETE SET NULL
+    admin_resolver_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    discord_forwarded_at TIMESTAMP WITH TIME ZONE
 );
 
 CREATE TABLE tournaments (
