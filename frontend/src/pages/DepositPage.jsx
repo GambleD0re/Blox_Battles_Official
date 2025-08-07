@@ -55,13 +55,13 @@ const DepositPage = () => {
     const depositTokens = [
         {
             symbol: 'USDC',
-            name: 'USDCoin',
+            name: 'USDC coin',
             mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x3c499c542cef5e3811e1192ce70d8cc03d5c3359.png',
             networkSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x0000000000000000000000000000000000000000.png'
         },
         {
             symbol: 'USDT',
-            name: 'Tether USD',
+            name: 'Tether USDST',
             mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0xc2132d05d31c914a87c6611c10748aeb04b58e8f.png',
             networkSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x0000000000000000000000000000000000000000.png'
         },
