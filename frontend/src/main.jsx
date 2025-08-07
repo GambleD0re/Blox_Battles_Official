@@ -43,12 +43,44 @@ style.innerHTML = `
     .stat-item.losses .stat-value { color: var(--loss-color); }
     .btn-settings { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--input-border); border-radius: 50%; background-color: var(--input-bg); color: var(--text-color); cursor: pointer; transition: all 0.2s; }
     .btn-settings:hover { border-color: var(--accent-color); color: var(--accent-color); }
-    /* [MODIFIED] Changed the grid layout to be a 50/50 split. */
     .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
     .form-group { margin-bottom: 1rem; text-align: left; }
     .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; color: var(--text-muted); }
-    input[type="text"], input[type="password"], input[type="email"], input[type="number"] { width: 100%; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 8px; box-sizing: border-box; font-size: 1rem; background-color: var(--input-bg); color: var(--text-color); transition: all 0.2s; }
-    input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2); }
+
+    /* --- MODIFICATION START --- */
+    /* This new .form-input class will now style all form elements consistently */
+    .form-input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid var(--input-border);
+        border-radius: 8px;
+        box-sizing: border-box;
+        font-size: 1rem;
+        background-color: var(--input-bg);
+        color: var(--text-color);
+        transition: all 0.2s;
+    }
+    
+    /* Specific styling for select dropdowns to give them a custom arrow */
+    select.form-input {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.5rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+        padding-right: 2.5rem;
+    }
+    
+    /* Focus state for all form inputs */
+    .form-input:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);
+    }
+    /* --- MODIFICATION END --- */
+    
     .btn { padding: 0.85rem; border: none; border-radius: 8px; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; transition: all 0.2s; text-decoration: none; display: inline-block; text-align: center; }
     .btn-primary { background-color: var(--btn-primary-bg); }
     .btn-primary:hover { background-color: var(--btn-primary-hover-bg); transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -88,7 +120,6 @@ style.innerHTML = `
     .btn-accept { background-color: var(--win-color); }
     .banned-weapons-list { list-style-type: none; padding-left: 0; margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 8px; }
     .banned-weapons-list li { background-color: var(--bg-color); padding: 5px 10px; border-radius: 6px; font-size: 0.9rem; border: 1px solid var(--input-border); }
-    /* --- NEW MODAL BUTTON STYLES --- */
     .modal-actions .btn { margin-top: 0; font-size: 0.9rem; padding: 0.6rem 1.2rem; }
     .modal-actions .btn-secondary { background-color: var(--btn-secondary-bg); color: var(--text-muted); }
     .modal-actions .btn-secondary:hover { background-color: var(--btn-secondary-hover-bg); color: var(--text-color); }
