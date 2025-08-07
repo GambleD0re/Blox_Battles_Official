@@ -12,7 +12,6 @@ CREATE TABLE system_status (
 
 
 -- Create the 'users' table.
--- [MODIFIED] Added 'accepting_challenges' column.
 CREATE TABLE users (
     user_index SERIAL PRIMARY KEY,
     id UUID NOT NULL UNIQUE,
@@ -37,7 +36,11 @@ CREATE TABLE users (
     ban_applied_at TIMESTAMP WITH TIME ZONE,
     ban_expires_at TIMESTAMP WITH TIME ZONE,
     ban_reason TEXT,
-    crypto_deposit_address VARCHAR(255) UNIQUE
+    crypto_deposit_address VARCHAR(255) UNIQUE,
+    is_email_verified BOOLEAN DEFAULT FALSE,
+    email_verification_token TEXT,
+    password_reset_token TEXT,
+    password_reset_expires TIMESTAMP WITH TIME ZONE
 );
 
 -- Use NUMERIC for financial values and JSONB for JSON data.
