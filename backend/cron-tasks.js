@@ -5,6 +5,7 @@ const DUEL_EXPIRATION_HOURS = 1;
 const DUEL_FORFEIT_MINUTES = 10;
 const RESULT_CONFIRMATION_MINUTES = 2;
 const TOURNAMENT_DISPUTE_HOURS = 1;
+const SERVER_CRASH_THRESHOLD_SECONDS = 50;
 
 const decrementPlayerCount = async (client, duelId) => {
     try {
@@ -263,6 +264,56 @@ async function runScheduledTasks() {
         console.error('[CRON] Error querying for expired confirmations:', error);
     } finally {
         confirmationClient.release();
+    }
+
+    // --- Task 5: Handle Crashed Game Servers ---
+    const crashClient = await pool.connect();
+    try {
+        const staleServerSql = `SELECT server_id FROM game_servers WHERE last_heartbeat < NOW() - INTERVAL '${SERVER_CRASH_THRESHOLD_SECONDS} seconds'`;
+        const { rows: crashedServers } = await crashClient.query(staleServerSql);
+
+        for (const server of crashedServers) {
+            const txClient = await pool.connect();
+            try {
+                await txClient.query('BEGIN');
+                console.log(`[CRON][CRASH] Processing crashed server: ${server.server_id}`);
+
+                const duelsSql = `SELECT id, challenger_id, opponent_id, wager FROM duels WHERE assigned_server_id = $1 AND status IN ('started', 'in_progress') FOR UPDATE`;
+                const { rows: affectedDuels } = await txClient.query(duelsSql, [server.server_id]);
+                
+                for (const duel of affectedDuels) {
+                    const refundAmount = parseInt(duel.wager);
+                    await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.challenger_id]);
+                    await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.opponent_id]);
+                    
+                    const refundDesc = `Refund for Duel #${duel.id} due to server issues.`;
+                    await txClient.query("INSERT INTO transaction_history (user_id, type, amount_gems, description, reference_id) VALUES ($1, $2, $3, $4, $5)", [duel.challenger_id, 'server_crash_refund', refundAmount, refundDesc, duel.id]);
+                    await txClient.query("INSERT INTO transaction_history (user_id, type, amount_gems, description, reference_id) VALUES ($1, $2, $3, $4, $5)", [duel.opponent_id, 'server_crash_refund', refundAmount, refundDesc, duel.id]);
+                    
+                    const notificationTitle = "Duel Canceled: Server Issue";
+                    const notificationMessage = `Your duel (#${duel.id}) was automatically canceled because the game server stopped responding. Your wager of ${refundAmount} gems has been refunded.`;
+                    await txClient.query("INSERT INTO inbox_messages (user_id, type, title, message, reference_id) VALUES ($1, 'server_crash_refund', $2, $3, $4)", [duel.challenger_id, notificationTitle, notificationMessage, duel.id]);
+                    await txClient.query("INSERT INTO inbox_messages (user_id, type, title, message, reference_id) VALUES ($1, 'server_crash_refund', $2, $3, $4)", [duel.opponent_id, notificationTitle, notificationMessage, duel.id]);
+
+                    await txClient.query("UPDATE duels SET status = 'canceled' WHERE id = $1", [duel.id]);
+                    console.log(`[CRON][CRASH] Voided duel ${duel.id} and refunded ${refundAmount} gems to each player.`);
+                }
+
+                await txClient.query('DELETE FROM game_servers WHERE server_id = $1', [server.server_id]);
+                console.log(`[CRON][CRASH] Pruned crashed server ${server.server_id} from the database.`);
+
+                await txClient.query('COMMIT');
+            } catch (txError) {
+                await txClient.query('ROLLBACK');
+                console.error(`[CRON][CRASH] Rolled back transaction for crashed server ${server.server_id}:`, txError);
+            } finally {
+                txClient.release();
+            }
+        }
+    } catch (error) {
+        console.error('[CRON][CRASH] Error querying for crashed servers:', error);
+    } finally {
+        crashClient.release();
     }
 }
 
