@@ -125,6 +125,47 @@ router.post('/:id/dispute', authenticateToken, param('id').isInt(), body('reason
     }
 });
 
+router.post('/disputes/:id/continue-to-discord', authenticateToken, param('id').isInt(), handleValidationErrors, async (req, res) => {
+    const disputeId = req.params.id;
+    const userId = req.user.userId;
+    const client = await db.getPool().connect();
+
+    try {
+        await client.query('BEGIN');
+        const { rows: [dispute] } = await client.query("SELECT * FROM disputes WHERE id = $1 AND reporter_id = $2 AND status = 'awaiting_user_discord_link' FOR UPDATE", [disputeId, userId]);
+        if (!dispute) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Active dispute prompt not found for your account.' });
+        }
+
+        const { rows: [user] } = await client.query("SELECT discord_id FROM users WHERE id = $1", [userId]);
+        if (!user || !user.discord_id) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Your Discord account is still not linked. Please use the /link command in our server.' });
+        }
+        
+        const taskPayload = {
+            discord_id: user.discord_id,
+            dispute_id: dispute.id,
+            reason: dispute.reason
+        };
+        await client.query("INSERT INTO tasks (task_type, payload) VALUES ('CREATE_DISPUTE_TICKET', $1)", [JSON.stringify(taskPayload)]);
+        await client.query("UPDATE disputes SET status = 'discord_ticket_created' WHERE id = $1", [disputeId]);
+        
+        await client.query("DELETE FROM inbox_messages WHERE type = 'dispute_discord_link_prompt' AND reference_id = $1 AND user_id = $2", [disputeId.toString(), userId]);
+
+        await client.query('COMMIT');
+        res.status(200).json({ message: 'Success! A private ticket has been created for you in our Discord server.' });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(`Continue to Discord Error:`, err);
+        res.status(500).json({ message: 'An internal server error occurred.' });
+    } finally {
+        client.release();
+    }
+});
+
 
 // --- Existing Duel Routes ---
 
@@ -402,8 +443,8 @@ router.post('/respond', authenticateToken, body('duel_id').isInt(), body('respon
         
         const totalPot = parseInt(duel.wager) * 2;
         let taxCollected = 0;
-        if (totalPot > 99) {
-            taxCollected = Math.ceil(totalPot * 0.04);
+        if (totalPot > 100) {
+            taxCollected = Math.ceil(totalPot * 0.01);
         }
         const finalPot = totalPot - taxCollected;
         
