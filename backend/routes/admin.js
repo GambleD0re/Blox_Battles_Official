@@ -20,7 +20,7 @@ const decrementPlayerCount = async (client, duelId) => {
     }
 };
 
-// --- [NEW] SYSTEM STATUS MANAGEMENT (MASTER ADMIN ONLY) ---
+// --- SYSTEM STATUS MANAGEMENT (MASTER ADMIN ONLY) ---
 router.get('/system-status', authenticateToken, isMasterAdmin, async (req, res) => {
     try {
         const { rows } = await db.query('SELECT feature_name, is_enabled, disabled_message FROM system_status ORDER BY feature_name');
@@ -52,7 +52,7 @@ router.put('/system-status', authenticateToken, isMasterAdmin, [
 });
 
 
-// --- [NEW] TOURNAMENT MANAGEMENT ---
+// --- TOURNAMENT MANAGEMENT ---
 router.post('/tournaments', authenticateToken, isAdmin, [
     body('name').trim().notEmpty(),
     body('region').trim().notEmpty(),
@@ -276,7 +276,7 @@ router.post('/disputes/:id/resolve', authenticateToken, isAdmin, param('id').isI
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
-        const { rows: [dispute] } = await client.query("SELECT * FROM disputes WHERE id = $1 AND status = 'pending' FOR UPDATE", [disputeId]);
+        const { rows: [dispute] } = await client.query("SELECT * FROM disputes WHERE id = $1 AND status != 'resolved' FOR UPDATE", [disputeId]);
         if (!dispute) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Dispute not found or already resolved.' }); }
         
         const { rows: [duel] } = await client.query('SELECT * FROM duels WHERE id = $1 FOR UPDATE', [dispute.duel_id]);
@@ -314,6 +314,47 @@ router.post('/disputes/:id/resolve', authenticateToken, isAdmin, param('id').isI
     } catch (err) {
         await client.query('ROLLBACK');
         console.error(`Admin Resolve Dispute Error:`, err);
+        res.status(500).json({ message: 'An internal server error occurred.' });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/disputes/:id/forward-to-discord', authenticateToken, isAdmin, param('id').isInt(), handleValidationErrors, async (req, res) => {
+    const disputeId = req.params.id;
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+
+        const { rows: [dispute] } = await client.query("SELECT * FROM disputes WHERE id = $1 AND has_video_evidence = TRUE AND status = 'pending' FOR UPDATE", [disputeId]);
+        if (!dispute) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Dispute not found, does not have video evidence, or is not pending.' });
+        }
+        
+        const { rows: [reporter] } = await client.query("SELECT discord_id FROM users WHERE id = $1", [dispute.reporter_id]);
+
+        if (reporter && reporter.discord_id) {
+            const taskPayload = {
+                discord_id: reporter.discord_id,
+                dispute_id: dispute.id,
+                reason: dispute.reason
+            };
+            await client.query("INSERT INTO tasks (task_type, payload) VALUES ('CREATE_DISPUTE_TICKET', $1)", [JSON.stringify(taskPayload)]);
+            await client.query("UPDATE disputes SET status = 'discord_ticket_created' WHERE id = $1", [disputeId]);
+            await client.query('COMMIT');
+            return res.status(200).json({ message: 'Dispute ticket creation task has been sent to the Discord bot.' });
+        } else {
+            await client.query("UPDATE disputes SET status = 'awaiting_user_discord_link', discord_forwarded_at = NOW() WHERE id = $1", [disputeId]);
+            const messageTitle = "Action Required for Dispute Review";
+            const messageBody = `To proceed with the investigation of your dispute for Duel #${dispute.duel_id}, you must link your Discord account. Please use the /link command in our Discord server and then return here to continue.`;
+            await client.query("INSERT INTO inbox_messages (user_id, type, title, message, reference_id) VALUES ($1, 'dispute_discord_link_prompt', $2, $3, $4)", [dispute.reporter_id, messageTitle, messageBody, disputeId]);
+            await client.query('COMMIT');
+            return res.status(200).json({ message: 'User does not have a linked Discord. They have been prompted to link their account.' });
+        }
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(`Admin Forward Dispute Error:`, err);
         res.status(500).json({ message: 'An internal server error occurred.' });
     } finally {
         client.release();
