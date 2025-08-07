@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import * as api from '../services/api';
+import { jwtDecode } from 'jwt-decode';
 
 const AuthContext = createContext(null);
 
@@ -22,7 +23,15 @@ export const AuthProvider = ({ children }) => {
                 setIsLoading(false);
                 return;
             }
+
             try {
+                // Check if token is expired before making an API call
+                const decoded = jwtDecode(tokenToUse);
+                if (decoded.exp * 1000 < Date.now()) {
+                    logout();
+                    setIsLoading(false);
+                    return;
+                }
                 const userData = await api.getDashboardData(tokenToUse);
                 setUser(userData);
             } catch (error) {
@@ -44,7 +53,7 @@ export const AuthProvider = ({ children }) => {
         } else {
             fetchInitialData(token);
         }
-    }, [logout]); 
+    }, [logout, token]);
 
     const login = useCallback(async (newToken) => {
         localStorage.setItem('token', newToken);
@@ -60,13 +69,11 @@ export const AuthProvider = ({ children }) => {
         }
     }, [logout]);
     
-    // [MODIFIED] The refreshUser function no longer accepts an argument and fetches its own data.
-    // This makes it a self-contained and reusable function that won't cause re-render loops.
     const refreshUser = useCallback(async () => {
        const tokenFromStorage = localStorage.getItem('token');
        if (!tokenFromStorage) {
            console.error("No token found, cannot refresh user.");
-           logout(); // Log out if token is missing
+           logout();
            return;
        }
        try {
