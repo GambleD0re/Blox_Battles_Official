@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../services/api';
 import { ConfirmationModal } from '../components/Dashboard/Modals';
+import CreateTicketModal from '../components/Dashboard/CreateTicketModal'; // Import the new modal
 
 // --- Reusable Helper Components for this page ---
 
@@ -60,6 +61,8 @@ const SettingsPage = () => {
     const [deletePassword, setDeletePassword] = useState('');
     const [notificationsEnabled, setNotificationsEnabled] = useState(user?.discord_notifications_enabled ?? true);
     const [acceptingChallenges, setAcceptingChallenges] = useState(user?.accepting_challenges ?? true);
+    const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+    const [isTicketSubmitting, setIsTicketSubmitting] = useState(false);
 
     const [isUnlinkModalOpen, setUnlinkModalOpen] = useState(false);
     const [isUnlinkDiscordModalOpen, setUnlinkDiscordModalOpen] = useState(false);
@@ -151,6 +154,19 @@ const SettingsPage = () => {
         }
     };
 
+    const handleTicketSubmit = async (ticketData) => {
+        setIsTicketSubmitting(true);
+        try {
+            const result = await api.createSupportTicket(ticketData, token);
+            showMessage(result.message, 'success');
+            setIsTicketModalOpen(false);
+        } catch (error) {
+            showMessage(error.message, 'error');
+        } finally {
+            setIsTicketSubmitting(false);
+        }
+    };
+
     const formatDate = (dateString) => {
         if (!dateString) return "Never";
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -188,6 +204,18 @@ const SettingsPage = () => {
                             <p className="text-sm text-gray-500">Allow other players to send you duel challenges.</p>
                         </div>
                         <ToggleSwitch enabled={acceptingChallenges} onToggle={handleChallengeToggle} />
+                    </div>
+                </SettingsCard>
+                
+                <SettingsCard title="Support">
+                    <div className="flex justify-between items-center py-3">
+                        <div>
+                            <span className="text-gray-300 font-semibold">Contact Support</span>
+                            <p className="text-sm text-gray-500">Need help? Open a support ticket to speak with a staff member.</p>
+                        </div>
+                        <button onClick={() => setIsTicketModalOpen(true)} className="btn btn-primary !mt-0" disabled={!user.discord_id}>
+                            {user.discord_id ? 'Create Ticket' : 'Link Discord to Create'}
+                        </button>
                     </div>
                 </SettingsCard>
 
@@ -252,6 +280,12 @@ const SettingsPage = () => {
                 </SettingsCard>
             </div>
 
+            <CreateTicketModal
+                isOpen={isTicketModalOpen}
+                onClose={() => setIsTicketModalOpen(false)}
+                onSubmit={handleTicketSubmit}
+                isSubmitting={isTicketSubmitting}
+            />
             <ConfirmationModal 
                 isOpen={isUnlinkModalOpen} 
                 onClose={() => setUnlinkModalOpen(false)}
