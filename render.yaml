@@ -1,5 +1,5 @@
 # render.yaml - A Render Blueprint for the Blox Battles Application
-# This version adds the new Discord Bot worker service.
+# This version adds the new Discord Bot worker service and all required environment variables.
 
 databases:
   - name: blox-battles-db
@@ -143,4 +143,12 @@ services:
       - key: MEMBERS_VC_ID
         sync: false
       - key: PLAYERS_VC_ID
+        sync: false
+      - key: SUPPORT_STAFF_ROLE_ID
+        sync: false
+      - key: SUPPORT_TICKETS_CATEGORY_ID
+        sync: false
+      - key: BAN_APPEALS_CATEGORY_ID
+        sync: false
+      - key: DUEL_DISPUTES_CATEGORY_ID
         sync: false
