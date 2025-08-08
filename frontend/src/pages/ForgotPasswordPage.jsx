@@ -27,17 +27,17 @@ const ForgotPasswordPage = () => {
             <div className="w-full max-w-md p-8 space-y-8 bg-[var(--widget-bg)] rounded-xl shadow-lg border border-[var(--widget-border)] text-center">
                 <h1 className="text-3xl font-bold text-white">Reset Your Password</h1>
                 <p className="text-gray-400">
-                    Enter your email address and we will send you a link to reset your password.
+                    Enter the email address associated with your account, and we'll send you a link to reset your password.
                 </p>
                 
                 {message.text && <div className={`p-3 rounded-lg ${message.type === 'success' ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>{message.text}</div>}
 
                 <form onSubmit={handleSubmit} className="space-y-6 text-left">
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
-                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] outline-none transition text-white" placeholder="you@example.com" />
+                        <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+                        <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required className="form-input" placeholder="you@example.com" />
                     </div>
-                    <button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center">
+                    <button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
                         {isLoading ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : 'Send Reset Link'}
                     </button>
                 </form>
