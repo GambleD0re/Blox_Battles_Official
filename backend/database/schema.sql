@@ -1,7 +1,7 @@
 -- This script defines the PostgreSQL-compatible structure of the database.
 
 -- Drop tables if they exist to ensure a clean slate. The CASCADE keyword will also drop dependent objects.
-DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status CASCADE;
+DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status, tickets, ticket_messages CASCADE;
 
 -- Table to manage the on/off status of site features.
 CREATE TABLE system_status (
@@ -132,6 +132,7 @@ CREATE TABLE duels (
     player_loadouts JSONB
 );
 
+-- Deprecated but kept for transition period. New disputes will be handled by the tickets system.
 CREATE TABLE disputes (
     id SERIAL PRIMARY KEY,
     duel_id INTEGER NOT NULL REFERENCES duels(id) ON DELETE CASCADE,
@@ -145,6 +146,31 @@ CREATE TABLE disputes (
     resolved_at TIMESTAMP WITH TIME ZONE,
     admin_resolver_id UUID REFERENCES users(id) ON DELETE SET NULL,
     discord_forwarded_at TIMESTAMP WITH TIME ZONE
+);
+
+-- New unified tickets table
+CREATE TABLE tickets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL CHECK(type IN ('support', 'temp_ban_appeal', 'perm_ban_appeal', 'duel_dispute')),
+    status VARCHAR(50) NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'in_progress', 'awaiting_user_reply', 'resolved', 'closed')),
+    subject TEXT NOT NULL,
+    reference_id TEXT, -- For duel_id, ban_id, etc.
+    discord_channel_id VARCHAR(255) UNIQUE,
+    resolved_by_admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    resolution_details TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP WITH TIME ZONE
+);
+
+-- New table for storing ticket conversation history
+CREATE TABLE ticket_messages (
+    id SERIAL PRIMARY KEY,
+    ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- Can be the user or an admin
+    message TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE tournaments (
