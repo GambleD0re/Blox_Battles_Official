@@ -5,7 +5,7 @@ const DuelHistory = ({ history, onViewTranscript }) => {
         <div className="widget">
             <h3 className="widget-title">Duel History</h3>
             <div className="space-y-1">
-                {history.length > 0 ? history.map(duel => (
+                {history && history.length > 0 ? history.map(duel => (
                     <div key={duel.id} className="duel-item">
                         <div className={`history-outcome-gems ${
                             duel.outcome === 'win' ? 'text-[var(--win-color)]' : 
