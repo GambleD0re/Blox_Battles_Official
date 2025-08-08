@@ -10,13 +10,13 @@ const logRoutes = require('./logs.js');
 const statusRoutes = require('./status.js');
 const paymentsRoutes = require('./payments.js');
 const payoutRoutes = require('./payouts.js');
-const inboxRoutes = require('./inbox.js');
+// The line for inboxRoutes was here and has been removed
 const historyRoutes = require('./history.js');
 const duelHistoryRoutes = require('./duelHistory.js');
 const tournamentRoutes = require('./tournaments.js');
 const transcriptRoutes = require('./transcripts.js');
 const discordRoutes = require('./discord.js');
-const ticketRoutes = require('./tickets.js'); // Import the new ticket routes
+const ticketRoutes = require('./tickets.js');
 
 const router = express.Router();
 
@@ -30,13 +30,13 @@ router.use('/tasks', taskRoutes);
 router.use('/status', statusRoutes);
 router.use('/payments', paymentsRoutes);
 router.use('/payouts', payoutRoutes);
-router.use('/inbox', inboxRoutes);
+// The line for router.use('/inbox', inboxRoutes) was here and has been removed
 router.use('/history', historyRoutes);
 router.use('/duel-history', duelHistoryRoutes);
 router.use('/tournaments', tournamentRoutes);
 router.use('/transcripts', transcriptRoutes);
 router.use('/discord', discordRoutes);
-router.use('/tickets', ticketRoutes); // Use the new ticket routes
+router.use('/tickets', ticketRoutes);
 
 // The most general route ('/') should come LAST
 router.use('/', userRoutes);
