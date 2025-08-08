@@ -1,14 +1,12 @@
-// src/services/api.js
-// This file centralizes all API calls to the backend.
-
 const API_BASE_URL = '/api';
 
-// A helper function to handle fetch requests, including authentication.
 const apiRequest = async (endpoint, method = 'GET', body = null, token = null) => {
     const options = {
         method,
         headers: {},
     };
+
+    console.log(`[API Request] ==> ${method} ${endpoint}`);
 
     if (token) {
         options.headers['Authorization'] = `Bearer ${token}`;
@@ -21,23 +19,28 @@ const apiRequest = async (endpoint, method = 'GET', body = null, token = null) =
 
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-        // Handle cases where the response might not have a JSON body (e.g., 204 No Content)
         const text = await response.text();
         const data = text ? JSON.parse(text) : {};
 
         if (!response.ok) {
-            // Use the parsed message if available, otherwise construct an error message
-            throw new Error(data.message || `Error: ${response.status} ${response.statusText}`);
+            const error = new Error(data.message || `Error: ${response.status} ${response.statusText}`);
+            error.response = { status: response.status, data: data };
+            throw error;
         }
-
+        
+        console.log(`[API Response] <== ${response.status} ${method} ${endpoint}`);
         return data;
+
     } catch (error) {
-        console.error(`API request failed: ${method} ${endpoint}`, error);
+        console.error(`[API Error] <== ${method} ${endpoint}`, {
+            message: error.message,
+            status: error.response?.status,
+            body: error.response?.data
+        });
         throw error;
     }
 };
 
-// --- AUTHENTICATION ---
 export const loginUser = (credentials) => apiRequest('/auth/login', 'POST', credentials);
 export const registerUser = (userData) => apiRequest('/auth/register', 'POST', userData);
 export const verifyEmail = (token) => apiRequest('/auth/verify-email', 'POST', { token });
@@ -45,15 +48,11 @@ export const resendVerificationEmail = (email) => apiRequest('/auth/resend-verif
 export const forgotPassword = (email) => apiRequest('/auth/forgot-password', 'POST', { email });
 export const resetPassword = (token, password) => apiRequest('/auth/reset-password', 'POST', { token, password });
 
-
-// --- USER & DASHBOARD ---
 export const getDashboardData = (token) => apiRequest('/user-data', 'GET', null, token);
 export const verifyRobloxAccount = (robloxUsername, token) => apiRequest('/roblox/verify', 'POST', { robloxUsername }, token);
 export const getInbox = (token) => apiRequest('/inbox', 'GET', null, token);
 export const getTransactionHistory = (token) => apiRequest('/history', 'GET', null, token);
 
-
-// --- DUELS & DISPUTES ---
 export const getDuelHistory = (token) => apiRequest('/duels/history', 'GET', null, token);
 export const getDetailedDuelHistory = (token) => apiRequest('/duel-history', 'GET', null, token);
 export const findPlayer = (robloxUsername, token) => apiRequest(`/duels/find-player?roblox_username=${encodeURIComponent(robloxUsername)}`, 'GET', null, token);
@@ -68,18 +67,12 @@ export const confirmDuelResult = (duelId, token) => apiRequest(`/duels/${duelId}
 export const fileDispute = (duelId, disputeData, token) => apiRequest(`/duels/${duelId}/dispute`, 'POST', disputeData, token);
 export const continueDisputeToDiscord = (disputeId, token) => apiRequest(`/duels/disputes/${disputeId}/continue-to-discord`, 'POST', null, token);
 
-
-// --- TICKETS ---
 export const createSupportTicket = (ticketData, token) => apiRequest('/tickets', 'POST', ticketData, token);
 
-
-// --- STATIC DATA ---
 export const getGameData = (token) => apiRequest('/gamedata', 'GET', null, token);
 
-// --- SYSTEM STATUS ---
 export const getBotStatus = (token) => apiRequest('/status', 'GET', null, token);
 
-// --- PAYMENTS & PAYOUTS ---
 export const createCheckoutSession = (amount, token) => apiRequest('/payments/create-checkout-session', 'POST', { amount }, token);
 export const getCryptoDepositAddress = (token) => apiRequest('/payments/crypto-address', 'GET', null, token);
 export const getCryptoQuote = (amount, tokenType, token) => apiRequest('/payments/crypto-quote', 'POST', { amount, tokenType }, token);
@@ -87,8 +80,6 @@ export const requestCryptoWithdrawal = (gemAmount, recipientAddress, tokenType, 
 export const cancelWithdrawalRequest = (requestId, token) => apiRequest(`/payouts/cancel-request/${requestId}`, 'POST', null, token);
 export const updateWithdrawalDetails = (requestId, details, token) => apiRequest(`/payouts/update-request/${requestId}`, 'PUT', details, token);
 
-
-// --- SETTINGS ---
 export const updatePassword = (passwordData, token) => apiRequest('/user/password', 'PUT', passwordData, token);
 export const unlinkRoblox = (token) => apiRequest('/user/unlink/roblox', 'POST', null, token);
 export const unlinkDiscord = (token) => apiRequest('/user/unlink/discord', 'POST', null, token);
@@ -96,15 +87,12 @@ export const deleteAccount = (password, token) => apiRequest('/user/delete/accou
 export const updateDiscordNotificationPreference = (enabled, token) => apiRequest('/user/notification-preference', 'PUT', { enabled }, token);
 export const updateChallengePreference = (enabled, token) => apiRequest('/user/challenge-preference', 'PUT', { enabled }, token);
 
-// --- TOURNAMENTS ---
 export const getTournaments = (token) => apiRequest('/tournaments', 'GET', null, token);
 export const getTournamentDetails = (id, token) => apiRequest(`/tournaments/${id}`, 'GET', null, token);
 export const registerForTournament = (id, token) => apiRequest(`/tournaments/${id}/register`, 'POST', null, token);
 
-// --- DISCORD LINKING ---
 export const respondToDiscordLink = (messageId, response, token) => apiRequest('/discord/respond-link', 'POST', { messageId, response }, token);
 
-// --- ADMIN ---
 export const getAdminStats = (token) => apiRequest('/admin/stats', 'GET', null, token);
 export const getAdminLogs = (token) => apiRequest('/admin/logs', 'GET', null, token);
 export const getAdminUsers = (searchQuery, token, status) => {
