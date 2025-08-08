@@ -7,7 +7,6 @@ const VerificationNoticePage = () => {
     const [message, setMessage] = useState({ text: '', type: '' });
     const [isLoading, setIsLoading] = useState(false);
     
-    // Attempt to get the email from the state passed by the login page
     const email = location.state?.email || '';
 
     const handleResend = async () => {
@@ -32,7 +31,7 @@ const VerificationNoticePage = () => {
             <div className="w-full max-w-lg p-8 space-y-6 bg-[var(--widget-bg)] rounded-xl shadow-lg border border-[var(--widget-border)] text-center">
                 <h1 className="text-3xl font-bold text-white">Check Your Email</h1>
                 <p className="text-gray-400">
-                    We've sent a verification link to <strong>{email || 'your email address'}</strong>. Please click the link to activate your account.
+                    A verification link has been sent to <strong>{email || 'your email address'}</strong>. Please click the link to activate your account before logging in.
                 </p>
                 
                 {message.text && <div className={`p-3 rounded-lg ${message.type === 'success' ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>{message.text}</div>}
@@ -41,8 +40,8 @@ const VerificationNoticePage = () => {
                     <p className="text-sm text-gray-500">Didn't receive the email? Check your spam folder or click below to resend.</p>
                     <button 
                         onClick={handleResend} 
-                        disabled={isLoading}
-                        className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center"
+                        disabled={isLoading || !email}
+                        className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                     >
                         {isLoading ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : 'Resend Verification Link'}
                     </button>
