@@ -2,6 +2,7 @@
 const express = require('express');
 const db = require('../database/database');
 const { authenticateToken } = require('../middleware/auth');
+const GAME_DATA = require('../game-data-store'); // Import the static game data
 
 const router = express.Router();
 
@@ -15,31 +16,34 @@ router.get('/', authenticateToken, async (req, res) => {
         // 1. Fetch pending, accepted, and started duels
         const duelsSql = `
             SELECT 
-                d.id, d.wager, d.status, d.challenger_id, d.server_invite_link,
+                d.id, d.wager, d.status, d.challenger_id, d.server_invite_link, d.map, d.created_at,
                 c.linked_roblox_username as challenger_username,
-                o.linked_roblox_username as opponent_username,
-                gm.name as map_name
+                o.linked_roblox_username as opponent_username
             FROM duels d
             JOIN users c ON d.challenger_id = c.id
             JOIN users o ON d.opponent_id = o.id
-            LEFT JOIN gamedata_maps gm ON d.map = gm.id
             WHERE 
                 (d.challenger_id = $1 OR d.opponent_id = $1) AND
                 d.status IN ('pending', 'accepted', 'started', 'under_review')
         `;
         const { rows: duels } = await client.query(duelsSql, [userId]);
-        duels.forEach(duel => {
-            notifications.push({
+        
+        // Process duels to add the map_name from GAME_DATA
+        const duelNotifications = duels.map(duel => {
+            const mapInfo = GAME_DATA.maps.find(m => m.id === duel.map);
+            return {
                 id: `duel-${duel.id}`,
                 type: 'duel',
                 timestamp: duel.created_at,
                 data: {
                     ...duel,
+                    map_name: mapInfo ? mapInfo.name : duel.map, // Get map name from the store
                     type: duel.challenger_id.toString() === userId ? 'outgoing' : 'incoming',
                     userId: userId
                 }
-            });
+            };
         });
+        notifications.push(...duelNotifications);
 
         // 2. Fetch pending and approved withdrawal requests
         const withdrawalsSql = `
