@@ -15,7 +15,7 @@ const ResetPasswordPage = () => {
     useEffect(() => {
         const urlToken = searchParams.get('token');
         if (!urlToken) {
-            setMessage({ text: 'No reset token provided. Please request a new link.', type: 'error' });
+            setMessage({ text: 'No reset token provided. The link may be invalid or expired.', type: 'error' });
         }
         setToken(urlToken);
     }, [searchParams]);
@@ -27,6 +27,10 @@ const ResetPasswordPage = () => {
         if (password !== confirmPassword) {
             setMessage({ text: 'Passwords do not match.', type: 'error' });
             return;
+        }
+        if (!token) {
+             setMessage({ text: 'Cannot reset password without a valid token.', type: 'error' });
+             return;
         }
 
         setIsLoading(true);
@@ -52,25 +56,21 @@ const ResetPasswordPage = () => {
                 {!isSuccess ? (
                     <form onSubmit={handleSubmit} className="space-y-6 text-left">
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">New Password</label>
-                            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] outline-none transition text-white" placeholder="••••••••" />
+                            <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">New Password</label>
+                            <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required className="form-input" placeholder="••••••••" />
                             <p className="text-xs text-gray-500 mt-1">Must be 8+ characters with a number and special character.</p>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">Confirm New Password</label>
-                            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] outline-none transition text-white" placeholder="••••••••" />
+                            <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-300 mb-1">Confirm New Password</label>
+                            <input id="confirm-password" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="form-input" placeholder="••••••••" />
                         </div>
-                        <button type="submit" disabled={isLoading || !token} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 disabled:bg-green-400 disabled:cursor-not-allowed flex items-center justify-center">
+                        <button type="submit" disabled={isLoading || !token} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
                             {isLoading ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : 'Update Password'}
                         </button>
                     </form>
                 ) : (
                     <p className="text-gray-300">Redirecting to the sign-in page...</p>
                 )}
-
-                <p className="mt-8 text-sm text-gray-400">
-                    <Link to="/signin" className="font-medium text-[var(--accent-color)] hover:underline">Back to Sign In</Link>
-                </p>
             </div>
         </div>
     );
