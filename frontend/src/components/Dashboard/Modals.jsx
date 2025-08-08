@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as api from '../../services/api';
 
-// --- Base Modal Component ---
 const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
 
 const Modal = ({ children, isOpen, onClose, title }) => {
@@ -19,8 +18,6 @@ const Modal = ({ children, isOpen, onClose, title }) => {
     );
 };
 
-
-// --- Post Duel Result & Dispute Modal ---
 export const PostDuelModal = ({ isOpen, result, currentUser, onConfirm, onDispute }) => {
     const [view, setView] = useState('result');
     const [reason, setReason] = useState('');
@@ -147,7 +144,7 @@ export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameDat
                 <div className="form-group">
                     <label>Select a Region</label>
                     <div className="flex items-center gap-2">
-                        {(gameData.regions || []).map(region => (
+                        {(gameData?.regions || []).map(region => (
                             <button 
                                 key={region.id} 
                                 type="button" 
@@ -163,7 +160,7 @@ export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameDat
                 <div className="form-group">
                     <label>Select a Map</label>
                     <div id="map-selector" className="max-h-36 overflow-y-auto">
-                        {gameData.maps.map(map => (
+                        {(gameData?.maps || []).map(map => (
                             <button key={map.id} type="button" onClick={() => setSelectedMap(map.id)} className={`map-card ${selectedMap === map.id ? 'selected' : ''}`}>
                                 <span className="map-name">{map.name}</span>
                             </button>
@@ -174,7 +171,7 @@ export const ChallengeModal = ({ isOpen, onClose, opponent, currentUser, gameDat
                 <div className="form-group">
                     <label>Ban Weapons (Optional)</label>
                     <div id="weapon-ban-selector" className="max-h-48 overflow-y-auto">
-                        {gameData.weapons.map(weapon => (
+                        {(gameData?.weapons || []).map(weapon => (
                             <div key={weapon.id} className="weapon-toggle">
                                 <label>
                                     <input type="checkbox" value={weapon.id} onChange={() => handleWeaponToggle(weapon.id)} checked={bannedWeapons.includes(weapon.id)} />
