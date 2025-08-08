@@ -21,10 +21,13 @@ const apiRequest = async (endpoint, method = 'GET', body = null, token = null) =
 
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-        const data = await response.json();
+        // Handle cases where the response might not have a JSON body (e.g., 204 No Content)
+        const text = await response.text();
+        const data = text ? JSON.parse(text) : {};
 
         if (!response.ok) {
-            throw new Error(data.message || `Error: ${response.status}`);
+            // Use the parsed message if available, otherwise construct an error message
+            throw new Error(data.message || `Error: ${response.status} ${response.statusText}`);
         }
 
         return data;
@@ -37,6 +40,11 @@ const apiRequest = async (endpoint, method = 'GET', body = null, token = null) =
 // --- AUTHENTICATION ---
 export const loginUser = (credentials) => apiRequest('/auth/login', 'POST', credentials);
 export const registerUser = (userData) => apiRequest('/auth/register', 'POST', userData);
+export const verifyEmail = (token) => apiRequest('/auth/verify-email', 'POST', { token });
+export const resendVerificationEmail = (email) => apiRequest('/auth/resend-verification', 'POST', { email });
+export const forgotPassword = (email) => apiRequest('/auth/forgot-password', 'POST', { email });
+export const resetPassword = (token, password) => apiRequest('/auth/reset-password', 'POST', { token, password });
+
 
 // --- USER & DASHBOARD ---
 export const getDashboardData = (token) => apiRequest('/user-data', 'GET', null, token);
@@ -58,6 +66,7 @@ export const forfeitDuel = (duelId, token) => apiRequest(`/duels/${duelId}/forfe
 export const getUnseenResults = (token) => apiRequest('/duels/unseen-results', 'GET', null, token);
 export const confirmDuelResult = (duelId, token) => apiRequest(`/duels/${duelId}/confirm-result`, 'POST', null, token);
 export const fileDispute = (duelId, disputeData, token) => apiRequest(`/duels/${duelId}/dispute`, 'POST', disputeData, token);
+export const continueDisputeToDiscord = (disputeId, token) => apiRequest(`/duels/disputes/${disputeId}/continue-to-discord`, 'POST', null, token);
 
 
 // --- STATIC DATA ---
@@ -107,6 +116,7 @@ export const deleteUserAccount = (userId, token) => apiRequest(`/admin/users/${u
 export const getAdminServers = (token) => apiRequest('/admin/servers', 'GET', null, token);
 export const getPendingDisputes = (token) => apiRequest('/admin/disputes', 'GET', null, token);
 export const resolveDispute = (disputeId, resolutionType, token) => apiRequest(`/admin/disputes/${disputeId}/resolve`, 'POST', { resolutionType }, token);
+export const forwardDisputeToDiscord = (disputeId, token) => apiRequest(`/admin/disputes/${disputeId}/forward-to-discord`, 'POST', null, token);
 export const getAdminPayoutRequests = (token) => apiRequest('/admin/payout-requests', 'GET', null, token);
 export const getAdminUserDetailsForPayout = (userId, payoutId, token) => apiRequest(`/admin/users/${userId}/details-for-payout/${payoutId}`, 'GET', null, token);
 export const approvePayoutRequest = (requestId, token) => apiRequest(`/admin/payout-requests/${requestId}/approve`, 'POST', null, token);
