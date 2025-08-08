@@ -9,7 +9,6 @@ if (!DISCORD_BOT_TOKEN || !DISCORD_CLIENT_ID || !DISCORD_GUILD_ID) {
     process.exit(1);
 }
 
-// [MODIFIED] Added the new /challenge command with a user option.
 const commands = [
     {
         name: 'link',
@@ -25,12 +24,15 @@ const commands = [
         options: [
             {
                 name: 'opponent',
-                // This specifies the option must be a user.
                 type: ApplicationCommandOptionType.User,
                 description: 'The user you want to challenge',
                 required: true,
             },
         ],
+    },
+    {
+        name: 'ticket',
+        description: 'Create a new support ticket or appeal.',
     },
 ];
 
@@ -39,7 +41,7 @@ const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
 (async () => {
     try {
         console.log(`Started refreshing ${commands.length} application (/) commands for the specified guild.`);
-        console.log("This process will overwrite all existing commands in this guild with the set defined in this script, effectively clearing any old ones.");
+        console.log("This process will overwrite all existing commands in this guild with the set defined in this script.");
 
         const data = await rest.put(
             Routes.applicationGuildCommands(DISCORD_CLIENT_ID, DISCORD_GUILD_ID),
