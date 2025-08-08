@@ -248,7 +248,7 @@ export const TranscriptModal = ({ isOpen, onClose, transcript }) => {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Duel Transcript">
             <div className="space-y-2 font-mono text-sm max-h-[60vh] overflow-y-auto bg-black rounded-lg p-3 border border-gray-700">
-                {transcript.length > 0 ? transcript.map((event, index) => (
+                {transcript && transcript.length > 0 ? transcript.map((event, index) => (
                     <pre 
                         key={index} 
                         className="p-3 rounded-md bg-gray-900 border border-gray-800 whitespace-pre-wrap break-words text-xs text-white"
