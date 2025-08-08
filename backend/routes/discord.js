@@ -3,13 +3,92 @@ const express = require('express');
 const { body } = require('express-validator');
 const db = require('../database/database');
 const { authenticateToken, authenticateBot, handleValidationErrors } = require('../middleware/auth');
-const crypto = require('crypto');
 const GAME_DATA = require('../game-data-store');
 
 const router = express.Router();
 
-// --- ACCOUNT LINKING ---
+// --- NEW TICKET SYSTEM ENDPOINTS ---
 
+// POST /api/discord/check-user - Check user status and open tickets before showing modal
+router.post('/check-user',
+    authenticateBot,
+    [ body('discordId').isString().notEmpty().withMessage('Discord ID is required.') ],
+    handleValidationErrors,
+    async (req, res) => {
+        const { discordId } = req.body;
+        try {
+            const { rows: [user] } = await db.query('SELECT id, status FROM users WHERE discord_id = $1', [discordId]);
+            if (!user) {
+                return res.status(200).json({ user: null });
+            }
+
+            const { rows: openTickets } = await db.query(
+                "SELECT type FROM tickets WHERE user_id = $1 AND status IN ('open', 'in_progress', 'awaiting_user_reply')",
+                [user.id]
+            );
+
+            res.status(200).json({ user: { status: user.status, open_tickets: openTickets } });
+        } catch (error) {
+            console.error('Discord Check User Error:', error);
+            res.status(500).json({ message: 'An internal server error occurred.' });
+        }
+    }
+);
+
+// POST /api/discord/create-ticket - Create a ticket from a bot interaction
+router.post('/create-ticket',
+    authenticateBot,
+    [
+        body('discordId').isString().notEmpty(),
+        body('ticketType').isIn(['support', 'ban_appeal']),
+        body('subject').trim().notEmpty(),
+        body('description').trim().notEmpty(),
+    ],
+    handleValidationErrors,
+    async (req, res) => {
+        const { discordId, ticketType, subject, description } = req.body;
+        const client = await db.getPool().connect();
+        try {
+            await client.query('BEGIN');
+            const { rows: [user] } = await client.query("SELECT id, status FROM users WHERE discord_id = $1", [discordId]);
+            if (!user) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ message: 'No linked Blox Battles account found for this Discord user.' });
+            }
+
+            let finalTicketType = ticketType;
+            if (ticketType === 'ban_appeal') {
+                finalTicketType = user.status === 'banned' ? 'temp_ban_appeal' : 'perm_ban_appeal'; // This can be refined if you store ban types
+            }
+
+            const { rows: [newTicket] } = await client.query(
+                'INSERT INTO tickets (user_id, type, subject) VALUES ($1, $2, $3) RETURNING id',
+                [user.id, finalTicketType, subject]
+            );
+            
+            await client.query(
+                'INSERT INTO ticket_messages (ticket_id, author_id, message) VALUES ($1, $2, $3)',
+                [newTicket.id, user.id, description]
+            );
+
+            const taskPayload = { ticket_id: newTicket.id, user_discord_id: discordId, ticket_type: finalTicketType, subject };
+            await client.query("INSERT INTO tasks (task_type, payload) VALUES ('CREATE_TICKET_CHANNEL', $1)", [JSON.stringify(taskPayload)]);
+
+            await client.query('COMMIT');
+            res.status(201).json({ message: '✅ Your ticket has been created! A private channel will be opened for you shortly.' });
+
+        } catch (error) {
+            await client.query('ROLLBACK');
+            console.error('Discord Create Ticket Error:', error);
+            res.status(500).json({ message: 'An internal server error occurred.' });
+        } finally {
+            client.release();
+        }
+    }
+);
+
+
+// --- ACCOUNT LINKING ---
 router.post('/initiate-link',
     authenticateBot,
     [
@@ -116,8 +195,8 @@ router.post('/unlink',
     }
 );
 
-// --- DUEL CHALLENGE FLOW ---
 
+// --- DUEL CHALLENGE FLOW ---
 router.post('/duels/pre-check', authenticateBot,
     [
         body('challengerDiscordId').isString().notEmpty(),
