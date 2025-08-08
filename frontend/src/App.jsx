@@ -11,7 +11,7 @@ import LinkingView from './pages/LinkingView.jsx';
 import SignInPage from './pages/SignInPage.jsx';
 import SignUpPage from './pages/SignUpPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
-import VerificationNoticePage from './pages/VerificationNoticePage.jsx'; // Import the new page
+import VerificationNoticePage from './pages/VerificationNoticePage.jsx';
 
 // Lazily load pages
 const DepositPage = lazy(() => import('./pages/DepositPage.jsx'));
@@ -22,6 +22,9 @@ const DuelHistoryPage = lazy(() => import('./pages/DuelHistoryPage.jsx'));
 const TournamentsPage = lazy(() => import('./pages/TournamentsPage.jsx'));
 const AdminTournamentCreatePage = lazy(() => import('./pages/AdminTournamentCreatePage.jsx'));
 const TranscriptViewerPage = lazy(() => import('./pages/TranscriptViewerPage.jsx'));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage.jsx'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage.jsx'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage.jsx'));
 
 
 // --- UI COMPONENTS ---
@@ -44,7 +47,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     }
 
     // New verification check: Gate access to most of the site if email is not verified
-    if (!user.is_email_verified) {
+    if (user.password_hash && !user.is_email_verified) {
         // Allow access only to settings and the verification notice page itself
         const allowedPaths = ['/settings', '/verification-notice'];
         if (!allowedPaths.includes(window.location.pathname)) {
@@ -92,31 +95,39 @@ const App = () => {
 
     return (
         <div style={{backgroundColor: 'var(--bg-color)'}} className="text-gray-200 min-h-screen">
-            <Routes>
-                {/* --- Public Routes --- */}
-                <Route path="/signin" element={!user ? <SignInPage /> : <Navigate to="/dashboard" />} />
-                <Route path="/signup" element={!user ? <FeatureGuard featureName="user_registration"><SignUpPage /></FeatureGuard> : <Navigate to="/dashboard" />} />
-                <Route path="/transcripts/:duelId" element={<Suspense fallback={<Loader fullScreen />}><TranscriptViewerPage /></Suspense>} />
-                <Route path="/verification-notice" element={<VerificationNoticePage />} />
+             <ErrorBoundary>
+                <Suspense fallback={<Loader fullScreen />}>
+                    <Routes>
+                        {/* --- Public Routes --- */}
+                        <Route path="/signin" element={!user ? <SignInPage /> : <Navigate to="/dashboard" />} />
+                        <Route path="/signup" element={!user ? <FeatureGuard featureName="user_registration"><SignUpPage /></FeatureGuard> : <Navigate to="/dashboard" />} />
+                        <Route path="/transcripts/:duelId" element={<TranscriptViewerPage />} />
+                        <Route path="/verification-notice" element={<VerificationNoticePage />} />
+                        <Route path="/verify-email" element={<VerifyEmailPage />} />
+                        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                        <Route path="/reset-password" element={<ResetPasswordPage />} />
+                        
 
-                {/* --- Protected Routes --- */}
-                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                <Route path="/link-account" element={<ProtectedRoute><FeatureGuard featureName="roblox_linking"><LinkingView /></FeatureGuard></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-                
-                <Route path="/deposit" element={<ProtectedRoute><FeatureGuard featureName="deposits"><Suspense fallback={<Loader fullScreen />}><DepositPage /></Suspense></FeatureGuard></ProtectedRoute>} />
-                <Route path="/withdraw" element={<ProtectedRoute><FeatureGuard featureName="withdrawals"><Suspense fallback={<Loader fullScreen />}><WithdrawPage /></Suspense></FeatureGuard></ProtectedRoute>} />
-                <Route path="/history" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><TransactionHistoryPage /></Suspense></ProtectedRoute>} />
-                <Route path="/duel-history" element={<ProtectedRoute><Suspense fallback={<Loader fullScreen />}><DuelHistoryPage /></Suspense></ProtectedRoute>} />
-                <Route path="/tournaments" element={<ProtectedRoute><FeatureGuard featureName="tournaments"><Suspense fallback={<Loader fullScreen />}><TournamentsPage /></Suspense></FeatureGuard></ProtectedRoute>} />
-                
-                {/* --- Admin Routes --- */}
-                <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
-                <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><FeatureGuard featureName="tournaments"><Suspense fallback={<Loader fullScreen />}><AdminTournamentCreatePage /></Suspense></FeatureGuard></ProtectedRoute>} />
+                        {/* --- Protected Routes --- */}
+                        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                        <Route path="/link-account" element={<ProtectedRoute><FeatureGuard featureName="roblox_linking"><LinkingView /></FeatureGuard></ProtectedRoute>} />
+                        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+                        
+                        <Route path="/deposit" element={<ProtectedRoute><FeatureGuard featureName="deposits"><DepositPage /></FeatureGuard></ProtectedRoute>} />
+                        <Route path="/withdraw" element={<ProtectedRoute><FeatureGuard featureName="withdrawals"><WithdrawPage /></FeatureGuard></ProtectedRoute>} />
+                        <Route path="/history" element={<ProtectedRoute><TransactionHistoryPage /></ProtectedRoute>} />
+                        <Route path="/duel-history" element={<ProtectedRoute><DuelHistoryPage /></ProtectedRoute>} />
+                        <Route path="/tournaments" element={<ProtectedRoute><FeatureGuard featureName="tournaments"><TournamentsPage /></FeatureGuard></ProtectedRoute>} />
+                        
+                        {/* --- Admin Routes --- */}
+                        <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
+                        <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><FeatureGuard featureName="tournaments"><AdminTournamentCreatePage /></FeatureGuard></ProtectedRoute>} />
 
-                {/* --- Default Route --- */}
-                <Route path="*" element={<Navigate to={user ? "/dashboard" : "/signin"} />} />
-            </Routes>
+                        {/* --- Default Route --- */}
+                        <Route path="*" element={<Navigate to={user ? "/dashboard" : "/signin"} />} />
+                    </Routes>
+                </Suspense>
+             </ErrorBoundary>
         </div>
     );
 };
