@@ -10,7 +10,7 @@ const logRoutes = require('./logs.js');
 const statusRoutes = require('./status.js');
 const paymentsRoutes = require('./payments.js');
 const payoutRoutes = require('./payouts.js');
-// The line for inboxRoutes was here and has been removed
+const inboxRoutes = require('./inbox.js'); // Add the import back
 const historyRoutes = require('./history.js');
 const duelHistoryRoutes = require('./duelHistory.js');
 const tournamentRoutes = require('./tournaments.js');
@@ -30,7 +30,7 @@ router.use('/tasks', taskRoutes);
 router.use('/status', statusRoutes);
 router.use('/payments', paymentsRoutes);
 router.use('/payouts', payoutRoutes);
-// The line for router.use('/inbox', inboxRoutes) was here and has been removed
+router.use('/inbox', inboxRoutes); // Add the route back
 router.use('/history', historyRoutes);
 router.use('/duel-history', duelHistoryRoutes);
 router.use('/tournaments', tournamentRoutes);
