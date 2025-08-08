@@ -16,6 +16,7 @@ const duelHistoryRoutes = require('./duelHistory.js');
 const tournamentRoutes = require('./tournaments.js');
 const transcriptRoutes = require('./transcripts.js');
 const discordRoutes = require('./discord.js');
+const ticketRoutes = require('./tickets.js'); // Import the new ticket routes
 
 const router = express.Router();
 
@@ -35,7 +36,7 @@ router.use('/duel-history', duelHistoryRoutes);
 router.use('/tournaments', tournamentRoutes);
 router.use('/transcripts', transcriptRoutes);
 router.use('/discord', discordRoutes);
-
+router.use('/tickets', ticketRoutes); // Use the new ticket routes
 
 // The most general route ('/') should come LAST
 router.use('/', userRoutes);
