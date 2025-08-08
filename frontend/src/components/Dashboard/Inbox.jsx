@@ -239,7 +239,7 @@ const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeit
         <div className="widget">
             <h2 className="widget-title">Inbox</h2>
             <div className="space-y-3">
-                {notifications.length > 0 ? (
+                {notifications && notifications.length > 0 ? (
                     notifications.map(renderNotification)
                 ) : (
                     <p className="text-gray-500 text-center py-4">Your inbox is empty.</p>
