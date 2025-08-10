@@ -1,6 +1,7 @@
-const { Events, InteractionType, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField } = require('discord.js');
+const { Events, InteractionType, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, EmbedBuilder } = require('discord.js');
 const { apiClient } = require('../utils/apiClient');
-const { SUPPORT_STAFF_ROLE_ID } = process.env;
+const { SUPPORT_STAFF_ROLE_ID, FRONTEND_URL } = process.env;
+const { generateTranscript } = require('../utils/transcriptGenerator');
 
 module.exports = {
     name: Events.InteractionCreate,
@@ -114,7 +115,7 @@ module.exports = {
                     return interaction.reply({ content: 'You do not have permission to perform this action.', ephemeral: true });
                 }
 
-                await interaction.deferReply();
+                await interaction.deferReply({ content: 'Archiving ticket, please wait...' });
 
                 try {
                     if (interaction.customId === 'ticket_close_init') {
@@ -131,23 +132,33 @@ module.exports = {
                     }
                     const ticketId = ticketIdMatch[1];
                     
+                    const transcriptContent = await generateTranscript(interaction.channel);
+                    await apiClient.post(`/tickets/${ticketId}/transcript`, { content: transcriptContent });
+
+                    const { data: ticketDetails } = await apiClient.get(`/tickets/${ticketId}/details`);
+                    const ticketCreator = await interaction.client.users.fetch(ticketDetails.discord_id);
+
+                    if (ticketCreator) {
+                        const dmEmbed = new EmbedBuilder()
+                            .setColor(0x58a6ff)
+                            .setTitle('Ticket Closed')
+                            .setDescription(`Your ticket (#${ticketId}) has been closed by a staff member.`)
+                            .addFields({ name: 'View Transcript', value: `You can view a full transcript of the conversation [here](${FRONTEND_URL}/transcripts/ticket/${ticketId}).` })
+                            .setTimestamp();
+                        await ticketCreator.send({ embeds: [dmEmbed] }).catch(err => console.warn(`Could not DM user ${ticketCreator.id}:`, err));
+                    }
+                    
                     await apiClient.post('/discord/update-ticket-status', {
                         ticketId: ticketId,
-                        status: 'resolved',
+                        status: 'closed',
                         adminDiscordId: interaction.user.id
                     });
 
-                    await interaction.channel.permissionOverwrites.edit(interaction.guild.roles.everyone, {
-                        SendMessages: false,
-                        ViewChannel: true,
-                    });
-
-                    await interaction.editReply({ content: `✅ Ticket has been marked as resolved and closed by ${interaction.user}.` });
-                    
-                    await interaction.message.edit({ components: [] });
+                    await interaction.channel.delete(`Ticket closed by ${interaction.user.tag}`);
 
                 } catch (error) {
                     const errorMessage = error.response?.data?.message || 'An error occurred while closing the ticket.';
+                    console.error("Ticket close error:", error);
                     await interaction.editReply({ content: `❌ ${errorMessage}` });
                 }
             }
