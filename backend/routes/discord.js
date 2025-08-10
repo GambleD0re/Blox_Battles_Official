@@ -1,4 +1,3 @@
-// backend/routes/discord.js
 const express = require('express');
 const { body } = require('express-validator');
 const db = require('../database/database');
@@ -7,9 +6,6 @@ const GAME_DATA = require('../game-data-store');
 
 const router = express.Router();
 
-// --- NEW TICKET SYSTEM ENDPOINTS ---
-
-// POST /api/discord/check-user - Check user status and open tickets before showing modal
 router.post('/check-user',
     authenticateBot,
     [ body('discordId').isString().notEmpty().withMessage('Discord ID is required.') ],
@@ -17,7 +13,7 @@ router.post('/check-user',
     async (req, res) => {
         const { discordId } = req.body;
         try {
-            const { rows: [user] } = await db.query('SELECT id, status FROM users WHERE discord_id = $1', [discordId]);
+            const { rows: [user] } = await db.query('SELECT id, status FROM users WHERE trim(discord_id) = trim($1)', [discordId]);
             if (!user) {
                 return res.status(200).json({ user: null });
             }
@@ -35,7 +31,6 @@ router.post('/check-user',
     }
 );
 
-// POST /api/discord/create-ticket - Create a ticket from a bot interaction
 router.post('/create-ticket',
     authenticateBot,
     [
@@ -50,7 +45,7 @@ router.post('/create-ticket',
         const client = await db.getPool().connect();
         try {
             await client.query('BEGIN');
-            const { rows: [user] } = await client.query("SELECT id, status FROM users WHERE discord_id = $1", [discordId]);
+            const { rows: [user] } = await client.query("SELECT id, status FROM users WHERE trim(discord_id) = trim($1)", [discordId]);
             if (!user) {
                 await client.query('ROLLBACK');
                 return res.status(404).json({ message: 'No linked Blox Battles account found for this Discord user.' });
@@ -58,7 +53,7 @@ router.post('/create-ticket',
 
             let finalTicketType = ticketType;
             if (ticketType === 'ban_appeal') {
-                finalTicketType = user.status === 'banned' ? 'temp_ban_appeal' : 'perm_ban_appeal'; // This can be refined if you store ban types
+                finalTicketType = user.status === 'banned' ? 'temp_ban_appeal' : 'perm_ban_appeal';
             }
 
             const { rows: [newTicket] } = await client.query(
@@ -87,8 +82,6 @@ router.post('/create-ticket',
     }
 );
 
-
-// --- ACCOUNT LINKING ---
 router.post('/initiate-link',
     authenticateBot,
     [
@@ -112,7 +105,7 @@ router.post('/initiate-link',
                 await client.query('ROLLBACK');
                 return res.status(409).json({ message: 'This Blox Battles account is already linked to a Discord account.' });
             }
-            const { rows: [existingDiscordLink] } = await client.query("SELECT id FROM users WHERE discord_id = $1", [discordId]);
+            const { rows: [existingDiscordLink] } = await client.query("SELECT id FROM users WHERE trim(discord_id) = trim($1)", [discordId]);
             if (existingDiscordLink) {
                 await client.query('ROLLBACK');
                 return res.status(409).json({ message: 'This Discord account is already linked to another Blox Battles account.' });
@@ -153,7 +146,7 @@ router.post('/respond-link',
             if (response === 'confirm') {
                 const discordUsername = message.message;
                 const discordId = message.reference_id;
-                const { rows: [existingLink] } = await client.query("SELECT id FROM users WHERE discord_id = $1", [discordId]);
+                const { rows: [existingLink] } = await client.query("SELECT id FROM users WHERE trim(discord_id) = trim($1)", [discordId]);
                 if (existingLink) {
                     await client.query("DELETE FROM inbox_messages WHERE id = $1", [numericId]);
                     await client.query('COMMIT');
@@ -183,7 +176,7 @@ router.post('/unlink',
     async (req, res) => {
         const { discordId } = req.body;
         try {
-            const { rowCount } = await db.query("UPDATE users SET discord_id = NULL, discord_username = NULL WHERE discord_id = $1", [discordId]);
+            const { rowCount } = await db.query("UPDATE users SET discord_id = NULL, discord_username = NULL WHERE trim(discord_id) = trim($1)", [discordId]);
             if (rowCount === 0) {
                 return res.status(404).json({ message: "No Blox Battles account is linked to this Discord account." });
             }
@@ -195,8 +188,6 @@ router.post('/unlink',
     }
 );
 
-
-// --- DUEL CHALLENGE FLOW ---
 router.post('/duels/pre-check', authenticateBot,
     [
         body('challengerDiscordId').isString().notEmpty(),
@@ -206,11 +197,11 @@ router.post('/duels/pre-check', authenticateBot,
     async (req, res) => {
         const { challengerDiscordId, opponentDiscordId } = req.body;
         try {
-            const sql = 'SELECT id, linked_roblox_username, discord_id, gems, accepting_challenges FROM users WHERE discord_id = ANY($1::varchar[])';
+            const sql = 'SELECT id, linked_roblox_username, discord_id, gems, accepting_challenges FROM users WHERE trim(discord_id) = ANY(TRIM(unnest($1::varchar[])))';
             const { rows: users } = await db.query(sql, [[challengerDiscordId, opponentDiscordId]]);
 
-            const challenger = users.find(u => u.discord_id === challengerDiscordId);
-            const opponent = users.find(u => u.discord_id === opponentDiscordId);
+            const challenger = users.find(u => u.discord_id.trim() === challengerDiscordId.trim());
+            const opponent = users.find(u => u.discord_id.trim() === opponentDiscordId.trim());
 
             if (!challenger) return res.status(400).json({ message: "You must link your Discord account before challenging others. Use `/link`." });
             if (!opponent) return res.status(400).json({ message: "Your opponent has not linked their Blox Battles account to Discord yet." });
@@ -244,11 +235,11 @@ router.post('/duels/create', authenticateBot,
         const client = await db.getPool().connect();
         try {
             await client.query('BEGIN');
-            const userSql = 'SELECT id, gems, discord_id, linked_roblox_username, discord_notifications_enabled FROM users WHERE discord_id = ANY($1::varchar[]) FOR UPDATE';
+            const userSql = 'SELECT id, gems, discord_id, linked_roblox_username, discord_notifications_enabled FROM users WHERE trim(discord_id) = ANY(TRIM(unnest($1::varchar[]))) FOR UPDATE';
             const { rows: users } = await client.query(userSql, [[challengerDiscordId, opponentDiscordId]]);
             
-            const challenger = users.find(u => u.discord_id === challengerDiscordId);
-            const opponent = users.find(u => u.discord_id === opponentDiscordId);
+            const challenger = users.find(u => u.discord_id.trim() === challengerDiscordId.trim());
+            const opponent = users.find(u => u.discord_id.trim() === opponentDiscordId.trim());
 
             if (!challenger || !opponent) {
                 await client.query('ROLLBACK');
@@ -301,7 +292,7 @@ router.post('/duels/respond', authenticateBot,
         try {
             await client.query('BEGIN');
 
-            const { rows: [user] } = await client.query("SELECT id, gems, status, linked_roblox_username FROM users WHERE discord_id = $1 FOR UPDATE", [discordId]);
+            const { rows: [user] } = await client.query("SELECT id, gems, status, linked_roblox_username FROM users WHERE trim(discord_id) = trim($1) FOR UPDATE", [discordId]);
             if (!user) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Responding user not found.' }); }
             
             const { rows: [duel] } = await client.query("SELECT * FROM duels WHERE id = $1 AND opponent_id = $2 AND status = 'pending' FOR UPDATE", [duelId, user.id]);
@@ -359,6 +350,5 @@ router.post('/duels/cancel', authenticateBot,
         }
     }
 );
-
 
 module.exports = router;
