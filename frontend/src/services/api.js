@@ -68,6 +68,8 @@ export const fileDispute = (duelId, disputeData, token) => apiRequest(`/duels/${
 export const continueDisputeToDiscord = (disputeId, token) => apiRequest(`/duels/disputes/${disputeId}/continue-to-discord`, 'POST', null, token);
 
 export const createSupportTicket = (ticketData, token) => apiRequest('/tickets', 'POST', ticketData, token);
+export const getTicketDetails = (ticketId, token) => apiRequest(`/tickets/${ticketId}/details`, 'GET', null, token);
+export const saveTicketTranscript = (ticketId, content, token) => apiRequest(`/tickets/${ticketId}/transcript`, 'POST', { content }, token);
 
 export const getGameData = (token) => apiRequest('/gamedata', 'GET', null, token);
 
