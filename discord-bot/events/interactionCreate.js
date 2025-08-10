@@ -1,5 +1,6 @@
-const { Events, InteractionType, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { Events, InteractionType, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField } = require('discord.js');
 const { apiClient } = require('../utils/apiClient');
+const { SUPPORT_STAFF_ROLE_ID } = process.env;
 
 module.exports = {
     name: Events.InteractionCreate,
@@ -105,6 +106,37 @@ module.exports = {
                     await interaction.editReply({
                         content: `❌ ${errorMessage}`
                     });
+                }
+            }
+        } else if (interaction.isButton()) {
+            if (interaction.customId.startsWith('ticket_close_')) {
+                if (!interaction.member.roles.cache.has(SUPPORT_STAFF_ROLE_ID)) {
+                    return interaction.reply({ content: 'You do not have permission to close this ticket.', ephemeral: true });
+                }
+
+                await interaction.deferReply();
+
+                try {
+                    const ticketId = interaction.customId.split('_')[2];
+                    
+                    await apiClient.post('/discord/update-ticket-status', {
+                        ticketId: ticketId,
+                        status: 'resolved',
+                        adminDiscordId: interaction.user.id
+                    });
+
+                    await interaction.channel.permissionOverwrites.edit(interaction.guild.roles.everyone, {
+                        SendMessages: false,
+                        ViewChannel: true,
+                    });
+
+                    await interaction.editReply({ content: `✅ Ticket has been marked as resolved and closed by ${interaction.user}.` });
+                    
+                    await interaction.message.edit({ components: [] });
+
+                } catch (error) {
+                    const errorMessage = error.response?.data?.message || 'An error occurred while closing the ticket.';
+                    await interaction.editReply({ content: `❌ ${errorMessage}` });
                 }
             }
         }
