@@ -1,4 +1,3 @@
-// discord-bot/utils/apiClient.js
 const axios = require('axios');
 const { BOT_API_KEY, BACKEND_API_URL } = process.env;
 
@@ -8,7 +7,7 @@ if (!BOT_API_KEY || !BACKEND_API_URL) {
 }
 
 const apiClient = axios.create({
-    baseURL: BACKEND_API_URL,
+    baseURL: `${BACKEND_API_URL}/api`,
     headers: {
         'Content-Type': 'application/json',
         'X-API-Key': BOT_API_KEY
