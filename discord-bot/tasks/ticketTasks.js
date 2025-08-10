@@ -66,7 +66,7 @@ async function handleCreateTicketChannel(client, task) {
         name: channelName,
         type: ChannelType.GuildText,
         parent: categoryChannel,
-        topic: `Ticket #${ticket_id} for ${user.user.tag}. Subject: ${subject}`,
+        topic: `Ticket ID: ${ticket_id} for ${user.user.tag}. Subject: ${subject}`,
         permissionOverwrites: permissionOverwrites,
     });
 
@@ -91,6 +91,8 @@ async function handleCreateTicketChannel(client, task) {
         embeds: [embed],
         components: [row]
     });
+
+    await apiClient.post(`/discord/update-ticket-channel`, { ticketId: ticket_id, channelId: channel.id });
     console.log(`[TICKETS] Successfully created channel ${channel.id} for ticket ${ticket_id}.`);
 }
 
