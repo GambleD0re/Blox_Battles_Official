@@ -1,4 +1,3 @@
-// discord-bot/events/interactionCreate.js
 const { Events, InteractionType, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { apiClient } = require('../utils/apiClient');
 
@@ -15,10 +14,11 @@ module.exports = {
                 await command.execute(interaction);
             } catch (error) {
                 console.error(`Error executing ${interaction.commandName}`, error);
+                const errorMessage = 'There was an error while executing this command!';
                 if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
+                    await interaction.followUp({ content: errorMessage, ephemeral: true });
                 } else {
-                    await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+                    await interaction.reply({ content: errorMessage, ephemeral: true });
                 }
             }
         } else if (interaction.isStringSelectMenu()) {
@@ -54,7 +54,6 @@ module.exports = {
                 
                 await interaction.showModal(modal);
             }
-            // Add other select menu handlers here if needed
         } else if (interaction.isModalSubmit()) {
             if (interaction.customId.startsWith('ticket_creation_modal_')) {
                 await interaction.deferReply({ ephemeral: true });
@@ -73,18 +72,32 @@ module.exports = {
                     });
                     await interaction.editReply({
                         content: response.data.message,
-                        ephemeral: true,
                     });
                 } catch (error) {
                     const errorMessage = error.response?.data?.message || 'Failed to create your ticket. Please try again later.';
                      await interaction.editReply({
                         content: `❌ **Error:** ${errorMessage}`,
-                        ephemeral: true,
+                    });
+                }
+            } else if (interaction.customId === 'link_account_modal') {
+                await interaction.deferReply({ ephemeral: true });
+                const robloxUsername = interaction.fields.getTextInputValue('roblox_username_input');
+                try {
+                    const response = await apiClient.post('/discord/initiate-link', {
+                        robloxUsername: robloxUsername,
+                        discordId: interaction.user.id,
+                        discordUsername: interaction.user.username,
+                    });
+                    await interaction.editReply({
+                        content: `✅ ${response.data.message} Please check your inbox on the Blox Battles website to confirm the link.`
+                    });
+                } catch (error) {
+                    const errorMessage = error.response?.data?.message || 'An error occurred while trying to link your account.';
+                    await interaction.editReply({
+                        content: `❌ ${errorMessage}`
                     });
                 }
             }
-            // Add other modal submit handlers here if needed
         }
-        // Add button interaction handlers here if needed
     },
 };
