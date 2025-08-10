@@ -117,7 +117,13 @@ module.exports = {
                 await interaction.deferReply();
 
                 try {
-                    const ticketId = interaction.customId.split('_')[2];
+                    const topic = interaction.channel.topic;
+                    const ticketIdMatch = topic.match(/Ticket ID: ([a-fA-F0-9-]+)/);
+
+                    if (!ticketIdMatch || !ticketIdMatch[1]) {
+                        throw new Error("Could not find a valid Ticket ID in the channel topic.");
+                    }
+                    const ticketId = ticketIdMatch[1];
                     
                     await apiClient.post('/discord/update-ticket-status', {
                         ticketId: ticketId,
