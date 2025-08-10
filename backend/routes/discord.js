@@ -6,6 +6,49 @@ const GAME_DATA = require('../game-data-store');
 
 const router = express.Router();
 
+router.post('/update-ticket-status',
+    authenticateBot,
+    [
+        body('ticketId').isUUID().withMessage('A valid ticket ID is required.'),
+        body('status').isIn(['resolved', 'closed']).withMessage('Invalid status provided.'),
+        body('adminDiscordId').isString().notEmpty().withMessage('Admin Discord ID is required.'),
+    ],
+    handleValidationErrors,
+    async (req, res) => {
+        const { ticketId, status, adminDiscordId } = req.body;
+        const client = await db.getPool().connect();
+        try {
+            await client.query('BEGIN');
+
+            const { rows: [adminUser] } = await client.query('SELECT id FROM users WHERE discord_id = $1 AND is_admin = TRUE', [adminDiscordId]);
+            if (!adminUser) {
+                await client.query('ROLLBACK');
+                return res.status(403).json({ message: 'Action requires admin privileges.' });
+            }
+
+            const { rowCount } = await client.query(
+                "UPDATE tickets SET status = $1, resolved_by_admin_id = $2, resolved_at = NOW(), updated_at = NOW() WHERE id = $3",
+                [status, adminUser.id, ticketId]
+            );
+
+            if (rowCount === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ message: 'Ticket not found or already has this status.' });
+            }
+
+            await client.query('COMMIT');
+            res.status(200).json({ message: `Ticket ${ticketId} status updated to ${status}.` });
+
+        } catch (error) {
+            await client.query('ROLLBACK');
+            console.error('Update Ticket Status Error:', error);
+            res.status(500).json({ message: 'An internal server error occurred.' });
+        } finally {
+            client.release();
+        }
+    }
+);
+
 router.post('/check-user',
     authenticateBot,
     [ body('discordId').isString().notEmpty().withMessage('Discord ID is required.') ],
