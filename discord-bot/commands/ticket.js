@@ -26,23 +26,26 @@ module.exports = {
                 });
             }
 
-            const banAppealOption = new StringSelectMenuOptionBuilder()
-                .setLabel('Ban Appeal')
-                .setDescription('Appeal a temporary or permanent ban.')
-                .setValue('ban_appeal');
-            
-            banAppealOption.setDisabled(!isBanned);
+            const selectMenuOptions = [
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Support Request')
+                    .setDescription('For billing, technical issues, or other questions.')
+                    .setValue('support')
+            ];
+
+            if (isBanned) {
+                selectMenuOptions.unshift(
+                    new StringSelectMenuOptionBuilder()
+                        .setLabel('Ban Appeal')
+                        .setDescription('Appeal a temporary or permanent ban.')
+                        .setValue('ban_appeal')
+                );
+            }
 
             const ticketTypeSelect = new StringSelectMenuBuilder()
                 .setCustomId('ticket_type_select')
                 .setPlaceholder('Select the reason for your ticket')
-                .addOptions(
-                    banAppealOption,
-                    new StringSelectMenuOptionBuilder()
-                        .setLabel('Support Request')
-                        .setDescription('For billing, technical issues, or other questions.')
-                        .setValue('support')
-                );
+                .addOptions(selectMenuOptions);
 
             const firstActionRow = new ActionRowBuilder().addComponents(ticketTypeSelect);
 
