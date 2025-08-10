@@ -1,7 +1,7 @@
 -- This script defines the PostgreSQL-compatible structure of the database.
 
 -- Drop tables if they exist to ensure a clean slate. The CASCADE keyword will also drop dependent objects.
-DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status, tickets, ticket_messages CASCADE;
+DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status, tickets, ticket_messages, ticket_transcripts CASCADE;
 
 -- Table to manage the on/off status of site features.
 CREATE TABLE system_status (
@@ -170,6 +170,13 @@ CREATE TABLE ticket_messages (
     ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- Can be the user or an admin
     message TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE ticket_transcripts (
+    id SERIAL PRIMARY KEY,
+    ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    transcript_content TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
