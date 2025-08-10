@@ -6,6 +6,25 @@ const GAME_DATA = require('../game-data-store');
 
 const router = express.Router();
 
+router.post('/update-ticket-channel',
+    authenticateBot,
+    [
+        body('ticketId').isUUID().withMessage('A valid ticket ID is required.'),
+        body('channelId').isString().notEmpty().withMessage('Channel ID is required.'),
+    ],
+    handleValidationErrors,
+    async (req, res) => {
+        const { ticketId, channelId } = req.body;
+        try {
+            await db.query("UPDATE tickets SET discord_channel_id = $1 WHERE id = $2", [channelId, ticketId]);
+            res.status(200).json({ message: 'Ticket channel ID updated.' });
+        } catch (error) {
+            console.error('Update Ticket Channel Error:', error);
+            res.status(500).json({ message: 'An internal server error occurred.' });
+        }
+    }
+);
+
 router.post('/update-ticket-status',
     authenticateBot,
     [
