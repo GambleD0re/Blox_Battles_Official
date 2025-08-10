@@ -1,12 +1,10 @@
-// backend/routes/tickets.js
 const express = require('express');
-const { body } = require('express-validator');
+const { body, param } = require('express-validator');
 const db = require('../database/database');
-const { authenticateToken, handleValidationErrors } = require('../middleware/auth');
+const { authenticateToken, handleValidationErrors, authenticateBot } = require('../middleware/auth');
 
 const router = express.Router();
 
-// POST /api/tickets - Create a new support ticket from the website
 router.post('/',
     authenticateToken,
     [
@@ -60,7 +58,6 @@ router.post('/',
     }
 );
 
-// GET /api/tickets - Get a user's ticket history
 router.get('/', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     try {
@@ -72,6 +69,40 @@ router.get('/', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error("Fetch User Tickets Error:", error);
         res.status(500).json({ message: 'Failed to fetch ticket history.' });
+    }
+});
+
+router.post('/:id/transcript', authenticateBot, param('id').isUUID(), body('content').isString().notEmpty(), handleValidationErrors, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { content } = req.body;
+        await db.query(
+            'INSERT INTO ticket_transcripts (ticket_id, transcript_content) VALUES ($1, $2)',
+            [id, content]
+        );
+        res.status(201).json({ message: 'Transcript saved successfully.' });
+    } catch (error) {
+        console.error("Save Transcript Error:", error);
+        res.status(500).json({ message: 'Failed to save transcript.' });
+    }
+});
+
+router.get('/:id/details', authenticateBot, param('id').isUUID(), handleValidationErrors, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const sql = `
+            SELECT t.id, t.user_id, u.discord_id 
+            FROM tickets t 
+            JOIN users u ON t.user_id = u.id 
+            WHERE t.id = $1`;
+        const { rows: [ticket] } = await db.query(sql, [id]);
+        if (!ticket) {
+            return res.status(404).json({ message: 'Ticket not found.' });
+        }
+        res.status(200).json(ticket);
+    } catch (error) {
+        console.error("Get Ticket Details Error:", error);
+        res.status(500).json({ message: 'Failed to fetch ticket details.' });
     }
 });
 
