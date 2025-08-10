@@ -1,4 +1,3 @@
-// discord-bot/tasks/ticketTasks.js
 const { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { apiClient } = require('../utils/apiClient');
 
@@ -17,9 +16,9 @@ const categoryMap = {
 };
 
 const typeColors = {
-    'support': '#5865F2', // Discord Blurple
-    'ban_appeal': '#ED4245', // Discord Red
-    'duel_dispute': '#FEE75C' // Discord Yellow
+    'support': '#5865F2',
+    'ban_appeal': '#ED4245',
+    'duel_dispute': '#FEE75C'
 };
 
 async function handleCreateTicketChannel(client, task) {
@@ -43,7 +42,7 @@ async function handleCreateTicketChannel(client, task) {
 
     const permissionOverwrites = [
         {
-            id: guild.id, // @everyone
+            id: guild.id,
             deny: [PermissionsBitField.Flags.ViewChannel],
         },
         {
@@ -84,11 +83,7 @@ async function handleCreateTicketChannel(client, task) {
             new ButtonBuilder()
                 .setCustomId(`ticket_close_${ticket_id}`)
                 .setLabel('Close Ticket')
-                .setStyle(ButtonStyle.Danger),
-            new ButtonBuilder()
-                .setCustomId(`ticket_claim_${ticket_id}`)
-                .setLabel('Claim Ticket')
-                .setStyle(ButtonStyle.Primary)
+                .setStyle(ButtonStyle.Danger)
         );
 
     await channel.send({
@@ -96,8 +91,6 @@ async function handleCreateTicketChannel(client, task) {
         embeds: [embed],
         components: [row]
     });
-
-    await apiClient.post(`/discord/update-ticket-channel`, { ticketId: ticket_id, channelId: channel.id });
     console.log(`[TICKETS] Successfully created channel ${channel.id} for ticket ${ticket_id}.`);
 }
 
