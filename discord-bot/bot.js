@@ -1,4 +1,3 @@
-// discord-bot/bot.js
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
@@ -15,7 +14,7 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent // Required to read messages in ticket channels
+        GatewayIntentBits.MessageContent
     ]
 });
 
