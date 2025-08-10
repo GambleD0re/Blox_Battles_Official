@@ -2,23 +2,18 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../services/api';
 
-// Import all the necessary user-facing components and modals
 import PlayerHeader from '../components/Dashboard/PlayerHeader';
 import ChallengePlayer from '../components/Dashboard/ChallengePlayer';
 import Inbox from '../components/Dashboard/Inbox';
-import DuelHistory from '../components/Dashboard/DuelHistory';
 import { ChallengeModal, DuelDetailsModal, ConfirmationModal, TranscriptModal, PostDuelModal } from '../components/Dashboard/Modals';
 
 const Dashboard = () => {
     const { user, token, refreshUser } = useAuth();
 
-    // State for data
     const [inboxNotifications, setInboxNotifications] = useState([]);
-    const [duelHistory, setDuelHistory] = useState([]);
     const [gameData, setGameData] = useState({ maps: [], weapons: [], regions: [] });
     const [unseenResults, setUnseenResults] = useState([]);
 
-    // State for UI and Modals
     const [isLoading, setIsLoading] = useState(true);
     const [message, setMessage] = useState({ text: '', type: '' });
     const [isChallengeModalOpen, setChallengeModalOpen] = useState(false);
@@ -28,29 +23,24 @@ const Dashboard = () => {
     const [isCancelModalOpen, setCancelModalOpen] = useState(false);
     const [isTranscriptModalOpen, setTranscriptModalOpen] = useState(false);
     
-    // State to hold data for modals
     const [selectedOpponent, setSelectedOpponent] = useState(null);
     const [selectedDuel, setSelectedDuel] = useState(null);
     const [selectedTranscript, setSelectedTranscript] = useState(null);
 
-    // Helper function to show temporary messages
     const showMessage = (text, type = 'success') => {
         setMessage({ text, type });
         setTimeout(() => setMessage({ text: '', type: '' }), 5000);
     };
 
-    // Main data fetching function
     const fetchDashboardData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [inboxData, historyData, gameData, unseenResultsData] = await Promise.all([
+            const [inboxData, gameData, unseenResultsData] = await Promise.all([
                 api.getInbox(token),
-                api.getDuelHistory(token),
                 api.getGameData(token),
                 api.getUnseenResults(token)
             ]);
             setInboxNotifications(inboxData);
-            setDuelHistory(historyData);
             setGameData(gameData);
             setUnseenResults(unseenResultsData);
         } catch (error) {
@@ -64,7 +54,6 @@ const Dashboard = () => {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
-    // --- Modal Open/Close Handlers ---
     const handleChallengePlayer = (opponent) => {
         setSelectedOpponent(opponent);
         setChallengeModalOpen(true);
@@ -76,7 +65,7 @@ const Dashboard = () => {
     };
 
     const handleViewActiveDuel = (duel) => {
-        setSelectedDuel({ data: duel }); // Standardize structure for details modal
+        setSelectedDuel({ data: duel });
         setActiveDetailsModalOpen(true);
     };
     
@@ -100,13 +89,12 @@ const Dashboard = () => {
         }
     };
 
-    // --- API Action Handlers ---
     const handleChallengeSubmit = async (challengeData) => {
         try {
             const result = await api.sendChallenge(challengeData, token);
             showMessage(result.message, 'success');
             setChallengeModalOpen(false);
-            fetchDashboardData(); // Refresh inbox
+            fetchDashboardData();
         } catch (error) {
             showMessage(error.message, 'error');
         }
@@ -117,7 +105,7 @@ const Dashboard = () => {
             const result = await api.respondToDuel({ duel_id: duelId, response }, token);
             showMessage(result.message, 'success');
             setDetailsModalOpen(false);
-            refreshUser(); // Refresh user gems
+            refreshUser();
             fetchDashboardData();
         } catch (error) {
             showMessage(error.message, 'error');
@@ -162,7 +150,7 @@ const Dashboard = () => {
             await api.confirmDuelResult(duelId, token);
             setUnseenResults(prev => prev.filter(r => r.id !== duelId));
             showMessage('Result confirmed!', 'success');
-            refreshUser(); // This will also refresh history eventually on next load
+            refreshUser();
         } catch (error) {
             showMessage(error.message, 'error');
         }
@@ -179,7 +167,6 @@ const Dashboard = () => {
         }
     };
 
-    // --- Render Logic ---
     if (isLoading) {
         return <div className="flex items-center justify-center min-h-screen">Loading Dashboard...</div>;
     }
@@ -196,6 +183,9 @@ const Dashboard = () => {
 
             <main className="dashboard-grid mt-8">
                 <div className="space-y-6">
+                    <ChallengePlayer token={token} onChallenge={handleChallengePlayer} />
+                </div>
+                <div className="space-y-6">
                     <Inbox 
                         notifications={inboxNotifications}
                         onViewDuel={handleViewDuel}
@@ -205,13 +195,8 @@ const Dashboard = () => {
                         onViewActiveDuelDetails={handleViewActiveDuel}
                     />
                 </div>
-                <div className="space-y-6">
-                    <ChallengePlayer token={token} onChallenge={handleChallengePlayer} />
-                    <DuelHistory history={duelHistory} onViewTranscript={handleViewTranscript} />
-                </div>
             </main>
 
-            {/* --- Modals --- */}
             <ChallengeModal 
                 isOpen={isChallengeModalOpen} 
                 onClose={() => setChallengeModalOpen(false)}
