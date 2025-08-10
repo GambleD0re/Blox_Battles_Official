@@ -1,4 +1,3 @@
-// backend/routes/index.js
 const express = require('express');
 const authRoutes = require('./auth.js');
 const userRoutes = require('./users.js');
@@ -10,7 +9,7 @@ const logRoutes = require('./logs.js');
 const statusRoutes = require('./status.js');
 const paymentsRoutes = require('./payments.js');
 const payoutRoutes = require('./payouts.js');
-const inboxRoutes = require('./inbox.js'); // Add the import back
+const inboxRoutes = require('./inbox.js');
 const historyRoutes = require('./history.js');
 const duelHistoryRoutes = require('./duelHistory.js');
 const tournamentRoutes = require('./tournaments.js');
@@ -20,7 +19,6 @@ const ticketRoutes = require('./tickets.js');
 
 const router = express.Router();
 
-// More specific routes should come FIRST
 router.use('/auth', authRoutes);
 router.use('/gamedata', gameDataRoutes);
 router.use('/log', logRoutes);
@@ -30,15 +28,14 @@ router.use('/tasks', taskRoutes);
 router.use('/status', statusRoutes);
 router.use('/payments', paymentsRoutes);
 router.use('/payouts', payoutRoutes);
-router.use('/inbox', inboxRoutes); // Add the route back
+router.use('/inbox', inboxRoutes);
 router.use('/history', historyRoutes);
 router.use('/duel-history', duelHistoryRoutes);
 router.use('/tournaments', tournamentRoutes);
-router.use('/transcripts', transcriptRoutes);
 router.use('/discord', discordRoutes);
 router.use('/tickets', ticketRoutes);
+router.use('/transcripts', transcriptRoutes);
 
-// The most general route ('/') should come LAST
 router.use('/', userRoutes);
 
 module.exports = router;
