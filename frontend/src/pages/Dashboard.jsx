@@ -111,6 +111,17 @@ const Dashboard = () => {
             showMessage(error.message, 'error');
         }
     };
+    
+    const handleRespondToLink = async (messageId, response) => {
+        try {
+            const result = await api.respondToDiscordLink(messageId, response, token);
+            showMessage(result.message, 'success');
+            await refreshUser();
+            await fetchDashboardData();
+        } catch (error) {
+            showMessage(error.message, 'error');
+        }
+    };
 
     const handleStartDuel = async (duel) => {
         try {
@@ -193,6 +204,10 @@ const Dashboard = () => {
                         onStartDuel={handleStartDuel}
                         onForfeitDuel={handleOpenForfeitModal}
                         onViewActiveDuelDetails={handleViewActiveDuel}
+                        onRespondToLink={handleRespondToLink}
+                        token={token}
+                        showMessage={showMessage}
+                        refreshData={fetchDashboardData}
                     />
                 </div>
             </main>
