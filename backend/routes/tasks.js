@@ -1,4 +1,3 @@
-// backend/routes/tasks.js
 const express = require('express');
 const db = require('../database/database');
 const { param } = require('express-validator');
@@ -6,7 +5,6 @@ const { handleValidationErrors, authenticateBot } = require('../middleware/auth'
 
 const router = express.Router();
 
-// [MODIFIED] Endpoint for a GAME SERVER bot to fetch pending tasks for its specific serverId.
 router.get('/:serverId', 
     authenticateBot,
     param('serverId').matches(/^[A-Z]{2,3}(?:-[A-Za-z]+)?_[0-9]+$/).withMessage('Invalid serverId format.'),
@@ -17,7 +15,6 @@ router.get('/:serverId',
         try {
             await client.query('BEGIN');
 
-            // This endpoint is now ONLY for REFEREE_DUEL tasks.
             const sql = `
                 SELECT id, task_type, payload 
                 FROM tasks 
@@ -46,18 +43,17 @@ router.get('/:serverId',
         }
 });
 
-// [MODIFIED] Endpoint for the DISCORD bot to fetch general, non-server-specific tasks.
 router.get('/bot/discord', authenticateBot, async (req, res) => {
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
 
-        // [FIX] Updated the WHERE clause to include all valid task types for the Discord bot.
         const sql = `
             SELECT id, task_type, payload
             FROM tasks
             WHERE status = 'pending'
               AND task_type IN (
+                  'CREATE_TICKET_CHANNEL',
                   'POST_DUEL_RESULT_TO_DISCORD', 
                   'SEND_DISCORD_LINK_SUCCESS_DM',
                   'SEND_DUEL_CHALLENGE_DM',
@@ -85,8 +81,6 @@ router.get('/bot/discord', authenticateBot, async (req, res) => {
     }
 });
 
-
-// Endpoint for a bot to mark a task as completed
 router.post('/:id/complete', 
     authenticateBot,
     param('id').isInt().withMessage('Invalid task ID.'),
