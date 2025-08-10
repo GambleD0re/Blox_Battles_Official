@@ -76,13 +76,6 @@ module.exports = {
                     await interaction.editReply({
                         content: response.data.message,
                     });
-                    
-                    if (interaction.message) {
-                        await interaction.message.edit({
-                            content: 'Thank you for your submission.',
-                            components: []
-                        });
-                    }
 
                 } catch (error) {
                     const errorMessage = error.response?.data?.message || 'Failed to create your ticket. Please try again later.';
