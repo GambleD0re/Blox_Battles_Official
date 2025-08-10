@@ -1,4 +1,4 @@
-const { Events, ChannelType, PermissionsBitField, EmbedBuilder } = require('discord.js');
+const { Events, ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { cacheGameData } = require('../utils/gameData');
 const { startTaskProcessor } = require('../tasks/taskProcessor');
 const { startStatusUpdaters } = require('../utils/statusUpdater');
@@ -32,7 +32,7 @@ async function createInitializationTicket(client) {
                 name: channelName,
                 type: ChannelType.GuildText,
                 parent: SUPPORT_TICKETS_CATEGORY_ID,
-                topic: 'Bot status and initialization logs.',
+                topic: 'Bot status and initialization logs. Ticket ID: init-log-channel',
                 permissionOverwrites,
             });
             console.log(`[INIT TICKET] Channel created: ${channel.name}`);
@@ -45,9 +45,18 @@ async function createInitializationTicket(client) {
             .setTimestamp()
             .setFooter({ text: 'Blox Battles Bot' });
         
+        const row = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('ticket_close_init')
+                    .setLabel('Archive Channel')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
         await channel.send({
             content: `<@&${SUPPORT_STAFF_ROLE_ID}>`,
-            embeds: [embed]
+            embeds: [embed],
+            components: [row]
         });
 
     } catch (error) {
