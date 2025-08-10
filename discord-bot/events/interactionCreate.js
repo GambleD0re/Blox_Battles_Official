@@ -109,14 +109,20 @@ module.exports = {
                 }
             }
         } else if (interaction.isButton()) {
-            if (interaction.customId.startsWith('ticket_close_')) {
+            if (interaction.customId.startsWith('ticket_close')) {
                 if (!interaction.member.roles.cache.has(SUPPORT_STAFF_ROLE_ID)) {
-                    return interaction.reply({ content: 'You do not have permission to close this ticket.', ephemeral: true });
+                    return interaction.reply({ content: 'You do not have permission to perform this action.', ephemeral: true });
                 }
 
                 await interaction.deferReply();
 
                 try {
+                    if (interaction.customId === 'ticket_close_init') {
+                        await interaction.editReply({ content: '✅ This log channel has been archived.' });
+                        await interaction.message.edit({ components: [] });
+                        return;
+                    }
+
                     const topic = interaction.channel.topic;
                     const ticketIdMatch = topic.match(/Ticket ID: ([a-fA-F0-9-]+)/);
 
