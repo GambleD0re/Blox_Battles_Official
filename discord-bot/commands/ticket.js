@@ -26,44 +26,25 @@ module.exports = {
                 });
             }
 
-            const modal = new ModalBuilder()
-                .setCustomId('ticket_creation_modal')
-                .setTitle('Create a New Ticket');
+            const banAppealOption = new StringSelectMenuOptionBuilder()
+                .setLabel('Ban Appeal')
+                .setDescription('Appeal a temporary or permanent ban.')
+                .setValue('ban_appeal');
+            
+            banAppealOption.setDisabled(!isBanned);
 
             const ticketTypeSelect = new StringSelectMenuBuilder()
                 .setCustomId('ticket_type_select')
                 .setPlaceholder('Select the reason for your ticket')
                 .addOptions(
-                    new StringSelectMenuOptionBuilder()
-                        .setLabel('Ban Appeal')
-                        .setDescription('Appeal a temporary or permanent ban.')
-                        .setValue('ban_appeal')
-                        .setDisabled(!isBanned),
+                    banAppealOption,
                     new StringSelectMenuOptionBuilder()
                         .setLabel('Support Request')
                         .setDescription('For billing, technical issues, or other questions.')
                         .setValue('support')
                 );
 
-            const subjectInput = new TextInputBuilder()
-                .setCustomId('ticket_subject_input')
-                .setLabel("Subject")
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('e.g., Issue with Gem Purchase, Reporting a Bug')
-                .setRequired(true);
-
-            const descriptionInput = new TextInputBuilder()
-                .setCustomId('ticket_description_input')
-                .setLabel("Please describe your issue in detail")
-                .setStyle(TextInputStyle.Paragraph)
-                .setPlaceholder('Provide as much information as possible, including usernames, duel IDs, and dates if applicable.')
-                .setRequired(true);
-
             const firstActionRow = new ActionRowBuilder().addComponents(ticketTypeSelect);
-            const secondActionRow = new ActionRowBuilder().addComponents(subjectInput);
-            const thirdActionRow = new ActionRowBuilder().addComponents(descriptionInput);
-
-            modal.addComponents(secondActionRow, thirdActionRow);
 
             await interaction.editReply({
                 content: 'Please select the type of ticket you wish to create.',
