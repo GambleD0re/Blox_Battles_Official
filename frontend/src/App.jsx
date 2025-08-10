@@ -4,7 +4,6 @@ import { useAuth } from './context/AuthContext.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import FeatureGuard from './components/FeatureGuard.jsx';
 
-// Import pages that are always needed
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import LinkingView from './pages/LinkingView.jsx';
@@ -13,7 +12,6 @@ import SignUpPage from './pages/SignUpPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import VerificationNoticePage from './pages/VerificationNoticePage.jsx';
 
-// Lazily load pages
 const DepositPage = lazy(() => import('./pages/DepositPage.jsx'));
 const WithdrawPage = lazy(() => import('./pages/WithdrawPage.jsx'));
 const TransactionHistoryPage = lazy(() => import('./pages/TransactionHistoryPage.jsx'));
@@ -22,19 +20,17 @@ const DuelHistoryPage = lazy(() => import('./pages/DuelHistoryPage.jsx'));
 const TournamentsPage = lazy(() => import('./pages/TournamentsPage.jsx'));
 const AdminTournamentCreatePage = lazy(() => import('./pages/AdminTournamentCreatePage.jsx'));
 const TranscriptViewerPage = lazy(() => import('./pages/TranscriptViewerPage.jsx'));
+const TicketTranscriptViewerPage = lazy(() => import('./pages/TicketTranscriptViewerPage.jsx'));
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage.jsx'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage.jsx'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage.jsx'));
 
-
-// --- UI COMPONENTS ---
 const Loader = ({ fullScreen = false }) => (
     <div className={`flex items-center justify-center ${fullScreen ? 'fixed inset-0 bg-black bg-opacity-70 z-50' : ''}`}>
         <div className="w-12 h-12 border-4 border-[var(--accent-color)] border-t-transparent rounded-full animate-spin"></div>
     </div>
 );
 
-// A helper component to protect routes that require authentication.
 const ProtectedRoute = ({ children, adminOnly = false }) => {
     const { user } = useAuth();
 
@@ -46,9 +42,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
         return <Navigate to="/dashboard" />;
     }
 
-    // New verification check: Gate access to most of the site if email is not verified
     if (user.password_hash && !user.is_email_verified) {
-        // Allow access only to settings and the verification notice page itself
         const allowedPaths = ['/settings', '/verification-notice'];
         if (!allowedPaths.includes(window.location.pathname)) {
             return <Navigate to="/verification-notice" />;
@@ -65,7 +59,6 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     return children;
 };
 
-// --- MAIN APP COMPONENT (ROUTING) ---
 const App = () => {
     const { user, isLoading } = useAuth();
 
@@ -98,17 +91,16 @@ const App = () => {
              <ErrorBoundary>
                 <Suspense fallback={<Loader fullScreen />}>
                     <Routes>
-                        {/* --- Public Routes --- */}
                         <Route path="/signin" element={!user ? <SignInPage /> : <Navigate to="/dashboard" />} />
                         <Route path="/signup" element={!user ? <FeatureGuard featureName="user_registration"><SignUpPage /></FeatureGuard> : <Navigate to="/dashboard" />} />
                         <Route path="/transcripts/:duelId" element={<TranscriptViewerPage />} />
+                        <Route path="/transcripts/ticket/:ticketId" element={<TicketTranscriptViewerPage />} />
                         <Route path="/verification-notice" element={<VerificationNoticePage />} />
                         <Route path="/verify-email" element={<VerifyEmailPage />} />
                         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                         <Route path="/reset-password" element={<ResetPasswordPage />} />
                         
 
-                        {/* --- Protected Routes --- */}
                         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                         <Route path="/link-account" element={<ProtectedRoute><FeatureGuard featureName="roblox_linking"><LinkingView /></FeatureGuard></ProtectedRoute>} />
                         <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
@@ -119,11 +111,9 @@ const App = () => {
                         <Route path="/duel-history" element={<ProtectedRoute><DuelHistoryPage /></ProtectedRoute>} />
                         <Route path="/tournaments" element={<ProtectedRoute><FeatureGuard featureName="tournaments"><TournamentsPage /></FeatureGuard></ProtectedRoute>} />
                         
-                        {/* --- Admin Routes --- */}
                         <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
                         <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><FeatureGuard featureName="tournaments"><AdminTournamentCreatePage /></FeatureGuard></ProtectedRoute>} />
 
-                        {/* --- Default Route --- */}
                         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/signin"} />} />
                     </Routes>
                 </Suspense>
