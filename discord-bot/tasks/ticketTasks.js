@@ -81,7 +81,7 @@ async function handleCreateTicketChannel(client, task) {
     const row = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
-                .setCustomId(`ticket_close_${ticket_id}`)
+                .setCustomId('ticket_close')
                 .setLabel('Close Ticket')
                 .setStyle(ButtonStyle.Danger)
         );
