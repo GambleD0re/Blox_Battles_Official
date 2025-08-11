@@ -75,6 +75,9 @@ module.exports = {
             startTaskProcessor(client);
             startStatusUpdaters(client);
             
+            const randomDelay = Math.floor(Math.random() * 4000) + 1000; // 1-5 seconds
+            await new Promise(resolve => setTimeout(resolve, randomDelay));
+            
             await createInitializationTicket(client);
 
             console.log("Bot initialization complete. Systems are running.");
