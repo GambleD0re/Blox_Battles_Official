@@ -38,7 +38,7 @@ async function handleCreateTicketChannel(client, task) {
         throw new Error(`Category with ID ${categoryId} not found or is not a category channel.`);
     }
 
-    const channelName = `${ticket_type.replace(/_/g, '-')}-${user.user.username}`;
+    const channelName = `auc-${user.user.username}-${ticket_id.substring(0, 4)}`;
 
     const permissionOverwrites = [
         {
@@ -80,6 +80,10 @@ async function handleCreateTicketChannel(client, task) {
 
     const row = new ActionRowBuilder()
         .addComponents(
+            new ButtonBuilder()
+                .setCustomId('ticket_claim')
+                .setLabel('Claim Ticket')
+                .setStyle(ButtonStyle.Primary),
             new ButtonBuilder()
                 .setCustomId('ticket_close')
                 .setLabel('Close Ticket')
