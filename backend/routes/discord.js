@@ -54,6 +54,7 @@ router.post('/update-ticket-status',
     }
 );
 
+
 router.post('/check-user',
     authenticateBot,
     [ body('discordId').isString().notEmpty().withMessage('Discord ID is required.') ],
