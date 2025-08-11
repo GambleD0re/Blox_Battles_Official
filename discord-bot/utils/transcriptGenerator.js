@@ -23,7 +23,23 @@ async function generateTranscript(channel) {
 
     for (const msg of sortedMessages) {
         const timestamp = new Date(msg.createdTimestamp).toLocaleString('en-US', { timeZone: 'UTC' });
-        content += `[${timestamp}] ${msg.author.tag}: ${msg.content}\n`;
+        let messageContent = msg.content;
+
+        if (msg.mentions.users.size > 0) {
+            msg.mentions.users.forEach(user => {
+                messageContent = messageContent.replace(new RegExp(`<@!?${user.id}>`, 'g'), `@${user.username}`);
+            });
+        }
+
+        if (msg.mentions.roles.size > 0) {
+            msg.mentions.roles.forEach(role => {
+                messageContent = messageContent.replace(new RegExp(`<@&${role.id}>`, 'g'), `@${role.name}`);
+            });
+        }
+        
+        messageContent = messageContent.replace(/\*\*/g, '');
+
+        content += `[${timestamp}] ${msg.author.tag}: ${messageContent}\n`;
 
         if (msg.attachments.size > 0) {
             msg.attachments.forEach(att => {
