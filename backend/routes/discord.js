@@ -39,7 +39,7 @@ router.post('/update-ticket-status',
         try {
             await client.query('BEGIN');
 
-            const { rows: [adminUser] } = await client.query('SELECT id FROM users WHERE discord_id = $1 AND is_admin = TRUE', [adminDiscordId]);
+            const { rows: [adminUser] } = await client.query('SELECT id FROM users WHERE trim(discord_id) = trim($1) AND is_admin = TRUE', [adminDiscordId]);
             if (!adminUser) {
                 await client.query('ROLLBACK');
                 return res.status(403).json({ message: 'Action requires admin privileges.' });
