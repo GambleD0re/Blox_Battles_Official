@@ -119,17 +119,18 @@ module.exports = {
 
                     const topic = interaction.channel.topic;
                     const ticketIdMatch = topic.match(/Ticket ID: ([a-fA-F0-9-]+)/);
+                    const userIdMatch = topic.match(/User ID: (\d+)/);
 
-                    if (!ticketIdMatch || !ticketIdMatch[1]) {
-                        throw new Error("Could not find a valid Ticket ID in the channel topic.");
+                    if (!ticketIdMatch || !ticketIdMatch[1] || !userIdMatch || !userIdMatch[1]) {
+                        throw new Error("Could not find a valid Ticket ID or User ID in the channel topic.");
                     }
                     const ticketId = ticketIdMatch[1];
+                    const userDiscordId = userIdMatch[1];
                     
                     const transcriptContent = await generateTranscript(interaction.channel);
                     await apiClient.post(`/tickets/${ticketId}/transcript`, { content: transcriptContent });
 
-                    const { data: ticketDetails } = await apiClient.get(`/tickets/${ticketId}/details`);
-                    const ticketCreator = await interaction.client.users.fetch(ticketDetails.discord_id);
+                    const ticketCreator = await interaction.client.users.fetch(userDiscordId);
 
                     if (ticketCreator) {
                         const dmEmbed = new EmbedBuilder()
@@ -144,7 +145,7 @@ module.exports = {
                     await apiClient.post('/discord/update-ticket-status', {
                         ticketId: ticketId,
                         status: 'closed',
-                        adminDiscordId: interaction.user.id
+                        adminDiscordUsername: interaction.user.username
                     });
 
                     await interaction.channel.delete(`Ticket closed by ${interaction.user.tag}`);
