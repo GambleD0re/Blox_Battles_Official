@@ -1,4 +1,3 @@
-// discord-bot/tasks/taskProcessor.js
 const { apiClient } = require('../utils/apiClient');
 const { handleCreateTicketChannel } = require('./ticketTasks');
 const { handleDuelResult, handleDmNotification } = require('./duelTasks');
@@ -7,6 +6,7 @@ const TASK_FETCH_INTERVAL_MS = process.env.UPDATE_INTERVAL_SECONDS ? parseInt(pr
 
 const taskHandlers = {
     'CREATE_TICKET_CHANNEL': handleCreateTicketChannel,
+    'CREATE_DUEL_DISPUTE_TICKET': handleCreateTicketChannel,
     'POST_DUEL_RESULT_TO_DISCORD': handleDuelResult,
     'SEND_DISCORD_LINK_SUCCESS_DM': (client, task) => handleDmNotification(client, task, 'link_success'),
     'SEND_DUEL_CHALLENGE_DM': (client, task) => handleDmNotification(client, task, 'duel_challenge'),
@@ -33,7 +33,6 @@ async function processTasks(client) {
                     console.log(`[TASKS] Successfully processed and completed task ${task.id} (${task.task_type}).`);
                 } catch (taskError) {
                     console.error(`[TASKS] Error processing task ${task.id} (${task.task_type}):`, taskError);
-                    // Optionally, you could add a task failure endpoint here
                 }
             } else {
                 console.warn(`[TASKS] No handler found for task type: ${task.task_type}`);
@@ -50,7 +49,6 @@ async function processTasks(client) {
 
 function startTaskProcessor(client) {
     console.log(`[TASKS] Task processor started. Fetching every ${TASK_FETCH_INTERVAL_MS / 1000} seconds.`);
-    // Run once immediately on start, then set the interval
     processTasks(client);
     setInterval(() => processTasks(client), TASK_FETCH_INTERVAL_MS);
 }
