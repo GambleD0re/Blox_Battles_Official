@@ -38,16 +38,12 @@ router.post('/update-ticket-status',
         const client = await db.getPool().connect();
         try {
             await client.query('BEGIN');
-
-            const { rows: [adminUser] } = await client.query('SELECT id FROM users WHERE trim(discord_id) = trim($1) AND is_admin = TRUE', [adminDiscordId]);
-            if (!adminUser) {
-                await client.query('ROLLBACK');
-                return res.status(403).json({ message: 'Action requires admin privileges.' });
-            }
+            
+            const { rows: [adminUser] } = await client.query('SELECT id FROM users WHERE trim(discord_id) = trim($1)', [adminDiscordId]);
 
             const { rowCount } = await client.query(
                 "UPDATE tickets SET status = $1, resolved_by_admin_id = $2, resolved_at = NOW(), updated_at = NOW() WHERE id = $3",
-                [status, adminUser.id, ticketId]
+                [status, adminUser ? adminUser.id : null, ticketId]
             );
 
             if (rowCount === 0) {
