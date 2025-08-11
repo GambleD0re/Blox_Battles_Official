@@ -85,8 +85,12 @@ async function handleCreateTicketChannel(client, task) {
                 .setLabel('Claim Ticket')
                 .setStyle(ButtonStyle.Primary),
             new ButtonBuilder()
+                .setCustomId('ticket_close_reason')
+                .setLabel('Close with Reason')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
                 .setCustomId('ticket_close')
-                .setLabel('Close Ticket')
+                .setLabel('Close')
                 .setStyle(ButtonStyle.Danger)
         );
 
