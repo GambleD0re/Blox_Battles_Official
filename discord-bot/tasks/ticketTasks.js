@@ -66,7 +66,7 @@ async function handleCreateTicketChannel(client, task) {
         name: channelName,
         type: ChannelType.GuildText,
         parent: categoryChannel,
-        topic: `Ticket ID: ${ticket_id} for ${user.user.tag}. Subject: ${subject}`,
+        topic: `Ticket ID: ${ticket_id} | User ID: ${user_discord_id}`,
         permissionOverwrites: permissionOverwrites,
     });
 
