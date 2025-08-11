@@ -157,7 +157,7 @@ CREATE TABLE tickets (
     subject TEXT NOT NULL,
     reference_id TEXT, -- For duel_id, ban_id, etc.
     discord_channel_id VARCHAR(255) UNIQUE,
-    resolved_by_admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    resolved_by_admin_username TEXT,
     resolution_details TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
