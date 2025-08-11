@@ -115,7 +115,13 @@ router.post('/create-ticket',
                 [newTicket.id, user.id, description]
             );
 
-            const taskPayload = { ticket_id: newTicket.id, user_discord_id: discordId, ticket_type: finalTicketType, subject };
+            const taskPayload = { 
+                ticket_id: newTicket.id, 
+                user_discord_id: discordId, 
+                ticket_type: finalTicketType, 
+                subject: subject,
+                description: description 
+            };
             await client.query("INSERT INTO tasks (task_type, payload) VALUES ('CREATE_TICKET_CHANNEL', $1)", [JSON.stringify(taskPayload)]);
 
             await client.query('COMMIT');
