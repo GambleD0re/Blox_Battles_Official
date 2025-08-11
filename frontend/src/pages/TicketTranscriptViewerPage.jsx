@@ -21,7 +21,12 @@ const TicketTranscriptViewerPage = () => {
                 const response = await fetch(`${API_BASE_URL}/api/transcripts/ticket/${ticketId}`);
                 const data = await response.text();
                 if (!response.ok) {
-                    throw new Error(JSON.parse(data).message || `Error: ${response.status}`);
+                    try {
+                        const jsonData = JSON.parse(data);
+                        throw new Error(jsonData.message || `Error: ${response.status}`);
+                    } catch (e) {
+                         throw new Error(`Error: ${response.status} - Could not retrieve transcript.`);
+                    }
                 }
                 setTranscript(data);
             } catch (err) {
