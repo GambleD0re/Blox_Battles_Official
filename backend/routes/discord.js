@@ -30,36 +30,26 @@ router.post('/update-ticket-status',
     [
         body('ticketId').isUUID().withMessage('A valid ticket ID is required.'),
         body('status').isIn(['resolved', 'closed']).withMessage('Invalid status provided.'),
-        body('adminDiscordId').isString().notEmpty().withMessage('Admin Discord ID is required.'),
+        body('adminDiscordUsername').isString().notEmpty().withMessage('Admin Discord username is required.'),
     ],
     handleValidationErrors,
     async (req, res) => {
-        const { ticketId, status, adminDiscordId } = req.body;
-        const client = await db.getPool().connect();
+        const { ticketId, status, adminDiscordUsername } = req.body;
         try {
-            await client.query('BEGIN');
-            
-            const { rows: [adminUser] } = await client.query('SELECT id FROM users WHERE trim(discord_id) = trim($1)', [adminDiscordId]);
-
-            const { rowCount } = await client.query(
-                "UPDATE tickets SET status = $1, resolved_by_admin_id = $2, resolved_at = NOW(), updated_at = NOW() WHERE id = $3",
-                [status, adminUser ? adminUser.id : null, ticketId]
+            const { rowCount } = await db.query(
+                "UPDATE tickets SET status = $1, resolved_by_admin_username = $2, resolved_at = NOW(), updated_at = NOW() WHERE id = $3",
+                [status, adminDiscordUsername, ticketId]
             );
 
             if (rowCount === 0) {
-                await client.query('ROLLBACK');
                 return res.status(404).json({ message: 'Ticket not found or already has this status.' });
             }
 
-            await client.query('COMMIT');
             res.status(200).json({ message: `Ticket ${ticketId} status updated to ${status}.` });
 
         } catch (error) {
-            await client.query('ROLLBACK');
             console.error('Update Ticket Status Error:', error);
             res.status(500).json({ message: 'An internal server error occurred.' });
-        } finally {
-            client.release();
         }
     }
 );
