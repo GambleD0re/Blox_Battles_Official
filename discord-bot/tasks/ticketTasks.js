@@ -99,6 +99,13 @@ async function handleCreateTicketChannel(client, task) {
         embeds: [embed],
         components: [row]
     });
+    
+    const initialMessage = task.payload.description || 'No initial description provided.';
+    const truncatedDescription = initialMessage.length > 500 ? initialMessage.substring(0, 500) + '...' : initialMessage;
+
+    const infoMessage = `**User:** ${user.toString()} (${user.user.tag})\n**Subject:** ${subject}\n**Description:**\n>>> ${truncatedDescription}`;
+    
+    await channel.send({ content: infoMessage });
 
     await apiClient.post(`/discord/update-ticket-channel`, { ticketId: ticket_id, channelId: channel.id });
     console.log(`[TICKETS] Successfully created channel ${channel.id} for ticket ${ticket_id}.`);
