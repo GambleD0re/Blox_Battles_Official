@@ -1,7 +1,6 @@
-// discord-bot/tasks/duelTasks.js
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { getGameData } = require('../utils/gameData');
-const { DUEL_RESULTS_CHANNEL_ID, FRONTEND_URL } = process.env;
+const { DUEL_RESULTS_CHANNEL_ID, FRONTEND_URL, DUELER_ROLE_ID } = process.env;
 
 async function handleDuelResult(client, task) {
     const { duelId, winner, loser, wager, pot, mapName, finalScores, playerLoadouts } = task.payload;
@@ -51,6 +50,19 @@ async function handleDmNotification(client, task, type) {
                 .setColor(0x3fb950)
                 .setTitle('✅ Account Linked')
                 .setDescription('Your Blox Battles account has been successfully linked to this Discord account!');
+            
+            if (DUELER_ROLE_ID) {
+                try {
+                    const guild = client.guilds.cache.first();
+                    const member = await guild.members.fetch(recipientId);
+                    if (member) {
+                        await member.roles.add(DUELER_ROLE_ID);
+                        console.log(`[ROLES] Assigned Dueler role to ${member.user.tag}`);
+                    }
+                } catch (roleError) {
+                    console.error(`[ROLES] Failed to assign Dueler role to user ${recipientId}:`, roleError.message);
+                }
+            }
             break;
         case 'duel_challenge':
             recipientId = payload.recipientDiscordId;
