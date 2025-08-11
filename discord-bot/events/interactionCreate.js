@@ -1,4 +1,4 @@
-const { Events, InteractionType, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, EmbedBuilder } = require('discord.js');
+const { Events, InteractionType, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { apiClient } = require('../utils/apiClient');
 const { SUPPORT_STAFF_ROLE_ID, FRONTEND_URL } = process.env;
 const { generateTranscript } = require('../utils/transcriptGenerator');
@@ -103,7 +103,38 @@ module.exports = {
                 }
             }
         } else if (interaction.isButton()) {
-            if (interaction.customId.startsWith('ticket_close')) {
+            if (interaction.customId === 'ticket_claim') {
+                if (!interaction.member.roles.cache.has(SUPPORT_STAFF_ROLE_ID)) {
+                    return interaction.reply({ content: 'You do not have permission to claim this ticket.', ephemeral: true });
+                }
+                
+                await interaction.deferUpdate();
+
+                const newChannelName = interaction.channel.name.replace(/^auc-/, 'cl-');
+                await interaction.channel.setName(newChannelName);
+
+                const topic = interaction.channel.topic;
+                const userIdMatch = topic.match(/User ID: (\d+)/);
+                if (userIdMatch && userIdMatch[1]) {
+                    await interaction.channel.send(`> 🔔 Ticket claimed by ${interaction.user}. <@${userIdMatch[1]}> will be with you shortly.`);
+                } else {
+                    await interaction.channel.send(`> 🔔 Ticket claimed by ${interaction.user}.`);
+                }
+
+                const originalMessage = interaction.message;
+                const updatedButtons = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('ticket_claim')
+                        .setLabel('Claimed')
+                        .setStyle(ButtonStyle.Success)
+                        .setDisabled(true),
+                    new ButtonBuilder()
+                        .setCustomId('ticket_close')
+                        .setLabel('Close Ticket')
+                        .setStyle(ButtonStyle.Danger)
+                );
+                await originalMessage.edit({ components: [updatedButtons] });
+            } else if (interaction.customId.startsWith('ticket_close')) {
                 if (!interaction.member.roles.cache.has(SUPPORT_STAFF_ROLE_ID)) {
                     return interaction.reply({ content: 'You do not have permission to perform this action.', ephemeral: true });
                 }
