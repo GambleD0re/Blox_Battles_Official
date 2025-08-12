@@ -115,19 +115,15 @@ style.innerHTML = `
     .modal-actions .btn-secondary:hover { background-color: var(--btn-secondary-hover-bg); color: var(--text-color); }
     .modal-actions .btn-danger { background-color: var(--loss-color); color: white; }
     .modal-actions .btn-danger:hover { background-color: #d13c3c; }
-    @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
+    @keyframes marquee {
+        from { transform: translateX(0); }
+        to { transform: translateX(-100%); }
     }
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(-100%); opacity: 0; }
+    .animate-marquee-normal {
+        animation: marquee 40s linear infinite;
     }
-    .animate-slide-in {
-        animation: slideIn 0.5s ease-out forwards;
-    }
-    .animate-scroll-left {
-        animation: scrollLeft 30s linear infinite;
+    .hover\\:pause:hover {
+        animation-play-state: paused;
     }
 `;
 document.head.appendChild(style);
