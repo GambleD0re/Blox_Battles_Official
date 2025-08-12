@@ -25,6 +25,8 @@ const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage.jsx'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage.jsx'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage.jsx'));
 
+const MASTER_ADMIN_EMAIL = 'scriptmail00@gmail.com';
+
 const Loader = ({ fullScreen = false }) => (
     <div className={`flex items-center justify-center ${fullScreen ? 'fixed inset-0 bg-black bg-opacity-70 z-50' : ''}`}>
         <div className="w-12 h-12 border-4 border-[var(--accent-color)] border-t-transparent rounded-full animate-spin"></div>
@@ -60,14 +62,14 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 };
 
 const App = () => {
-    const { user, isLoading } = useAuth();
+    const { user, systemStatus, isLoading } = useAuth();
 
     if (isLoading) {
         return <Loader fullScreen />;
     }
     
-    if (user && user.systemStatus?.site_wide_maintenance && !user.systemStatus.site_wide_maintenance.isEnabled) {
-        const message = user.systemStatus.site_wide_maintenance.message || 'The platform is temporarily down for maintenance.';
+    if (systemStatus?.site_wide_maintenance && !systemStatus.site_wide_maintenance.isEnabled && user?.email !== MASTER_ADMIN_EMAIL) {
+        const message = systemStatus.site_wide_maintenance.message || 'The platform is temporarily down for maintenance.';
         return (
              <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
                 <div className="w-full max-w-2xl p-8 space-y-6 bg-gray-800/50 rounded-xl shadow-lg border-2 border-yellow-700 text-center">
