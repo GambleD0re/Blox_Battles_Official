@@ -73,7 +73,6 @@ export const saveTicketTranscript = (ticketId, content, token) => apiRequest(`/t
 
 export const getGameData = (token) => apiRequest('/gamedata', 'GET', null, token);
 
-export const getBotStatus = (token) => apiRequest('/status', 'GET', null, token);
 export const getFeatureStatus = () => apiRequest('/status/features');
 
 export const createCheckoutSession = (amount, token) => apiRequest('/payments/create-checkout-session', 'POST', { amount }, token);
@@ -119,5 +118,5 @@ export const declinePayoutRequest = (requestId, reason, token) => apiRequest(`/a
 export const createTournament = (tournamentData, token) => apiRequest('/admin/tournaments', 'POST', tournamentData, token);
 export const getAdminTournaments = (token) => apiRequest('/admin/tournaments', 'GET', null, token);
 export const cancelTournament = (id, token) => apiRequest(`/admin/tournaments/${id}`, 'DELETE', null, token);
-export const getAdminSystemStatus = (token) => apiRequest('/admin/system-status', 'GET', null, token);
+export const getSystemStatus = (token) => apiRequest('/admin/system-status', 'GET', null, token);
 export const updateSystemStatus = (statusData, token) => apiRequest('/admin/system-status', 'PUT', statusData, token);
