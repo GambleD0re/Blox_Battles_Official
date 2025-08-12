@@ -9,6 +9,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(() => localStorage.getItem('token'));
+    const [systemStatus, setSystemStatus] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const logout = useCallback(() => {
@@ -19,21 +20,22 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         const fetchInitialData = async (tokenToUse) => {
-            if (!tokenToUse) {
-                setIsLoading(false);
-                return;
-            }
-
             try {
-                // Check if token is expired before making an API call
+                const statusData = await api.getFeatureStatus();
+                setSystemStatus(statusData);
+
+                if (!tokenToUse) {
+                    return;
+                }
+
                 const decoded = jwtDecode(tokenToUse);
                 if (decoded.exp * 1000 < Date.now()) {
                     logout();
-                    setIsLoading(false);
                     return;
                 }
+                
                 const userData = await api.getDashboardData(tokenToUse);
-                setUser(userData);
+                setUser({ ...userData, systemStatus: statusData });
             } catch (error) {
                 console.error("Initial auth failed, logging out.", error);
                 logout();
@@ -60,8 +62,12 @@ export const AuthProvider = ({ children }) => {
         setToken(newToken);
         setIsLoading(true);
         try {
-            const userData = await api.getDashboardData(newToken);
-            setUser(userData);
+            const [userData, statusData] = await Promise.all([
+                api.getDashboardData(newToken),
+                api.getFeatureStatus()
+            ]);
+            setSystemStatus(statusData);
+            setUser({ ...userData, systemStatus: statusData });
         } catch (error) {
             logout();
         } finally {
@@ -78,14 +84,14 @@ export const AuthProvider = ({ children }) => {
        }
        try {
            const newUserData = await api.getDashboardData(tokenFromStorage);
-           setUser(newUserData);
+           setUser(prevUser => ({ ...prevUser, ...newUserData }));
        } catch (error) {
            console.error("Failed to refresh user data:", error);
            logout();
        }
     }, [logout]);
 
-    const value = { user, token, login, logout, isLoading, refreshUser };
+    const value = { user, token, systemStatus, login, logout, isLoading, refreshUser };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
