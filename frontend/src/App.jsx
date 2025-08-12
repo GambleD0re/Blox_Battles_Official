@@ -120,7 +120,7 @@ const App = () => {
                         <Route path="/tournaments" element={<ProtectedRoute><FeatureGuard featureName="tournaments"><TournamentsPage /></FeatureGuard></ProtectedRoute>} />
                         
                         <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
-                        <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><FeatureGuard featureName="tournaments"><AdminTournamentCreatePage /></ProtectedRoute>} />
+                        <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><FeatureGuard featureName="tournaments"><AdminTournamentCreatePage /></FeatureGuard></ProtectedRoute>} />
 
                         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/signin"} />} />
                     </Routes>
