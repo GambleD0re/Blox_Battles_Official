@@ -240,7 +240,7 @@ CREATE TABLE game_servers (
 
 -- Insert default values for the system_status table.
 INSERT INTO system_status (feature_name, is_enabled, disabled_message) VALUES
-('site_wide_maintenance', FALSE, 'The platform is currently down for scheduled maintenance. Please check back later.'),
+('site_wide_maintenance', TRUE, 'The platform is currently down for scheduled maintenance. Please check back later.'),
 ('user_registration', TRUE, 'New user registrations are temporarily disabled.'),
 ('dueling_website', TRUE, 'Website dueling is temporarily disabled.'),
 ('dueling_discord', TRUE, 'Discord dueling is temporarily disabled.'),
