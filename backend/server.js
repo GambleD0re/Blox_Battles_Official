@@ -1,7 +1,7 @@
-// backend/server.js
 require('dotenv').config();
 
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const passport = require('passport');
 const cookieParser = require('cookie-parser');
@@ -11,29 +11,26 @@ const crypto = require('crypto');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { botLogger } = require('./middleware/botLogger');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { initializeWebSocket } = require('./webSocketManager');
 
-// Import the services for crypto deposits
 const { startTransactionListener } = require('./services/transactionListenerService');
 const { startConfirmationService } = require('./services/transactionConfirmationService');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 
-// Trust the proxy to get the correct 'https' protocol from Render's router.
 app.set('trust proxy', 1);
 
-// --- Middleware Setup ---
 app.use(cors({ origin: process.env.SERVER_URL, credentials: true }));
 app.use(cookieParser());
 app.use(passport.initialize());
 app.use(morgan('dev'));
 
-// Public health check route for Render.
 app.get('/healthz', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'Health check passed' });
 });
 
-// --- Stripe Webhook Handler ---
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -76,10 +73,8 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
     res.status(200).json({ received: true });
 });
 
-// --- Global JSON Parser ---
 app.use(express.json());
 
-// --- Passport Strategy ---
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -109,15 +104,14 @@ passport.use(new GoogleStrategy({
   }
 ));
 
-// --- API Routes ---
 const apiRoutes = require('./routes');
 app.use('/api', botLogger, apiRoutes);
 
-// --- Server Startup ---
-app.listen(PORT, () => {
+initializeWebSocket(server);
+
+server.listen(PORT, () => {
     console.log(`Backend API server started and listening on internal port: ${PORT}`);
     
-    // Start the crypto deposit monitoring services
     startTransactionListener();
     startConfirmationService();
 });
