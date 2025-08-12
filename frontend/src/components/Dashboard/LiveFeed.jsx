@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const formatGems = (amount) => {
     if (amount >= 1000) {
@@ -12,14 +11,7 @@ const DuelCard = ({ duel }) => {
     const { winner, loser, score, wager, pot } = duel;
 
     return (
-        <motion.div
-            layout
-            initial={{ x: '100%', opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: '-100%', opacity: 0 }}
-            transition={{ duration: 0.5, ease: 'easeInOut' }}
-            className="flex-shrink-0 w-96 h-24 bg-gray-900/60 border border-gray-700 rounded-lg p-2 flex items-center justify-between mx-4"
-        >
+        <div className="flex-shrink-0 w-96 h-24 bg-gray-900/60 border border-gray-700 rounded-lg p-2 flex items-center justify-between mx-4">
             {/* Winner Side */}
             <div className="relative w-1/2 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-green-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]">
                 <img src={winner.avatarUrl || `https://ui-avatars.com/api/?name=${winner.username.charAt(0)}&background=2d3748&color=e2e8f0`} alt={winner.username} className="w-16 h-16 object-cover rounded-full flex-shrink-0" />
@@ -37,7 +29,7 @@ const DuelCard = ({ duel }) => {
                 <span className="font-bold text-white text-lg mr-3 truncate text-right">{loser.username}</span>
                 <img src={loser.avatarUrl || `https://ui-avatars.com/api/?name=${loser.username.charAt(0)}&background=2d3748&color=e2e8f0`} alt={loser.username} className="w-16 h-16 object-cover rounded-full flex-shrink-0" />
             </div>
-        </motion.div>
+        </div>
     );
 };
 
@@ -79,11 +71,11 @@ const LiveFeed = () => {
                 loser: { username: 'Dueler 2', avatarUrl: null },
                 score: { team1: 5, team2: 3 }, wager: 100, pot: 196,
             }, ...prev]);
-        }, 20000);
+        }, 5000); // Shortened for testing
         
         const removeInitDuelTimer = setTimeout(() => {
             setDuels(prev => prev.filter(d => d.id !== 'init-duel'));
-        }, 40000);
+        }, 25000); // 20 seconds after it appears
 
         return () => {
             clearTimeout(initDuelTimer);
@@ -101,12 +93,14 @@ const LiveFeed = () => {
                 <span className="text-yellow-300 font-black text-2xl tracking-[.2em]" style={{ writingMode: 'vertical-rl' }}>FEED</span>
             </div>
             
-            <div className="w-full h-full flex items-center pl-16 pr-16 overflow-hidden">
-                <motion.div className="flex" animate={{ x: [0, -100 * duels.length + '%' ] }} transition={{ duration: duels.length * 15, ease: 'linear', repeat: Infinity }}>
-                    <AnimatePresence>
-                        {duels.map(duel => <DuelCard key={duel.key} duel={duel} />)}
-                    </AnimatePresence>
-                </motion.div>
+            <div className="w-full h-full flex items-center">
+                <div 
+                    className="flex animate-marquee hover:pause pl-16 pr-16"
+                    style={{ animationDuration: `${duels.length * 10}s` }}
+                >
+                    {duels.map(duel => <DuelCard key={duel.key} duel={duel} />)}
+                    {duels.length > 0 && duels.map(duel => <DuelCard key={`${duel.key}-clone`} duel={duel} />)}
+                </div>
             </div>
         </div>
     );
