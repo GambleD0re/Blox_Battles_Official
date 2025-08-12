@@ -31,20 +31,22 @@ const ChallengePlayer = ({ token, onChallenge, onError, isBanned }) => {
             <form onSubmit={handleFindPlayer}>
                 <div className="form-group mb-4">
                     <label htmlFor="player-search-input" className="block text-sm font-medium text-gray-400 mb-1">Opponent's Roblox Username</label>
-                    <input 
-                        id="player-search-input" 
-                        type="text" 
-                        value={username} 
-                        onChange={e => setUsername(e.target.value)} 
-                        placeholder="Enter username..." 
-                        required 
-                        className="form-input"
-                        disabled={isBanned} // Disable input if banned
-                    />
+                    <div className="flex items-center gap-2">
+                        <input 
+                            id="player-search-input" 
+                            type="text" 
+                            value={username} 
+                            onChange={e => setUsername(e.target.value)} 
+                            placeholder="Enter username..." 
+                            required 
+                            className="form-input flex-grow"
+                            disabled={isBanned}
+                        />
+                        <button type="submit" className="btn btn-primary !mt-0 w-1/4" disabled={isLoading || isBanned}>
+                            {isLoading ? '...' : 'Find'}
+                        </button>
+                    </div>
                 </div>
-                <button type="submit" className="btn btn-primary w-full" disabled={isLoading || isBanned}>
-                    {isBanned ? 'Cannot Challenge (Banned)' : isLoading ? 'Searching...' : 'Find Player'}
-                </button>
             </form>
             {searchResult && <div className="mt-4 p-3 bg-gray-900 rounded-lg border border-gray-700">{searchResult}</div>}
         </div>
