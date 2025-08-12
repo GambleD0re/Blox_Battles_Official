@@ -6,6 +6,7 @@ import PlayerHeader from '../components/Dashboard/PlayerHeader';
 import ChallengePlayer from '../components/Dashboard/ChallengePlayer';
 import Inbox from '../components/Dashboard/Inbox';
 import { ChallengeModal, DuelDetailsModal, ConfirmationModal, TranscriptModal, PostDuelModal } from '../components/Dashboard/Modals';
+import LiveFeed from '../components/Dashboard/LiveFeed';
 
 const Dashboard = () => {
     const { user, token, refreshUser } = useAuth();
@@ -264,6 +265,8 @@ const Dashboard = () => {
                     onDispute={handleDisputeResult}
                 />
             ))}
+
+            <LiveFeed />
         </div>
     );
 };
