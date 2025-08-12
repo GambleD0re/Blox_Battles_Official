@@ -1,12 +1,11 @@
-// backend/routes/logs.js
 const express = require('express');
 const db = require('../database/database');
 const { body, validationResult } = require('express-validator');
 const { authenticateBot } = require('../middleware/auth');
+const { broadcast } = require('../webSocketManager');
 
 const router = express.Router();
 
-// A helper function to decrement a server's player count.
 const decrementPlayerCount = async (client, duelId) => {
     try {
         const { rows: [duel] } = await client.query('SELECT assigned_server_id FROM duels WHERE id = $1', [duelId]);
@@ -19,7 +18,6 @@ const decrementPlayerCount = async (client, duelId) => {
     }
 };
 
-// Endpoint for the bot to post duel logs
 router.post('/', 
     authenticateBot, 
     body().isArray().withMessage('Request body must be an array of events.'),
@@ -50,7 +48,6 @@ router.post('/',
                     transcript.push(event);
                     await client.query('UPDATE duels SET transcript = $1 WHERE id = $2', [JSON.stringify(transcript), duel.id]);
 
-                    // Handle loadout updates
                     if (event.eventType === 'PARSED_LOADOUT_UPDATE' && event.data.playerName) {
                         const currentLoadouts = duel.player_loadouts || {};
                         currentLoadouts[event.data.playerName] = event.data.loadout;
@@ -65,12 +62,11 @@ router.post('/',
                                 if (winnerUser) {
                                     await client.query("UPDATE duels SET status = 'completed_unseen', winner_id = $1, result_posted_at = NOW() WHERE id = $2", [winnerUser.id, duel.id]);
                                     
-                                    // Create task for Discord bot
                                     const { rows: [fullDuelData] } = await client.query('SELECT * FROM duels WHERE id = $1', [duel.id]);
                                     const loserId = winnerUser.id.toString() === fullDuelData.challenger_id.toString() ? fullDuelData.opponent_id : fullDuelData.challenger_id;
                                     const { rows: [loserUser] } = await client.query('SELECT linked_roblox_id, avatar_url, linked_roblox_username FROM users WHERE id = $1', [loserId]);
                                     
-                                    const taskPayload = {
+                                    const discordTaskPayload = {
                                         duelId: duel.id,
                                         winner: { username: winnerUser.linked_roblox_username, robloxId: winnerUser.linked_roblox_id, avatarUrl: winnerUser.avatar_url },
                                         loser: { username: loserUser.linked_roblox_username, robloxId: loserUser.linked_roblox_id, avatarUrl: loserUser.avatar_url },
@@ -80,9 +76,27 @@ router.post('/',
                                         finalScores: event.data.finalScores,
                                         playerLoadouts: fullDuelData.player_loadouts,
                                     };
-                                    await client.query("INSERT INTO tasks (task_type, payload) VALUES ('POST_DUEL_RESULT_TO_DISCORD', $1)", [JSON.stringify(taskPayload)]);
+                                    await client.query("INSERT INTO tasks (task_type, payload) VALUES ('POST_DUEL_RESULT_TO_DISCORD', $1)", [JSON.stringify(discordTaskPayload)]);
                                     
-                                    console.log(`Duel ${duel.id} result recorded. Winner: ${winner_username}. Discord task created.`);
+                                    broadcast({
+                                        type: 'live_feed_update',
+                                        payload: {
+                                            id: duel.id,
+                                            winner: {
+                                                username: winnerUser.linked_roblox_username,
+                                                avatarUrl: winnerUser.avatar_url,
+                                            },
+                                            loser: {
+                                                username: loserUser.linked_roblox_username,
+                                                avatarUrl: loserUser.avatar_url,
+                                            },
+                                            score: event.data.finalScores,
+                                            wager: fullDuelData.wager,
+                                            pot: fullDuelData.pot,
+                                        }
+                                    });
+
+                                    console.log(`Duel ${duel.id} result recorded. Winner: ${winner_username}. Broadcasted to clients.`);
                                 } else {
                                     await client.query("UPDATE duels SET status = 'canceled' WHERE id = $1", [duel.id]);
                                 }
