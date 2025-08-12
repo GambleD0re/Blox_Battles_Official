@@ -1,4 +1,3 @@
-// discord-bot/deploy-commands.js
 require('dotenv').config();
 const { REST, Routes, ApplicationCommandOptionType } = require('discord.js');
 
