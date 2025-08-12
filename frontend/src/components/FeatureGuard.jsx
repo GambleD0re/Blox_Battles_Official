@@ -2,8 +2,8 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 
 const FeatureGuard = ({ featureName, children }) => {
-    const { user } = useAuth();
-    const status = user?.systemStatus?.[featureName];
+    const { systemStatus } = useAuth();
+    const status = systemStatus?.[featureName];
 
     if (!status || !status.isEnabled) {
         return (
