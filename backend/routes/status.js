@@ -1,4 +1,3 @@
-// backend/routes/status.js
 const express = require('express');
 const { body } = require('express-validator');
 const { authenticateToken, authenticateBot, handleValidationErrors } = require('../middleware/auth');
@@ -6,12 +5,27 @@ const db = require('../database/database');
 
 const router = express.Router();
 
-// Public health check route for Render
 router.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
 });
 
-// Endpoint for the Discord bot to get live server status
+router.get('/features', async (req, res) => {
+    try {
+        const { rows } = await db.query('SELECT feature_name, is_enabled, disabled_message FROM system_status');
+        const systemStatus = rows.reduce((acc, flag) => {
+            acc[flag.feature_name] = {
+                isEnabled: flag.is_enabled,
+                message: flag.disabled_message
+            };
+            return acc;
+        }, {});
+        res.status(200).json(systemStatus);
+    } catch (err) {
+        console.error("Public Get System Status Error:", err);
+        res.status(500).json({ message: 'Failed to fetch system feature status.' });
+    }
+});
+
 router.get('/', authenticateBot, async (req, res) => {
     try {
         const BOT_OFFLINE_THRESHOLD_SECONDS = 45;
@@ -29,7 +43,6 @@ router.get('/', authenticateBot, async (req, res) => {
     }
 });
 
-// [NEW] Endpoint for the Discord bot to get the total registered player count.
 router.get('/player-count', authenticateBot, async (req, res) => {
     try {
         const { rows: [result] } = await db.query("SELECT COUNT(id)::int FROM users WHERE status != 'terminated'");
@@ -41,7 +54,6 @@ router.get('/player-count', authenticateBot, async (req, res) => {
 });
 
 
-// Endpoint for the game server bot to send a heartbeat
 router.post('/heartbeat',
     authenticateBot,
     [
