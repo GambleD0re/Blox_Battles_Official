@@ -92,7 +92,15 @@ const App = () => {
                 <Suspense fallback={<Loader fullScreen />}>
                     <Routes>
                         <Route path="/signin" element={!user ? <SignInPage /> : <Navigate to="/dashboard" />} />
-                        <Route path="/signup" element={!user ? <FeatureGuard featureName="user_registration"><SignUpPage /></FeatureGuard> : <Navigate to="/dashboard" />} />
+                        <Route path="/signup" element={
+                            !user ? (
+                                <FeatureGuard featureName="user_registration">
+                                    <SignUpPage />
+                                </FeatureGuard>
+                            ) : (
+                                <Navigate to="/dashboard" />
+                            )
+                        } />
                         <Route path="/transcripts/:duelId" element={<TranscriptViewerPage />} />
                         <Route path="/transcripts/ticket/:ticketId" element={<TicketTranscriptViewerPage />} />
                         <Route path="/verification-notice" element={<VerificationNoticePage />} />
@@ -112,7 +120,7 @@ const App = () => {
                         <Route path="/tournaments" element={<ProtectedRoute><FeatureGuard featureName="tournaments"><TournamentsPage /></FeatureGuard></ProtectedRoute>} />
                         
                         <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
-                        <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><FeatureGuard featureName="tournaments"><AdminTournamentCreatePage /></FeatureGuard></ProtectedRoute>} />
+                        <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><FeatureGuard featureName="tournaments"><AdminTournamentCreatePage /></ProtectedRoute>} />
 
                         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/signin"} />} />
                     </Routes>
