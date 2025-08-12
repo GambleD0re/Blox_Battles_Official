@@ -22,7 +22,7 @@ const DuelCard = ({ duel }) => {
         >
             {/* Winner Side */}
             <div className="relative w-1/2 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-green-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]">
-                <img src={winner.avatarUrl || `https://ui-avatars.com/api/?name=${winner.username}&background=2d3748&color=e2e8f0`} alt={winner.username} className="w-16 h-16 object-cover rounded-full flex-shrink-0" />
+                <img src={winner.avatarUrl || `https://ui-avatars.com/api/?name=${winner.username.charAt(0)}&background=2d3748&color=e2e8f0`} alt={winner.username} className="w-16 h-16 object-cover rounded-full flex-shrink-0" />
                 <span className="font-bold text-white text-lg ml-3 truncate">{winner.username}</span>
             </div>
 
@@ -35,7 +35,7 @@ const DuelCard = ({ duel }) => {
             {/* Loser Side */}
             <div className="w-1/2 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-gray-600 justify-end">
                 <span className="font-bold text-white text-lg mr-3 truncate text-right">{loser.username}</span>
-                <img src={loser.avatarUrl || `https://ui-avatars.com/api/?name=${loser.username}&background=2d3748&color=e2e8f0`} alt={loser.username} className="w-16 h-16 object-cover rounded-full flex-shrink-0" />
+                <img src={loser.avatarUrl || `https://ui-avatars.com/api/?name=${loser.username.charAt(0)}&background=2d3748&color=e2e8f0`} alt={loser.username} className="w-16 h-16 object-cover rounded-full flex-shrink-0" />
             </div>
         </motion.div>
     );
@@ -57,7 +57,7 @@ const LiveFeed = () => {
                     const data = JSON.parse(event.data);
                     if (data.type === 'live_feed_update') {
                         const newDuel = { ...data.payload, key: data.payload.id + Date.now() };
-                        setDuels(prev => [newDuel, ...prev]);
+                        setDuels(prev => [newDuel, ...prev].slice(-10));
                     }
                 } catch (error) {
                     console.error('[WebSocket] Error parsing message:', error);
@@ -101,10 +101,12 @@ const LiveFeed = () => {
                 <span className="text-yellow-300 font-black text-2xl tracking-[.2em]" style={{ writingMode: 'vertical-rl' }}>FEED</span>
             </div>
             
-            <div className="w-full h-full flex items-center pl-16 pr-16">
-                <AnimatePresence>
-                    {duels.slice(0, 2).map(duel => <DuelCard key={duel.key} duel={duel} />)}
-                </AnimatePresence>
+            <div className="w-full h-full flex items-center pl-16 pr-16 overflow-hidden">
+                <motion.div className="flex" animate={{ x: [0, -100 * duels.length + '%' ] }} transition={{ duration: duels.length * 15, ease: 'linear', repeat: Infinity }}>
+                    <AnimatePresence>
+                        {duels.map(duel => <DuelCard key={duel.key} duel={duel} />)}
+                    </AnimatePresence>
+                </motion.div>
             </div>
         </div>
     );
