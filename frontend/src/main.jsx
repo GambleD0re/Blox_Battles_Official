@@ -5,7 +5,6 @@ import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 
 const style = document.createElement('style');
-// This CSS is a direct copy from your original main.jsx to ensure a perfect style match.
 style.innerHTML = `
     :root {
         --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -46,9 +45,6 @@ style.innerHTML = `
     .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
     .form-group { margin-bottom: 1rem; text-align: left; }
     .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; color: var(--text-muted); }
-
-    /* --- MODIFICATION START --- */
-    /* This new .form-input class will now style all form elements consistently */
     .form-input {
         width: 100%;
         padding: 0.75rem;
@@ -60,8 +56,6 @@ style.innerHTML = `
         color: var(--text-color);
         transition: all 0.2s;
     }
-    
-    /* Specific styling for select dropdowns to give them a custom arrow */
     select.form-input {
         -webkit-appearance: none;
         -moz-appearance: none;
@@ -72,15 +66,11 @@ style.innerHTML = `
         background-size: 1.5em 1.5em;
         padding-right: 2.5rem;
     }
-    
-    /* Focus state for all form inputs */
     .form-input:focus {
         outline: none;
         border-color: var(--accent-color);
         box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);
     }
-    /* --- MODIFICATION END --- */
-    
     .btn { padding: 0.85rem; border: none; border-radius: 8px; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; transition: all 0.2s; text-decoration: none; display: inline-block; text-align: center; }
     .btn-primary { background-color: var(--btn-primary-bg); }
     .btn-primary:hover { background-color: var(--btn-primary-hover-bg); transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -125,6 +115,20 @@ style.innerHTML = `
     .modal-actions .btn-secondary:hover { background-color: var(--btn-secondary-hover-bg); color: var(--text-color); }
     .modal-actions .btn-danger { background-color: var(--loss-color); color: white; }
     .modal-actions .btn-danger:hover { background-color: #d13c3c; }
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(-100%); opacity: 0; }
+    }
+    .animate-slide-in {
+        animation: slideIn 0.5s ease-out forwards;
+    }
+    .animate-scroll-left {
+        animation: scrollLeft 30s linear infinite;
+    }
 `;
 document.head.appendChild(style);
 
