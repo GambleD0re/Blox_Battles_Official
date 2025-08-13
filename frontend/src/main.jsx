@@ -1,5 +1,3 @@
-with open('input_file_1.js', 'w') as f:
-    f.write("""import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
