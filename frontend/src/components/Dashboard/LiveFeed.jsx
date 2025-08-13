@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const formatGems = (amount) => {
     if (amount >= 1000) {
@@ -9,44 +8,53 @@ const formatGems = (amount) => {
 };
 
 const DuelCard = ({ duel }) => {
-    const { winner, loser, score, wager, pot } = duel;
+    const { winner, loser, score, pot } = duel;
 
     return (
-        <motion.div
-            layout
-            initial={{ x: '100%', opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: '-100%', opacity: 0 }}
-            transition={{ duration: 0.5, ease: 'easeInOut' }}
-            className="flex-shrink-0 w-96 h-24 bg-gray-900/60 border border-gray-700 rounded-lg p-2 flex items-center justify-between mx-4"
-        >
-            <div className="relative w-1/2 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-green-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]">
+        <div className="flex-shrink-0 w-full h-24 bg-gray-900/60 border border-gray-700 rounded-lg p-2 flex items-center justify-between gap-2">
+            <div className="flex-1 min-w-0 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-green-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]">
                 <img src={winner.avatarUrl || `https://ui-avatars.com/api/?name=${winner.username.charAt(0)}&background=2d3748&color=e2e8f0`} alt={winner.username} className="w-16 h-16 object-cover rounded-full flex-shrink-0" />
-                <span className="font-bold text-white text-lg ml-3 truncate">{winner.username}</span>
+                <span className="font-bold text-white text-lg ml-2 truncate">{winner.username}</span>
             </div>
 
-            <div className="text-center mx-3 flex-shrink-0">
+            <div className="text-center flex-shrink-0">
                 <div className="font-black text-2xl text-white">{score ? `${score[Object.keys(score)[0]]} - ${score[Object.keys(score)[1]]}` : 'N/A'}</div>
-                <div className="font-bold text-sm text-green-400" title={`Wager: ${wager}, Pot: ${pot}`}>{formatGems(pot)} Gems</div>
+                <div className="font-bold text-sm text-green-400" title={`Pot: ${pot}`}>{formatGems(pot)} Gems</div>
             </div>
 
-            <div className="w-1/2 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-gray-600 justify-end">
-                <span className="font-bold text-white text-lg mr-3 truncate text-right">{loser.username}</span>
+            <div className="flex-1 min-w-0 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-gray-600 justify-end">
+                <span className="font-bold text-white text-lg mr-2 truncate text-right">{loser.username}</span>
                 <img src={loser.avatarUrl || `https://ui-avatars.com/api/?name=${loser.username.charAt(0)}&background=2d3748&color=e2e8f0`} alt={loser.username} className="w-16 h-16 object-cover rounded-full flex-shrink-0" />
             </div>
-        </motion.div>
+        </div>
     );
 };
 
 const LiveFeed = () => {
     const [duels, setDuels] = useState([]);
     const ws = useRef(null);
+    const timeouts = useRef([]);
+
+    const onNewDuel = (duelData) => {
+        const newDuel = {
+            key: `duel-${duelData.id}-${Date.now()}`,
+            position: 'enter',
+            data: duelData,
+        };
+
+        setDuels(currentDuels => {
+            const updatedDuels = currentDuels.map(d => {
+                if (d.position === 'slot1') return { ...d, position: 'slot2' };
+                if (d.position === 'slot2') return { ...d, position: 'exit' };
+                return d;
+            });
+            return [...updatedDuels, newDuel];
+        });
+    };
 
     useEffect(() => {
         const connect = () => {
-            const backendUrl = import.meta.env.VITE_API_BASE_URL.replace(/^http/, 'ws');
-            const wsUrl = new URL(backendUrl).href;
-
+            const wsUrl = 'wss://blox-battles-backend.onrender.com';
             ws.current = new WebSocket(wsUrl);
 
             ws.current.onopen = () => console.log('[WebSocket] Live Feed connected.');
@@ -54,8 +62,7 @@ const LiveFeed = () => {
                 try {
                     const data = JSON.parse(event.data);
                     if (data.type === 'live_feed_update') {
-                        const newDuel = { ...data.payload, key: data.payload.id + Date.now() };
-                        setDuels(prev => [newDuel, ...prev].slice(-10));
+                        onNewDuel(data.payload);
                     }
                 } catch (error) {
                     console.error('[WebSocket] Error parsing message:', error);
@@ -70,41 +77,48 @@ const LiveFeed = () => {
 
         connect();
 
-        const initDuelTimer = setTimeout(() => {
-            setDuels(prev => [{
-                id: 'init-duel', key: 'init-duel-1',
-                winner: { username: 'Dueler 1', avatarUrl: null },
-                loser: { username: 'Dueler 2', avatarUrl: null },
-                score: { team1: 5, team2: 3 }, wager: 100, pot: 196,
-            }, ...prev]);
-        }, 5000);
-        
-        const removeInitDuelTimer = setTimeout(() => {
-            setDuels(prev => prev.filter(d => d.id !== 'init-duel'));
-        }, 25000);
-
         return () => {
-            clearTimeout(initDuelTimer);
-            clearTimeout(removeInitDuelTimer);
+            timeouts.current.forEach(clearTimeout);
             if (ws.current) ws.current.close();
         };
     }, []);
+
+    useEffect(() => {
+        if (duels.some(d => d.position === 'enter')) {
+            const enterTimer = setTimeout(() => {
+                setDuels(currentDuels =>
+                    currentDuels.map(d => (d.position === 'enter' ? { ...d, position: 'slot1' } : d))
+                );
+            }, 100);
+            timeouts.current.push(enterTimer);
+        }
+
+        if (duels.some(d => d.position === 'exit')) {
+            const exitTimer = setTimeout(() => {
+                setDuels(currentDuels => currentDuels.filter(d => d.position !== 'exit'));
+            }, 800);
+            timeouts.current.push(exitTimer);
+        }
+    }, [duels]);
     
     return (
         <div className="fixed bottom-0 left-0 right-0 h-32 bg-black/60 backdrop-blur-md border-t-2 border-gray-800 flex items-center overflow-hidden z-40 rounded-t-lg">
-            <div className="absolute left-0 top-0 bottom-0 w-12 flex items-center justify-center">
-                <span className="text-purple-400 font-black text-2xl tracking-[.2em]" style={{ writingMode: 'vertical-rl' }}>LIVE</span>
-            </div>
-            <div className="absolute right-0 top-0 bottom-0 w-12 flex items-center justify-center">
-                <span className="text-yellow-300 font-black text-2xl tracking-[.2em]" style={{ writingMode: 'vertical-rl' }}>FEED</span>
+            <div className="flex-shrink-0 w-12 flex items-center justify-center">
+                <span className="text-purple-400 font-black text-2xl tracking-tighter" style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}>LIVE</span>
             </div>
             
-            <div className="w-full h-full flex items-center pl-16 pr-16 overflow-hidden">
-                <motion.div className="flex" animate={{ x: [0, -400 * duels.length] }} transition={{ duration: duels.length * 10, ease: 'linear', repeat: duels.length > 2 ? Infinity : 0 }}>
-                    <AnimatePresence>
-                        {duels.map(duel => <DuelCard key={duel.key} duel={duel} />)}
-                    </AnimatePresence>
-                </motion.div>
+            <div className="flex-grow h-full">
+                <div className="live-feed-cards-container">
+                    {duels.map(duel => (
+                        <div key={duel.key} className={`duel-card-wrapper pos-${duel.position}`}>
+                            <DuelCard duel={duel.data} />
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="flex-shrink-0 w-12 flex items-center justify-center">
+                <span className="text-yellow-300 font-black text-2xl tracking-tighter" style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}>FEED</span>
             </div>
         </div>
     );
