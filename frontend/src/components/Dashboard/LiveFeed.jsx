@@ -12,19 +12,30 @@ const DuelCard = ({ duel }) => {
 
     return (
         <div className="flex-shrink-0 w-full h-24 bg-gray-900/60 border border-gray-700 rounded-lg p-2 flex items-center justify-between gap-2">
-            <div className="flex-1 min-w-0 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-green-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]">
-                <img src={winner.avatarUrl || `https://ui-avatars.com/api/?name=${winner.username.charAt(0)}&background=2d3748&color=e2e8f0`} alt={winner.username} className="w-16 h-16 object-cover rounded-full flex-shrink-0" />
-                <span className="font-bold text-white text-lg ml-2 truncate">{winner.username}</span>
+            {/* Winner Group */}
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+                <img 
+                    src={winner.avatarUrl || `https://ui-avatars.com/api/?name=${winner.username.charAt(0)}&background=2d3748&color=e2e8f0`} 
+                    alt={winner.username} 
+                    className="w-16 h-16 object-cover rounded-full border-2 border-green-400 flex-shrink-0"
+                />
+                <span className="font-bold text-white text-lg truncate">{winner.username}</span>
             </div>
 
-            <div className="text-center flex-shrink-0">
+            {/* Score Group */}
+            <div className="text-center flex-shrink-0 mx-4">
                 <div className="font-black text-2xl text-white">{score ? `${score[Object.keys(score)[0]]} - ${score[Object.keys(score)[1]]}` : 'N/A'}</div>
                 <div className="font-bold text-sm text-green-400" title={`Pot: ${pot}`}>{formatGems(pot)} Gems</div>
             </div>
 
-            <div className="flex-1 min-w-0 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-gray-600 justify-end">
-                <span className="font-bold text-white text-lg mr-2 truncate text-right">{loser.username}</span>
-                <img src={loser.avatarUrl || `https://ui-avatars.com/api/?name=${loser.username.charAt(0)}&background=2d3748&color=e2e8f0`} alt={loser.username} className="w-16 h-16 object-cover rounded-full flex-shrink-0" />
+            {/* Loser Group */}
+            <div className="flex items-center justify-end gap-3 flex-1 min-w-0">
+                <span className="font-bold text-white text-lg truncate text-right">{loser.username}</span>
+                <img 
+                    src={loser.avatarUrl || `https://ui-avatars.com/api/?name=${loser.username.charAt(0)}&background=2d3748&color=e2e8f0`} 
+                    alt={loser.username} 
+                    className="w-16 h-16 object-cover rounded-full border-2 border-gray-600 flex-shrink-0"
+                />
             </div>
         </div>
     );
@@ -59,30 +70,25 @@ const LiveFeed = () => {
 
             ws.current.onopen = () => console.log('[WebSocket] Live Feed connected.');
             
-            // --- UPDATED ---
             ws.current.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
                     
                     if (data.type === 'live_feed_history') {
-                        // This handles the initial state sync for new connections.
                         console.log('[WebSocket] Received duel history:', data.payload);
                         const historyDuels = data.payload.map((duelData, index) => ({
                             key: `hist-${duelData.id}`,
-                            // The newest duel from the server (index 0) goes to slot1
                             position: index === 0 ? 'slot1' : 'slot2',
                             data: duelData
                         }));
                         setDuels(historyDuels);
                     } else if (data.type === 'live_feed_update') {
-                        // This handles ongoing live updates.
                         onNewDuel(data.payload);
                     }
                 } catch (error) {
                     console.error('[WebSocket] Error parsing message:', error);
                 }
             };
-            // --- END UPDATED ---
 
             ws.current.onerror = (error) => console.error('[WebSocket] Error:', error);
             ws.current.onclose = () => {
@@ -100,8 +106,6 @@ const LiveFeed = () => {
     }, []);
 
     useEffect(() => {
-        // This effect for animations doesn't need to change.
-        // It will still handle animating cards that enter the 'enter' position.
         if (duels.some(d => d.position === 'enter')) {
             const enterTimer = setTimeout(() => {
                 setDuels(currentDuels =>
