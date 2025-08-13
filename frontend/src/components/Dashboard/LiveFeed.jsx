@@ -1,5 +1,4 @@
-with open('input_file_3.js', 'w') as f:
-    f.write("""import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const formatGems = (amount) => {
     if (amount >= 1000) {
@@ -35,6 +34,7 @@ const LiveFeed = () => {
     const [duels, setDuels] = useState([]);
     const ws = useRef(null);
     const timeouts = useRef([]);
+    const testCounter = useRef(0);
 
     const onNewDuel = (duelData) => {
         const newDuel = {
@@ -79,8 +79,22 @@ const LiveFeed = () => {
 
         connect();
 
+        const testInterval = setInterval(() => {
+            testCounter.current++;
+            const testDuelData = {
+                id: `test-${testCounter.current}`,
+                winner: { username: `Winner${testCounter.current}`, avatarUrl: null },
+                loser: { username: `Loser${testCounter.current}`, avatarUrl: null },
+                score: { team1: Math.floor(Math.random() * 5) + 1, team2: Math.floor(Math.random() * 5) + 1 },
+                wager: Math.floor(Math.random() * 500),
+                pot: Math.floor(Math.random() * 1000),
+            };
+            onNewDuel(testDuelData);
+        }, 30000);
+
         return () => {
             timeouts.current.forEach(clearTimeout);
+            clearInterval(testInterval);
             if (ws.current) ws.current.close();
         };
     }, []);
