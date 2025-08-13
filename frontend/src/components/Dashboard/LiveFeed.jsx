@@ -118,14 +118,11 @@ const LiveFeed = () => {
     
     return (
         <div className="fixed bottom-0 left-0 right-0 h-32 bg-black/60 backdrop-blur-md border-t-2 border-gray-800 flex items-center overflow-hidden z-40 rounded-t-lg">
-            <div className="absolute left-0 top-0 bottom-0 w-12 flex items-center justify-center">
+            <div className="flex-shrink-0 w-12 flex items-center justify-center">
                 <span className="text-purple-400 font-black text-2xl tracking-[.2em]" style={{ writingMode: 'vertical-rl' }}>LIVE</span>
             </div>
-            <div className="absolute right-0 top-0 bottom-0 w-12 flex items-center justify-center">
-                <span className="text-yellow-300 font-black text-2xl tracking-[.2em]" style={{ writingMode: 'vertical-rl' }}>FEED</span>
-            </div>
             
-            <div className="w-full h-full">
+            <div className="flex-grow h-full">
                 <div className="live-feed-cards-container">
                     {duels.map(duel => (
                         <div key={duel.key} className={`duel-card-wrapper pos-${duel.position}`}>
@@ -133,6 +130,10 @@ const LiveFeed = () => {
                         </div>
                     ))}
                 </div>
+            </div>
+
+            <div className="flex-shrink-0 w-12 flex items-center justify-center">
+                <span className="text-yellow-300 font-black text-2xl tracking-[.2em]" style={{ writingMode: 'vertical-rl' }}>FEED</span>
             </div>
         </div>
     );
