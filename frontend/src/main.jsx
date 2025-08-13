@@ -129,10 +129,10 @@ style.innerHTML = `
         width: 24rem;
     }
     .pos-slot2 {
-        left: 4rem;
+        left: 1rem;
     }
     .pos-slot1 {
-        left: calc(100% - 24rem - 4rem);
+        left: calc(100% - 24rem - 1rem);
     }
     .pos-enter {
         left: 100%;
