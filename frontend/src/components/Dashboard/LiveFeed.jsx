@@ -11,7 +11,7 @@ const DuelCard = ({ duel }) => {
     const { winner, loser, score, pot } = duel;
 
     return (
-        <div className="flex-shrink-0 w-96 h-24 bg-gray-900/60 border border-gray-700 rounded-lg p-2 flex items-center justify-between mx-4">
+        <div className="flex-shrink-0 w-96 h-24 bg-gray-900/60 border border-gray-700 rounded-lg p-2 flex items-center justify-between">
             <div className="relative w-1/2 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-green-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]">
                 <img src={winner.avatarUrl || `https://ui-avatars.com/api/?name=${winner.username.charAt(0)}&background=2d3748&color=e2e8f0`} alt={winner.username} className="w-16 h-16 object-cover rounded-full flex-shrink-0" />
                 <span className="font-bold text-white text-lg ml-3 truncate">{winner.username}</span>
@@ -55,8 +55,7 @@ const LiveFeed = () => {
 
     useEffect(() => {
         const connect = () => {
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${wsProtocol}//${window.location.host}`;
+            const wsUrl = 'wss://blox-battles-backend.onrender.com';
             ws.current = new WebSocket(wsUrl);
 
             ws.current.onopen = () => console.log('[WebSocket] Live Feed connected.');
