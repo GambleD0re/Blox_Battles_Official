@@ -119,7 +119,7 @@ const LiveFeed = () => {
     return (
         <div className="fixed bottom-0 left-0 right-0 h-32 bg-black/60 backdrop-blur-md border-t-2 border-gray-800 flex items-center overflow-hidden z-40 rounded-t-lg">
             <div className="flex-shrink-0 w-12 flex items-center justify-center">
-                <span className="text-purple-400 font-black text-2xl tracking-[.2em]" style={{ writingMode: 'vertical-rl' }}>LIVE</span>
+                <span className="text-purple-400 font-black text-2xl tracking-[.2em]" style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}>LIVE</span>
             </div>
             
             <div className="flex-grow h-full">
@@ -133,7 +133,7 @@ const LiveFeed = () => {
             </div>
 
             <div className="flex-shrink-0 w-12 flex items-center justify-center">
-                <span className="text-yellow-300 font-black text-2xl tracking-[.2em]" style={{ writingMode: 'vertical-rl' }}>FEED</span>
+                <span className="text-yellow-300 font-black text-2xl tracking-[.2em]" style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}>FEED</span>
             </div>
         </div>
     );
