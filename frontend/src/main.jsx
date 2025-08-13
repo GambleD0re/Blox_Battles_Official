@@ -126,19 +126,19 @@ style.innerHTML = `
         top: 50%;
         transform: translateY(-50%);
         transition: left 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-        width: 36rem;
+        width: 42rem;
     }
     .pos-slot2 {
         left: 1rem;
     }
     .pos-slot1 {
-        left: calc(100% - 36rem - 1rem);
+        left: calc(100% - 42rem - 1rem);
     }
     .pos-enter {
         left: 100%;
     }
     .pos-exit {
-        left: -36rem;
+        left: -42rem;
     }
 `;
 document.head.appendChild(style);
