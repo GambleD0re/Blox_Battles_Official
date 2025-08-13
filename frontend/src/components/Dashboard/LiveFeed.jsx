@@ -11,19 +11,19 @@ const DuelCard = ({ duel }) => {
     const { winner, loser, score, pot } = duel;
 
     return (
-        <div className="flex-shrink-0 w-96 h-24 bg-gray-900/60 border border-gray-700 rounded-lg p-2 flex items-center justify-between">
-            <div className="relative w-1/2 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-green-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]">
+        <div className="flex-shrink-0 w-96 h-24 bg-gray-900/60 border border-gray-700 rounded-lg p-2 flex items-center justify-between gap-2">
+            <div className="flex-1 min-w-0 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-green-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]">
                 <img src={winner.avatarUrl || `https://ui-avatars.com/api/?name=${winner.username.charAt(0)}&background=2d3748&color=e2e8f0`} alt={winner.username} className="w-16 h-16 object-cover rounded-full flex-shrink-0" />
-                <span className="font-bold text-white text-lg ml-3 truncate">{winner.username}</span>
+                <span className="font-bold text-white text-lg ml-2 truncate">{winner.username}</span>
             </div>
 
-            <div className="text-center mx-3 flex-shrink-0">
+            <div className="text-center flex-shrink-0">
                 <div className="font-black text-2xl text-white">{score ? `${score[Object.keys(score)[0]]} - ${score[Object.keys(score)[1]]}` : 'N/A'}</div>
                 <div className="font-bold text-sm text-green-400" title={`Pot: ${pot}`}>{formatGems(pot)} Gems</div>
             </div>
 
-            <div className="w-1/2 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-gray-600 justify-end">
-                <span className="font-bold text-white text-lg mr-3 truncate text-right">{loser.username}</span>
+            <div className="flex-1 min-w-0 h-full flex items-center p-2 rounded-md border-2 bg-gray-800/50 border-gray-600 justify-end">
+                <span className="font-bold text-white text-lg mr-2 truncate text-right">{loser.username}</span>
                 <img src={loser.avatarUrl || `https://ui-avatars.com/api/?name=${loser.username.charAt(0)}&background=2d3748&color=e2e8f0`} alt={loser.username} className="w-16 h-16 object-cover rounded-full flex-shrink-0" />
             </div>
         </div>
