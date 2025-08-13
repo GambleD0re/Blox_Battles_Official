@@ -115,38 +115,54 @@ style.innerHTML = `
     .modal-actions .btn-secondary:hover { background-color: var(--btn-secondary-hover-bg); color: var(--text-color); }
     .modal-actions .btn-danger { background-color: var(--loss-color); color: white; }
     .modal-actions .btn-danger:hover { background-color: #d13c3c; }
-
-    /* New Live Feed Animation Styles */
-    .live-feed-container {
-        display: flex;
+    .duel-slots-container {
         position: relative;
-        gap: 1.5rem; /* spacing between cards */
-        align-items: center;
+        width: 100%;
         height: 100%;
+        padding: 0 5rem;
+        box-sizing: border-box;
     }
-
     .duel-card-wrapper {
-        transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.8s ease;
-        flex-shrink: 0;
+        position: absolute;
+        width: calc(50% - 1rem);
+        height: 100%;
+        padding: 1rem 0;
+        box-sizing: border-box;
+        transition: left 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        /* Default state: off-screen to the right */
+        left: 150%;
+    }
+    /* Position for the card in the right slot (newest) */
+    .duel-card-wrapper:nth-child(1) {
+        left: 50%;
+    }
+    /* Position for the card in the left slot */
+    .duel-card-wrapper:nth-child(2) {
+        left: 0;
+    }
+    /* Position for the card exiting to the left */
+    .duel-card-wrapper:nth-child(3) {
+        left: -50%;
     }
 
-    /* A card that is entering or visible */
-    .duel-card-wrapper.animate-in {
-        opacity: 1;
-        transform: translateX(0);
+to { transform: translateX(-50%); }
     }
     
-    /* A card that is exiting */
-    .duel-card-wrapper.animate-out {
-        opacity: 0;
-        transform: translateX(-150%);
-        position: absolute; /* Remove from flow so others can slide over */
-    }
-
-    /* The initial state before entering */
-    .duel-card-wrapper {
-        opacity: 0;
-        transform: translateX(150%);
+    .hover\\:pause:hover {
+        animation-play-state: paused;
     }
 `;
 document.head.appendChild(style);
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </BrowserRouter>
+  </React.StrictMode>
+);
