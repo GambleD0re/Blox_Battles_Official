@@ -54,7 +54,8 @@ const LiveFeed = () => {
 
     useEffect(() => {
         const connect = () => {
-            const wsUrl = 'wss://blox-battles-backend.onrender.com';
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}`;
             ws.current = new WebSocket(wsUrl);
 
             ws.current.onopen = () => console.log('[WebSocket] Live Feed connected.');
