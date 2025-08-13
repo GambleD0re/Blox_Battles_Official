@@ -3,6 +3,7 @@ const db = require('../database/database');
 const { body, validationResult } = require('express-validator');
 const { authenticateBot } = require('../middleware/auth');
 const { broadcast } = require('../webSocketManager');
+const { resetGhostFeedTimer } = require('../services/ghostFeedService');
 
 const router = express.Router();
 
@@ -95,6 +96,8 @@ router.post('/',
                                             pot: fullDuelData.pot,
                                         }
                                     });
+                                    
+                                    resetGhostFeedTimer();
 
                                     console.log(`Duel ${duel.id} result recorded. Winner: ${winner_username}. Broadcasted to clients.`);
                                 } else {
