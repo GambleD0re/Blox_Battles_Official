@@ -12,6 +12,7 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { botLogger } = require('./middleware/botLogger');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { initializeWebSocket } = require('./webSocketManager');
+const { startGhostFeed } = require('./services/ghostFeedService');
 
 const { startTransactionListener } = require('./services/transactionListenerService');
 const { startConfirmationService } = require('./services/transactionConfirmationService');
@@ -114,4 +115,5 @@ server.listen(PORT, () => {
     
     startTransactionListener();
     startConfirmationService();
+    startGhostFeed();
 });
