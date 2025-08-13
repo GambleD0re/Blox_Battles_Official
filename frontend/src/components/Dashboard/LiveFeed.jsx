@@ -58,16 +58,32 @@ const LiveFeed = () => {
             ws.current = new WebSocket(wsUrl);
 
             ws.current.onopen = () => console.log('[WebSocket] Live Feed connected.');
+            
+            // --- UPDATED ---
             ws.current.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === 'live_feed_update') {
+                    
+                    if (data.type === 'live_feed_history') {
+                        // This handles the initial state sync for new connections.
+                        console.log('[WebSocket] Received duel history:', data.payload);
+                        const historyDuels = data.payload.map((duelData, index) => ({
+                            key: `hist-${duelData.id}`,
+                            // The newest duel from the server (index 0) goes to slot1
+                            position: index === 0 ? 'slot1' : 'slot2',
+                            data: duelData
+                        }));
+                        setDuels(historyDuels);
+                    } else if (data.type === 'live_feed_update') {
+                        // This handles ongoing live updates.
                         onNewDuel(data.payload);
                     }
                 } catch (error) {
                     console.error('[WebSocket] Error parsing message:', error);
                 }
             };
+            // --- END UPDATED ---
+
             ws.current.onerror = (error) => console.error('[WebSocket] Error:', error);
             ws.current.onclose = () => {
                 console.log('[WebSocket] Live Feed disconnected. Reconnecting...');
@@ -84,6 +100,8 @@ const LiveFeed = () => {
     }, []);
 
     useEffect(() => {
+        // This effect for animations doesn't need to change.
+        // It will still handle animating cards that enter the 'enter' position.
         if (duels.some(d => d.position === 'enter')) {
             const enterTimer = setTimeout(() => {
                 setDuels(currentDuels =>
