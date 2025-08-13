@@ -108,12 +108,14 @@ passport.use(new GoogleStrategy({
 const apiRoutes = require('./routes');
 app.use('/api', botLogger, apiRoutes);
 
-initializeWebSocket(server);
+// 1. Initialize the WebSocket Server and get the instance
+const wss = initializeWebSocket(server);
 
 server.listen(PORT, () => {
     console.log(`Backend API server started and listening on internal port: ${PORT}`);
     
     startTransactionListener();
     startConfirmationService();
-    startGhostFeed();
+    // 2. Start the ghost feed and pass it the wss instance
+    startGhostFeed(wss);
 });
