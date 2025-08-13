@@ -115,44 +115,30 @@ style.innerHTML = `
     .modal-actions .btn-secondary:hover { background-color: var(--btn-secondary-hover-bg); color: var(--text-color); }
     .modal-actions .btn-danger { background-color: var(--loss-color); color: white; }
     .modal-actions .btn-danger:hover { background-color: #d13c3c; }
-    .duel-slots-container {
+    .live-feed-cards-container {
         position: relative;
         width: 100%;
         height: 100%;
-        padding: 0 5rem;
-        box-sizing: border-box;
+        overflow: hidden;
     }
     .duel-card-wrapper {
         position: absolute;
-        width: calc(50% - 1rem);
-        height: 100%;
-        padding: 1rem 0;
-        box-sizing: border-box;
+        top: 50%;
+        transform: translateY(-50%);
         transition: left 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        /* Default state: off-screen to the right */
-        left: 150%;
+        width: 24rem;
     }
-    /* Position for the card in the right slot (newest) */
-    .duel-card-wrapper:nth-child(1) {
-        left: 50%;
+    .pos-slot2 {
+        left: 4rem;
     }
-    /* Position for the card in the left slot */
-    .duel-card-wrapper:nth-child(2) {
-        left: 0;
+    .pos-slot1 {
+        left: calc(100% - 24rem - 4rem);
     }
-    /* Position for the card exiting to the left */
-    .duel-card-wrapper:nth-child(3) {
-        left: -50%;
+    .pos-enter {
+        left: 100%;
     }
-
-to { transform: translateX(-50%); }
-    }
-    
-    .hover\\:pause:hover {
-        animation-play-state: paused;
+    .pos-exit {
+        left: -24rem;
     }
 `;
 document.head.appendChild(style);
