@@ -3,7 +3,7 @@ const { broadcast } = require('../webSocketManager');
 
 const GHOST_FEED_INTERVAL = 4000;
 let ghostFeedTimer = null;
-let wssInstance = null; // To hold the WebSocket server instance
+let wssInstance = null; 
 
 const WAGERS = [100, 250, 500, 1000, 2500];
 
@@ -57,7 +57,6 @@ async function generateGhostDuel() {
             pot: pot,
         };
 
-        // Pass the wss instance to the broadcast function
         broadcast(wssInstance, {
             type: 'live_feed_update',
             payload: ghostDuelPayload
@@ -67,6 +66,10 @@ async function generateGhostDuel() {
 
     } catch (error) {
         console.error('[GhostFeed] Failed to generate ghost duel:', error);
+    } finally {
+        // This line was missing. It ensures that after a ghost duel is generated
+        // (or fails to generate), a new timer is always set for the next one.
+        resetGhostFeedTimer();
     }
 }
 
@@ -77,14 +80,13 @@ const resetGhostFeedTimer = () => {
     ghostFeedTimer = setTimeout(generateGhostDuel, GHOST_FEED_INTERVAL);
 };
 
-// Accept the wss instance when starting the service
 const startGhostFeed = (wss) => {
-    wssInstance = wss; // Store the instance for later use
+    wssInstance = wss;
     console.log('[GhostFeed] Service started. Initializing first timer.');
     resetGhostFeedTimer();
 };
 
 module.exports = {
     startGhostFeed,
-    resetGhostFeedTimer, // You'll need to adapt how this is called if real duels are added
+    resetGhostFeedTimer,
 };
