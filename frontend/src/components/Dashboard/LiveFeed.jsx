@@ -125,12 +125,14 @@ const LiveFeed = () => {
                 <span className="text-yellow-300 font-black text-2xl tracking-[.2em]" style={{ writingMode: 'vertical-rl' }}>FEED</span>
             </div>
             
-            <div className="live-feed-cards-container">
-                {duels.map(duel => (
-                    <div key={duel.key} className={`duel-card-wrapper pos-${duel.position}`}>
-                        <DuelCard duel={duel.data} />
-                    </div>
-                ))}
+            <div className="w-full h-full">
+                <div className="live-feed-cards-container">
+                    {duels.map(duel => (
+                        <div key={duel.key} className={`duel-card-wrapper pos-${duel.position}`}>
+                            <DuelCard duel={duel.data} />
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
