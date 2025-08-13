@@ -1,4 +1,5 @@
-import React from 'react';
+with open('input_file_1.js', 'w') as f:
+    f.write("""import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
@@ -115,15 +116,38 @@ style.innerHTML = `
     .modal-actions .btn-secondary:hover { background-color: var(--btn-secondary-hover-bg); color: var(--text-color); }
     .modal-actions .btn-danger { background-color: var(--loss-color); color: white; }
     .modal-actions .btn-danger:hover { background-color: #d13c3c; }
-    @keyframes marquee {
-        from { transform: translateX(0); }
-        to { transform: translateX(-50%); }
+
+    /* New Live Feed Animation Styles */
+    .live-feed-container {
+        display: flex;
+        position: relative;
+        gap: 1.5rem; /* spacing between cards */
+        align-items: center;
+        height: 100%;
     }
-    .animate-marquee {
-        animation: marquee linear infinite;
+
+    .duel-card-wrapper {
+        transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.8s ease;
+        flex-shrink: 0;
     }
-    .hover\\:pause:hover {
-        animation-play-state: paused;
+
+    /* A card that is entering or visible */
+    .duel-card-wrapper.animate-in {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    
+    /* A card that is exiting */
+    .duel-card-wrapper.animate-out {
+        opacity: 0;
+        transform: translateX(-150%);
+        position: absolute; /* Remove from flow so others can slide over */
+    }
+
+    /* The initial state before entering */
+    .duel-card-wrapper {
+        opacity: 0;
+        transform: translateX(150%);
     }
 `;
 document.head.appendChild(style);
@@ -137,3 +161,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+""")
