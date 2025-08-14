@@ -26,7 +26,7 @@ const ChallengePlayer = ({ token, onChallenge, onError, isBanned }) => {
     };
 
     return (
-        <div className="widget">
+        <div>
             <h2 className="widget-title">Challenge a Player</h2>
             <form onSubmit={handleFindPlayer}>
                 <div className="form-group mb-4">
