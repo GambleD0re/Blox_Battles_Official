@@ -89,13 +89,13 @@ const RandomQueue = ({ gameData, token, showMessage }) => {
     };
 
     if (isLoading) {
-        return <div className="widget text-center p-8">Loading Queue...</div>;
+        return <div className="text-center p-8">Loading Queue...</div>;
     }
 
     if (queueStatus) {
         return (
-            <div className="widget text-center">
-                <h2 className="widget-title">Searching for Match...</h2>
+            <div className="text-center">
+                <h3 className="widget-title">Searching for Match...</h3>
                 <div className="flex items-center justify-center gap-4 my-4">
                     <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     <div className="text-3xl font-bold text-white"><Timer startTime={queueStatus.created_at} /></div>
@@ -109,47 +109,44 @@ const RandomQueue = ({ gameData, token, showMessage }) => {
     }
     
     return (
-        <div className="widget">
-            <h2 className="widget-title">Random Queue</h2>
-            <div className="space-y-4">
-                <div className="form-group">
-                    <label>Wager</label>
-                    <div className="flex items-center gap-2">
-                        {wagerOptions.map(opt => (
-                            <button key={opt} onClick={() => setWager(opt)} className={`flex-1 p-2 rounded-md border-2 font-semibold transition-all ${wager === opt ? 'border-blue-500 bg-blue-500/20' : 'border-transparent bg-gray-700/50 hover:bg-gray-600/50'}`}>
-                                {opt}
-                            </button>
-                        ))}
-                    </div>
+        <div className="space-y-4">
+            <div className="form-group">
+                <label>Wager</label>
+                <div className="flex items-center gap-2">
+                    {wagerOptions.map(opt => (
+                        <button key={opt} onClick={() => setWager(opt)} className={`flex-1 p-2 rounded-md border-2 font-semibold transition-all ${wager === opt ? 'border-blue-500 bg-blue-500/20' : 'border-transparent bg-gray-700/50 hover:bg-gray-600/50'}`}>
+                            {opt}
+                        </button>
+                    ))}
                 </div>
-                <div className="form-group">
-                    <label>Region</label>
-                    <select value={region} onChange={e => setRegion(e.target.value)} className="form-input">
-                        {gameData.regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                    </select>
-                </div>
-                <div className="form-group">
-                    <label>Ban One Map</label>
-                    <select value={bannedMap} onChange={e => setBannedMap(e.target.value)} className="form-input">
-                        <option value="" disabled>Select a map...</option>
-                        {gameData.maps.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                    </select>
-                </div>
-                <div className="form-group">
-                    <label>Ban Two Weapons ({bannedWeapons.length}/2)</label>
-                    <div className="grid grid-cols-2 gap-2 p-2 bg-gray-900/50 rounded-lg max-h-40 overflow-y-auto">
-                        {gameData.weapons.map(w => (
-                            <label key={w.id} className={`p-2 text-sm text-center rounded-md cursor-pointer transition-colors ${bannedWeapons.includes(w.id) ? 'bg-red-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>
-                                <input type="checkbox" checked={bannedWeapons.includes(w.id)} onChange={() => handleWeaponToggle(w.id)} className="hidden" />
-                                {w.name}
-                            </label>
-                        ))}
-                    </div>
-                </div>
-                <button onClick={handleJoinQueue} disabled={isSubmitting || user.gems < wager} className="btn btn-primary w-full">
-                    {isSubmitting ? 'Joining...' : `Join Queue (${wager} Gems)`}
-                </button>
             </div>
+            <div className="form-group">
+                <label>Region</label>
+                <select value={region} onChange={e => setRegion(e.target.value)} className="form-input">
+                    {gameData.regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+            </div>
+            <div className="form-group">
+                <label>Ban One Map</label>
+                <select value={bannedMap} onChange={e => setBannedMap(e.target.value)} className="form-input">
+                    <option value="" disabled>Select a map...</option>
+                    {gameData.maps.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+            </div>
+            <div className="form-group">
+                <label>Ban Two Weapons ({bannedWeapons.length}/2)</label>
+                <div className="grid grid-cols-2 gap-2 p-2 bg-gray-900/50 rounded-lg max-h-40 overflow-y-auto">
+                    {gameData.weapons.map(w => (
+                        <label key={w.id} className={`p-2 text-sm text-center rounded-md cursor-pointer transition-colors ${bannedWeapons.includes(w.id) ? 'bg-red-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>
+                            <input type="checkbox" checked={bannedWeapons.includes(w.id)} onChange={() => handleWeaponToggle(w.id)} className="hidden" />
+                            {w.name}
+                        </label>
+                    ))}
+                </div>
+            </div>
+            <button onClick={handleJoinQueue} disabled={isSubmitting || user.gems < wager} className="btn btn-primary w-full">
+                {isSubmitting ? 'Joining...' : `Join Queue (${wager} Gems)`}
+            </button>
         </div>
     );
 };
