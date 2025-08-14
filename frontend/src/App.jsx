@@ -1,3 +1,4 @@
+--- START OF FILE App.jsx ---
 import React, { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
@@ -65,7 +66,10 @@ const App = () => {
     const { user, systemStatus, isLoading, token } = useAuth();
 
     useEffect(() => {
-        const wsUrl = `wss://${window.location.host}`;
+        if (!token) return;
+
+        const backendUrl = new URL(import.meta.env.VITE_API_BASE_URL || window.location.origin);
+        const wsUrl = `wss://${backendUrl.host}`;
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
@@ -152,7 +156,7 @@ const App = () => {
                         <Route path="/withdraw" element={<ProtectedRoute><FeatureGuard featureName="withdrawals"><WithdrawPage /></FeatureGuard></ProtectedRoute>} />
                         <Route path="/history" element={<ProtectedRoute><TransactionHistoryPage /></ProtectedRoute>} />
                         <Route path="/duel-history" element={<ProtectedRoute><DuelHistoryPage /></ProtectedRoute>} />
-                        <Route path="/tournaments" element={<ProtectedRoute><FeatureGuard featureName="tournaments"><TournamentsPage /></FeatureGuard></ProtectedRoute>} />
+                        <Route path="/tournaments" element={<ProtectedRoute><FeatureGuard featureName="tournaments"><TournamentsPage /></ProtectedRoute>} />
                         
                         <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
                         <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><FeatureGuard featureName="tournaments"><AdminTournamentCreatePage /></FeatureGuard></ProtectedRoute>} />
