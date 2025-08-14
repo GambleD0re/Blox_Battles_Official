@@ -1,8 +1,10 @@
+--- START OF FILE cron-tasks.js ---
 require('dotenv').config({ path: require('path').resolve(__dirname, './.env') });
 const db = require('./database/database');
 
 const DUEL_EXPIRATION_HOURS = 1;
-const DUEL_FORFEIT_MINUTES = 10;
+const DUEL_FORFEIT_MINUTES_DIRECT = 10;
+const DUEL_FORFEIT_MINUTES_RANDOM = 3;
 const RESULT_CONFIRMATION_MINUTES = 2;
 const TOURNAMENT_DISPUTE_HOURS = 1;
 const SERVER_CRASH_THRESHOLD_SECONDS = 50;
@@ -147,9 +149,12 @@ async function runScheduledTasks() {
     const forfeitClient = await pool.connect();
     try {
         const startedSql = `
-            SELECT id, challenger_id, opponent_id, pot, wager, transcript, tax_collected 
+            SELECT id, challenger_id, opponent_id, pot, wager, transcript, tax_collected, type
             FROM duels 
-            WHERE status = 'started' AND started_at <= NOW() - INTERVAL '${DUEL_FORFEIT_MINUTES} minutes'
+            WHERE status = 'started' AND (
+                (type = 'direct' AND started_at <= NOW() - INTERVAL '${DUEL_FORFEIT_MINUTES_DIRECT} minutes') OR
+                (type = 'random' AND started_at <= NOW() - INTERVAL '${DUEL_FORFEIT_MINUTES_RANDOM} minutes')
+            )
         `;
         const { rows: expiredStartedDuels } = await forfeitClient.query(startedSql);
 
