@@ -1,3 +1,4 @@
+--- START OF FILE PlayerHeader.jsx ---
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -8,19 +9,19 @@ const MenuIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height
 const PlayerHeader = ({ user, onMenuClick }) => {
     const navigate = useNavigate();
     return (
-        <header className="dashboard-header">
-            <div className="player-info">
+        <header className="dashboard-header !p-4">
+            <div className="player-info !gap-4">
                 <button 
                     onClick={onMenuClick} 
-                    className="flex items-center justify-center w-20 h-20 mr-4 rounded-xl bg-gray-900/50 border border-gray-700 text-gray-400 hover:text-white hover:border-blue-500 transition-colors duration-200" 
+                    className="flex items-center justify-center w-12 h-12 rounded-lg bg-gray-900/50 border border-gray-700 text-gray-400 hover:text-white hover:border-blue-500 transition-colors duration-200" 
                     title="Open Menu"
                 >
                     <MenuIcon />
                 </button>
-                <img src={user.roblox_avatar_url || 'https://placehold.co/80x80/161b22/7d8590?text=R'} alt="Avatar" className="player-avatar" />
+                <img src={user.roblox_avatar_url || 'https://placehold.co/60x60/161b22/7d8590?text=R'} alt="Avatar" className="player-avatar !w-16 !h-16" />
                 <div>
-                    <h1 className="player-name">{user.linked_roblox_username || user.email}</h1>
-                    <p className="player-id">BloxBattles ID: {user.id}</p>
+                    <h1 className="player-name !text-2xl">{user.linked_roblox_username || user.email}</h1>
+                    <p className="player-id !text-xs">BloxBattles ID: {user.id}</p>
                 </div>
             </div>
             <div className="player-stats">
@@ -29,15 +30,15 @@ const PlayerHeader = ({ user, onMenuClick }) => {
                     className="stat-item gems transition-transform transform hover:scale-105" 
                     title="Go to Deposit Page"
                 >
-                    <span className="stat-value">{user.gems.toLocaleString()}</span>
+                    <span className="stat-value !text-2xl">{user.gems.toLocaleString()}</span>
                     <span className="stat-label">Gems</span>
                 </button>
                 <div className="stat-item wins">
-                    <span className="stat-value">{user.wins}</span>
+                    <span className="stat-value !text-2xl">{user.wins}</span>
                     <span className="stat-label">Wins</span>
                 </div>
                 <div className="stat-item losses">
-                    <span className="stat-value">{user.losses}</span>
+                    <span className="stat-value !text-2xl">{user.losses}</span>
                     <span className="stat-label">Losses</span>
                 </div>
                 <button onClick={() => navigate('/settings')} className="btn-settings" title="Settings"><SettingsIcon /></button>
