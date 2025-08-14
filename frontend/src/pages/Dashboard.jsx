@@ -187,7 +187,7 @@ const Dashboard = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 pb-28">
             <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
             {message.text && (
                 <div className={`fixed top-5 right-5 p-4 rounded-lg text-white font-bold shadow-lg z-50 ${message.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
@@ -197,12 +197,12 @@ const Dashboard = () => {
             
             <PlayerHeader user={user} onMenuClick={() => setIsMenuOpen(true)} />
 
-            <main className="grid grid-cols-1 lg:grid-cols-5 gap-8 mt-8">
-                <div className="lg:col-span-2 space-y-6">
+            <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+                <div className="space-y-6">
                     <ChallengePlayer token={token} onChallenge={handleChallengePlayer} />
                     <RandomQueue gameData={gameData} token={token} showMessage={showMessage} />
                 </div>
-                <div className="lg:col-span-3">
+                <div className="flex">
                     <Inbox 
                         notifications={inboxNotifications}
                         onViewDuel={handleViewDuel}
