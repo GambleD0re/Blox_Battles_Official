@@ -67,8 +67,13 @@ const App = () => {
     useEffect(() => {
         if (!token) return;
 
-        const backendUrl = new URL(import.meta.env.VITE_API_BASE_URL || window.location.origin);
-        const wsUrl = `wss://${backendUrl.host}`;
+        const backendHttpUrl = import.meta.env.VITE_API_BASE_URL;
+        if (!backendHttpUrl) {
+            console.error("CRITICAL: VITE_API_BASE_URL environment variable is not set in the frontend build.");
+            return;
+        }
+        
+        const wsUrl = backendHttpUrl.replace(/^http/, 'ws');
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
@@ -95,7 +100,9 @@ const App = () => {
         };
 
         return () => {
-            ws.close();
+            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                ws.close();
+            }
         };
 
     }, [token]);
