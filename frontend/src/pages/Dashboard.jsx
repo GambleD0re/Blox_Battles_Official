@@ -5,6 +5,7 @@ import * as api from '../services/api';
 import PlayerHeader from '../components/Dashboard/PlayerHeader';
 import ChallengePlayer from '../components/Dashboard/ChallengePlayer';
 import Inbox from '../components/Dashboard/Inbox';
+import SidebarMenu from '../components/Dashboard/SidebarMenu';
 import { ChallengeModal, DuelDetailsModal, ConfirmationModal, TranscriptModal, PostDuelModal } from '../components/Dashboard/Modals';
 import LiveFeed from '../components/Dashboard/LiveFeed';
 
@@ -17,6 +18,7 @@ const Dashboard = () => {
 
     const [isLoading, setIsLoading] = useState(true);
     const [message, setMessage] = useState({ text: '', type: '' });
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isChallengeModalOpen, setChallengeModalOpen] = useState(false);
     const [isDetailsModalOpen, setDetailsModalOpen] = useState(false);
     const [isActiveDetailsModalOpen, setActiveDetailsModalOpen] = useState(false);
@@ -185,13 +187,14 @@ const Dashboard = () => {
 
     return (
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+            <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
             {message.text && (
                 <div className={`fixed top-5 right-5 p-4 rounded-lg text-white font-bold shadow-lg z-50 ${message.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
                     {message.text}
                 </div>
             )}
             
-            <PlayerHeader user={user} />
+            <PlayerHeader user={user} onMenuClick={() => setIsMenuOpen(true)} />
 
             <main className="dashboard-grid mt-8">
                 <div className="space-y-6">
