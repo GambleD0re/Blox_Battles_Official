@@ -1,11 +1,12 @@
 const { SlashCommandBuilder, EmbedBuilder, ChannelType, PermissionsBitField } = require('discord.js');
 const { apiClient } = require('../utils/apiClient');
+const { SUPPORT_STAFF_ROLE_ID } = process.env;
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('reactionrole')
         .setDescription('Manage reaction roles for the server.')
-        .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
+        .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageRoles) // Changed to ManageRoles
         .setDMPermission(false)
         .addSubcommand(subcommand =>
             subcommand
@@ -70,7 +71,8 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        // This is the updated permission check. It now checks for the specific staff role.
+        if (!interaction.member.roles.cache.has(SUPPORT_STAFF_ROLE_ID)) {
             return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
         }
 
@@ -125,14 +127,12 @@ async function handleAdd(interaction) {
 
     const emojiId = emoji.match(/<a?:.+:(\d+)>$/)?.[1] || emoji;
 
-    // Verify the bot can manage this role
     if (role.position >= interaction.guild.members.me.roles.highest.position) {
         return interaction.editReply({ content: `❌ **Error:** I cannot assign the **${role.name}** role because it is higher than or equal to my own highest role in the server hierarchy.` });
     }
 
     await apiClient.post('/discord/reaction-roles', { messageId, emojiId, roleId: role.id });
 
-    // Optional: Add the reaction to the target message for the user
     try {
         const targetMessage = await interaction.channel.messages.fetch(messageId);
         await targetMessage.react(emoji);
