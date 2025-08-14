@@ -1,3 +1,4 @@
+--- START OF FILE api.js ---
 const API_BASE_URL = '/api';
 
 const apiRequest = async (endpoint, method = 'GET', body = null, token = null) => {
@@ -67,6 +68,10 @@ export const confirmDuelResult = (duelId, token) => apiRequest(`/duels/${duelId}
 export const fileDispute = (duelId, disputeData, token) => apiRequest(`/duels/${duelId}/dispute`, 'POST', disputeData, token);
 export const continueDisputeToDiscord = (disputeId, token) => apiRequest(`/duels/disputes/${disputeId}/continue-to-discord`, 'POST', null, token);
 
+export const getQueueStatus = (token) => apiRequest('/queue/status', 'GET', null, token);
+export const joinQueue = (queueData, token) => apiRequest('/queue/join', 'POST', queueData, token);
+export const leaveQueue = (token) => apiRequest('/queue/leave', 'POST', null, token);
+
 export const createSupportTicket = (ticketData, token) => apiRequest('/tickets', 'POST', ticketData, token);
 export const getTicketDetails = (ticketId, token) => apiRequest(`/tickets/${ticketId}/details`, 'GET', null, token);
 export const saveTicketTranscript = (ticketId, content, token) => apiRequest(`/tickets/${ticketId}/transcript`, 'POST', { content }, token);
@@ -113,8 +118,8 @@ export const resolveDispute = (disputeId, resolutionType, token) => apiRequest(`
 export const forwardDisputeToDiscord = (disputeId, token) => apiRequest(`/admin/disputes/${disputeId}/forward-to-discord`, 'POST', null, token);
 export const getAdminPayoutRequests = (token) => apiRequest('/admin/payout-requests', 'GET', null, token);
 export const getAdminUserDetailsForPayout = (userId, payoutId, token) => apiRequest(`/admin/users/${userId}/details-for-payout/${payoutId}`, 'GET', null, token);
-export const approvePayoutRequest = (requestId, token) => apiRequest(`/admin/payout-requests/${requestId}/approve`, 'POST', null, token);
-export const declinePayoutRequest = (requestId, reason, token) => apiRequest(`/admin/payout-requests/${requestId}/decline`, 'POST', { reason }, token);
+export const approvePayoutRequest = (requestId, token) => apiRequest(`/payouts/requests/${requestId}/approve`, 'POST', null, token);
+export const declinePayoutRequest = (requestId, reason, token) => apiRequest(`/payouts/requests/${requestId}/decline`, 'POST', { reason }, token);
 export const createTournament = (tournamentData, token) => apiRequest('/admin/tournaments', 'POST', tournamentData, token);
 export const getAdminTournaments = (token) => apiRequest('/admin/tournaments', 'GET', null, token);
 export const cancelTournament = (id, token) => apiRequest(`/admin/tournaments/${id}`, 'DELETE', null, token);
