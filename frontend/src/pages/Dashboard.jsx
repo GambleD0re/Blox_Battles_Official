@@ -1,3 +1,4 @@
+--- START OF FILE Dashboard.jsx ---
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../services/api';
@@ -6,7 +7,7 @@ import PlayerHeader from '../components/Dashboard/PlayerHeader';
 import ChallengePlayer from '../components/Dashboard/ChallengePlayer';
 import Inbox from '../components/Dashboard/Inbox';
 import SidebarMenu from '../components/Dashboard/SidebarMenu';
-import { ChallengeModal, DuelDetailsModal, ConfirmationModal, TranscriptModal, PostDuelModal, Modal } from '../components/Dashboard/Modals';
+import { ChallengeModal, DuelDetailsModal, ConfirmationModal, TranscriptModal, PostDuelModal, Modal, MatchReadyModal } from '../components/Dashboard/Modals';
 import LiveFeed from '../components/Dashboard/LiveFeed';
 import QueueConfigForm from '../components/Dashboard/QueueConfigForm';
 import QuickMatchWidget from '../components/Dashboard/QuickMatchWidget';
@@ -19,6 +20,7 @@ const Dashboard = () => {
     const [gameData, setGameData] = useState({ maps: [], weapons: [], regions: [] });
     const [unseenResults, setUnseenResults] = useState([]);
     const [queueStatus, setQueueStatus] = useState(null);
+    const [matchReadyInfo, setMatchReadyInfo] = useState(null);
 
     const [isLoading, setIsLoading] = useState(true);
     const [message, setMessage] = useState({ text: '', type: '' });
@@ -197,11 +199,18 @@ const Dashboard = () => {
     const handleQueueLeft = () => {
         setQueueStatus(null);
     };
-    
+
     const handleMatchFound = (serverLink) => {
-        showMessage('Match found! Joining server...', 'success');
-        window.open(serverLink, '_blank');
-        setQueueStatus(null); // Clear the queue status widget
+        showMessage('Match found!', 'success');
+        setQueueStatus(null);
+        setMatchReadyInfo({ serverLink });
+    };
+
+    const handleJoinMatch = () => {
+        if (matchReadyInfo?.serverLink) {
+            window.open(matchReadyInfo.serverLink, '_blank');
+        }
+        setMatchReadyInfo(null);
     };
 
     if (isLoading) {
@@ -248,6 +257,8 @@ const Dashboard = () => {
                     />
                 </div>
             </main>
+
+            <MatchReadyModal isOpen={!!matchReadyInfo} onJoin={handleJoinMatch} />
 
             <Modal isOpen={isQueueModalOpen} onClose={() => setQueueModalOpen(false)} title="Configure Quick Match">
                 <QueueConfigForm
