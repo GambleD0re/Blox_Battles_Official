@@ -34,10 +34,10 @@ const SidebarMenu = ({ isOpen, onClose }) => {
                     >
                         <h2 className="text-2xl font-bold text-white mb-8">Navigation</h2>
                         <nav className="flex flex-col gap-4">
-                            <NavLink to="/dashboard" className={navLinkClasses} onClick={onClose}>Dashboard</NavLink>
-                            <NavLink to="/tournaments" className={navLinkClasses} onClick={onClose}>Tournaments</NavLink>
                             <NavLink to="/deposit" className={navLinkClasses} onClick={onClose}>Deposit</NavLink>
                             <NavLink to="/withdraw" className={navLinkClasses} onClick={onClose}>Withdraw</NavLink>
+                            <NavLink to="/tournaments" className={navLinkClasses} onClick={onClose}>Tournaments</NavLink>
+                            <NavLink to="/history" className={navLinkClasses} onClick={onClose}>Transactions</NavLink>
                             <NavLink to="/duel-history" className={navLinkClasses} onClick={onClose}>Duel History</NavLink>
                         </nav>
                     </motion.div>
