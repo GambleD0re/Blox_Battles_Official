@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 const { broadcast } = require('../webSocketManager');
 
-const GHOST_FEED_INTERVAL = 4000;
+const GHOST_FEED_INTERVAL = 60000;
 let ghostFeedTimer = null;
 let wssInstance = null; 
 
