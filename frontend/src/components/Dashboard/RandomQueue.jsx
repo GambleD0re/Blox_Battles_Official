@@ -1,4 +1,3 @@
---- START OF FILE RandomQueue.jsx ---
 import React, { useState, useEffect } from 'react';
 import * as api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
