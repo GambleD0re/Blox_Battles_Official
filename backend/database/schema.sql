@@ -1,7 +1,7 @@
 -- This script defines the PostgreSQL-compatible structure of the database.
 
 -- Drop tables if they exist to ensure a clean slate. The CASCADE keyword will also drop dependent objects.
-DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status, tickets, ticket_messages, ticket_transcripts CASCADE;
+DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status, tickets, ticket_messages, ticket_transcripts, reaction_roles CASCADE;
 
 -- Table to manage the on/off status of site features.
 CREATE TABLE system_status (
@@ -248,3 +248,11 @@ INSERT INTO system_status (feature_name, is_enabled, disabled_message) VALUES
 ('withdrawals', TRUE, 'Withdrawals are temporarily unavailable.'),
 ('tournaments', TRUE, 'Tournaments are currently offline.'),
 ('roblox_linking', TRUE, 'Roblox account linking is temporarily disabled.');
+
+-- *** NEW TABLE FOR REACTION ROLES ***
+CREATE TABLE reaction_roles (
+    message_id VARCHAR(255) NOT NULL,
+    emoji_id VARCHAR(255) NOT NULL, -- Can be a unicode emoji or a custom emoji ID
+    role_id VARCHAR(255) NOT NULL,
+    PRIMARY KEY (message_id, emoji_id)
+);
