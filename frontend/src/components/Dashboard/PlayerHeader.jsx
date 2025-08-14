@@ -24,7 +24,6 @@ const PlayerHeader = ({ user, onMenuClick }) => {
                 </div>
             </div>
             <div className="player-stats">
-                {/* [MODIFIED] The stat-item div is now a button that navigates to the deposit page. */}
                 <button 
                     onClick={() => navigate('/deposit')} 
                     className="stat-item gems transition-transform transform hover:scale-105" 
