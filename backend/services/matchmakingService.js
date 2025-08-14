@@ -1,4 +1,3 @@
---- START OF FILE matchmakingService.js ---
 // backend/services/matchmakingService.js
 const db = require('../database/database');
 const GAME_DATA = require('../game-data-store');
