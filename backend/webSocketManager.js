@@ -1,4 +1,3 @@
---- START OF FILE webSocketManager.js ---
 const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
 
