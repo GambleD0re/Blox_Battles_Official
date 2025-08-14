@@ -1,3 +1,4 @@
+--- START OF FILE Dashboard.jsx ---
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../services/api';
@@ -8,7 +9,9 @@ import Inbox from '../components/Dashboard/Inbox';
 import SidebarMenu from '../components/Dashboard/SidebarMenu';
 import { ChallengeModal, DuelDetailsModal, ConfirmationModal, TranscriptModal, PostDuelModal, Modal } from '../components/Dashboard/Modals';
 import LiveFeed from '../components/Dashboard/LiveFeed';
-import RandomQueue from '../components/Dashboard/RandomQueue';
+import QueueConfigForm from '../components/Dashboard/QueueConfigForm';
+import QuickMatchWidget from '../components/Dashboard/QuickMatchWidget';
+import QueueStatusWidget from '../components/Dashboard/QueueStatusWidget';
 
 const Dashboard = () => {
     const { user, token, refreshUser } = useAuth();
@@ -16,6 +19,7 @@ const Dashboard = () => {
     const [inboxNotifications, setInboxNotifications] = useState([]);
     const [gameData, setGameData] = useState({ maps: [], weapons: [], regions: [] });
     const [unseenResults, setUnseenResults] = useState([]);
+    const [queueStatus, setQueueStatus] = useState(null);
 
     const [isLoading, setIsLoading] = useState(true);
     const [message, setMessage] = useState({ text: '', type: '' });
@@ -40,14 +44,16 @@ const Dashboard = () => {
     const fetchDashboardData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [inboxData, gameData, unseenResultsData] = await Promise.all([
+            const [inboxData, gameData, unseenResultsData, queueStatusData] = await Promise.all([
                 api.getInbox(token),
                 api.getGameData(token),
-                api.getUnseenResults(token)
+                api.getUnseenResults(token),
+                api.getQueueStatus(token)
             ]);
             setInboxNotifications(inboxData);
             setGameData(gameData);
             setUnseenResults(unseenResultsData);
+            setQueueStatus(queueStatusData);
         } catch (error) {
             showMessage(error.message, 'error');
         } finally {
@@ -183,6 +189,16 @@ const Dashboard = () => {
         }
     };
 
+    const handleQueueJoined = async () => {
+        setQueueModalOpen(false);
+        const status = await api.getQueueStatus(token);
+        setQueueStatus(status);
+    };
+    
+    const handleQueueLeft = () => {
+        setQueueStatus(null);
+    };
+
     if (isLoading) {
         return <div className="flex items-center justify-center min-h-screen">Loading Dashboard...</div>;
     }
@@ -201,13 +217,16 @@ const Dashboard = () => {
             <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
                 <div className="space-y-6">
                     <ChallengePlayer token={token} onChallenge={handleChallengePlayer} />
-                    <div className="widget">
-                        <h2 className="widget-title">Quick Match</h2>
-                        <p className="text-gray-400 mb-4">Enter a queue to be automatically matched against another player with a similar wager.</p>
-                        <button onClick={() => setQueueModalOpen(true)} className="btn btn-primary w-full">
-                            Join Random Queue
-                        </button>
-                    </div>
+                    {queueStatus ? (
+                        <QueueStatusWidget 
+                            queueStatus={queueStatus}
+                            token={token}
+                            showMessage={showMessage}
+                            onQueueLeft={handleQueueLeft}
+                        />
+                    ) : (
+                        <QuickMatchWidget onJoinClick={() => setQueueModalOpen(true)} />
+                    )}
                 </div>
                 <div className="flex">
                     <Inbox 
@@ -225,12 +244,12 @@ const Dashboard = () => {
                 </div>
             </main>
 
-            <Modal isOpen={isQueueModalOpen} onClose={() => setQueueModalOpen(false)} title="Random Queue">
-                <RandomQueue 
+            <Modal isOpen={isQueueModalOpen} onClose={() => setQueueModalOpen(false)} title="Configure Quick Match">
+                <QueueConfigForm
                     gameData={gameData} 
                     token={token} 
                     showMessage={showMessage} 
-                    onQueueJoined={() => setQueueModalOpen(false)}
+                    onQueueJoined={handleQueueJoined}
                 />
             </Modal>
 
