@@ -1,7 +1,9 @@
+--- START OF FILE webSocketManager.js ---
 const WebSocket = require('ws');
+const jwt = require('jsonwebtoken');
 
 let wss;
-// This array will hold the last 2 duel results for new connections.
+const clients = new Map(); // Map<userId, WebSocket>
 let recentDuels = [];
 
 const initializeWebSocket = (server) => {
@@ -9,18 +11,36 @@ const initializeWebSocket = (server) => {
 
     wss.on('connection', (ws) => {
         console.log('[WebSocket] Client connected. Total clients:', wss.clients.size);
+        ws.isAlive = true;
+        ws.on('pong', () => { ws.isAlive = true; });
 
-        // --- NEW ---
-        // When a new client connects, immediately send them the current duel history.
+        ws.on('message', (message) => {
+            try {
+                const data = JSON.parse(message);
+                if (data.type === 'auth' && data.token) {
+                    const decoded = jwt.verify(data.token, process.env.JWT_SECRET);
+                    const userId = decoded.userId;
+                    clients.set(userId, ws);
+                    ws.userId = userId; // Associate userId with the connection
+                    console.log(`[WebSocket] Authenticated client for user: ${userId}`);
+                }
+            } catch (err) {
+                console.warn('[WebSocket] Failed to authenticate client:', err.message);
+                ws.terminate();
+            }
+        });
+
         if (recentDuels.length > 0) {
-            console.log('[WebSocket] Sending duel history to new client.');
             ws.send(JSON.stringify({ type: 'live_feed_history', payload: recentDuels }));
         }
-        // --- END NEW ---
 
         ws.on('close', () => {
-            // No need to find the client, the wss.clients Set handles it automatically.
-            console.log('[WebSocket] Client disconnected. Total clients:', wss.clients.size);
+            if (ws.userId) {
+                clients.delete(ws.userId);
+                console.log(`[WebSocket] Client for user ${ws.userId} disconnected. Total clients:`, wss.clients.size);
+            } else {
+                console.log('[WebSocket] Unauthenticated client disconnected.');
+            }
         });
 
         ws.on('error', (error) => {
@@ -28,28 +48,33 @@ const initializeWebSocket = (server) => {
         });
     });
 
+    const interval = setInterval(() => {
+        wss.clients.forEach((ws) => {
+            if (ws.isAlive === false) return ws.terminate();
+            ws.isAlive = false;
+            ws.ping(() => {});
+        });
+    }, 30000);
+
+    wss.on('close', () => {
+        clearInterval(interval);
+    });
+
     console.log('[WebSocket] Server initialized and listening.');
     return wss;
 };
 
-const broadcast = (wss, data) => {
+const broadcast = (data) => {
     if (!wss) {
         console.error('[WebSocket] Broadcast failed: WebSocket server not initialized.');
         return;
     }
-
-    // --- NEW ---
-    // Before broadcasting, update the history with the latest duel payload.
-    // Unshift adds the new duel to the beginning of the array.
     if (data.type === 'live_feed_update') {
         recentDuels.unshift(data.payload);
-        // Ensure the history never contains more than 2 duels.
         if (recentDuels.length > 2) {
             recentDuels = recentDuels.slice(0, 2);
         }
     }
-    // --- END NEW ---
-
     const payload = JSON.stringify(data);
     wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
@@ -58,7 +83,19 @@ const broadcast = (wss, data) => {
     });
 };
 
+const sendToUser = (userId, data) => {
+    const client = clients.get(userId);
+    if (client && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(data));
+        console.log(`[WebSocket] Sent targeted message to user ${userId}.`);
+        return true;
+    }
+    console.warn(`[WebSocket] Could not send targeted message: User ${userId} not connected.`);
+    return false;
+};
+
 module.exports = {
     initializeWebSocket,
     broadcast,
+    sendToUser,
 };
