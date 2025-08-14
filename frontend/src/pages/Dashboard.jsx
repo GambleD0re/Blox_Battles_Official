@@ -1,3 +1,4 @@
+--- START OF FILE Dashboard.jsx ---
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../services/api';
@@ -197,6 +198,12 @@ const Dashboard = () => {
     const handleQueueLeft = () => {
         setQueueStatus(null);
     };
+    
+    const handleMatchFound = (serverLink) => {
+        showMessage('Match found! Joining server...', 'success');
+        window.open(serverLink, '_blank');
+        setQueueStatus(null); // Clear the queue status widget
+    };
 
     if (isLoading) {
         return <div className="flex items-center justify-center min-h-screen">Loading Dashboard...</div>;
@@ -305,7 +312,7 @@ const Dashboard = () => {
                 />
             ))}
 
-            <LiveFeed />
+            <LiveFeed token={token} onMatchFound={handleMatchFound} />
         </div>
     );
 };
