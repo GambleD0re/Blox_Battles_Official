@@ -1,3 +1,4 @@
+--- START OF FILE LiveFeed.jsx ---
 import React, { useState, useEffect, useRef } from 'react';
 
 const formatGems = (amount) => {
@@ -11,13 +12,13 @@ const DuelCard = ({ duel }) => {
     const { winner, loser, score, pot } = duel;
 
     return (
-        <div className="flex-shrink-0 w-full h-24 bg-gray-900/60 border border-gray-700 rounded-lg p-2 flex items-center justify-between gap-2">
+        <div className="flex-shrink-0 w-full h-20 bg-gray-900/60 border border-gray-700 rounded-lg p-2 flex items-center justify-between gap-2">
             {/* Winner Group */}
             <div className="flex items-center gap-3 flex-1 min-w-0">
                 <img 
                     src={winner.avatarUrl || `https://ui-avatars.com/api/?name=${winner.username.charAt(0)}&background=2d3748&color=e2e8f0`} 
                     alt={winner.username} 
-                    className="w-16 h-16 object-cover rounded-full border-2 border-green-400 flex-shrink-0"
+                    className="w-14 h-14 object-cover rounded-full border-2 border-green-400 flex-shrink-0"
                 />
                 <span className="font-bold text-white text-lg truncate">{winner.username}</span>
             </div>
@@ -34,7 +35,7 @@ const DuelCard = ({ duel }) => {
                 <img 
                     src={loser.avatarUrl || `https://ui-avatars.com/api/?name=${loser.username.charAt(0)}&background=2d3748&color=e2e8f0`} 
                     alt={loser.username} 
-                    className="w-16 h-16 object-cover rounded-full border-2 border-gray-600 flex-shrink-0"
+                    className="w-14 h-14 object-cover rounded-full border-2 border-gray-600 flex-shrink-0"
                 />
             </div>
         </div>
@@ -65,7 +66,7 @@ const LiveFeed = () => {
 
     useEffect(() => {
         const connect = () => {
-            const wsUrl = 'wss://blox-battles-backend.onrender.com';
+            const wsUrl = `wss://${window.location.host}`;
             ws.current = new WebSocket(wsUrl);
 
             ws.current.onopen = () => console.log('[WebSocket] Live Feed connected.');
@@ -124,7 +125,7 @@ const LiveFeed = () => {
     }, [duels]);
     
     return (
-        <div className="fixed bottom-0 left-0 right-0 h-32 bg-black/60 backdrop-blur-md border-t-2 border-gray-800 flex items-center overflow-hidden z-40 rounded-t-lg">
+        <div className="fixed bottom-0 left-0 right-0 h-28 bg-black/60 backdrop-blur-md border-t-2 border-gray-800 flex items-center overflow-hidden z-40 rounded-t-lg">
             <div className="flex-shrink-0 w-12 flex items-center justify-center">
                 <span className="text-purple-400 font-black text-2xl tracking-tighter" style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}>LIVE</span>
             </div>
