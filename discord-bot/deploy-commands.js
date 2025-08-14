@@ -33,6 +33,55 @@ const commands = [
         name: 'ticket',
         description: 'Create a new support ticket or appeal.',
     },
+    // *** NEW COMMAND DEFINITION ***
+    {
+        name: 'reactionrole',
+        description: 'Manage reaction roles for the server.',
+        // This command should be for administrators only.
+        // The permission is checked in the command file, but setting default permissions is good practice.
+        default_member_permissions: String(1 << 3), // Administrator permission bit
+        dm_permission: false,
+        options: [
+            {
+                name: 'setup',
+                description: 'Creates a new message/embed for reaction roles.',
+                type: ApplicationCommandOptionType.Subcommand,
+                options: [
+                    { name: 'channel', description: 'The channel to send the reaction role message to.', type: ApplicationCommandOptionType.Channel, required: true },
+                    { name: 'title', description: 'The title of the embed message.', type: ApplicationCommandOptionType.String, required: true },
+                    { name: 'description', description: 'The main text of the embed message. Use "\\n" for new lines.', type: ApplicationCommandOptionType.String, required: true },
+                    { name: 'color', description: 'A hex color code for the embed (e.g., #58a6ff).', type: ApplicationCommandOptionType.String, required: false },
+                ]
+            },
+            {
+                name: 'add',
+                description: 'Adds a role-to-emoji mapping to a reaction role message.',
+                type: ApplicationCommandOptionType.Subcommand,
+                options: [
+                    { name: 'message_id', description: 'The message ID of the reaction role embed.', type: ApplicationCommandOptionType.String, required: true },
+                    { name: 'emoji', description: 'The emoji to react with (can be a custom emoji).', type: ApplicationCommandOptionType.String, required: true },
+                    { name: 'role', description: 'The role to assign when the user reacts.', type: ApplicationCommandOptionType.Role, required: true },
+                ]
+            },
+            {
+                name: 'remove',
+                description: 'Removes a role-to-emoji mapping from a reaction role message.',
+                type: ApplicationCommandOptionType.Subcommand,
+                options: [
+                    { name: 'message_id', description: 'The message ID of the reaction role embed.', type: ApplicationCommandOptionType.String, required: true },
+                    { name: 'emoji', description: 'The emoji of the rule to remove.', type: ApplicationCommandOptionType.String, required: true },
+                ]
+            },
+            {
+                name: 'list',
+                description: 'Lists all configured reaction roles for a specific message.',
+                type: ApplicationCommandOptionType.Subcommand,
+                options: [
+                    { name: 'message_id', description: 'The message ID of the reaction role embed.', type: ApplicationCommandOptionType.String, required: true },
+                ]
+            }
+        ]
+    },
 ];
 
 const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
