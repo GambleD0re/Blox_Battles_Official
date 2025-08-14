@@ -37,7 +37,7 @@ const SidebarMenu = ({ isOpen, onClose }) => {
                             <NavLink to="/deposit" className={navLinkClasses} onClick={onClose}>Deposit</NavLink>
                             <NavLink to="/withdraw" className={navLinkClasses} onClick={onClose}>Withdraw</NavLink>
                             <NavLink to="/tournaments" className={navLinkClasses} onClick={onClose}>Tournaments</NavLink>
-                            <NavLink to="/history" className={navLinkClasses} onClick={onClose}>Transactions</NavLink>
+                            <NavLink to="/history" className={navLinkClasses} onClick={onClose}>Transaction History</NavLink>
                             <NavLink to="/duel-history" className={navLinkClasses} onClick={onClose}>Duel History</NavLink>
                         </nav>
                     </motion.div>
