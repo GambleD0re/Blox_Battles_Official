@@ -1,4 +1,3 @@
---- START OF FILE index.js ---
 const express = require('express');
 const authRoutes = require('./auth.js');
 const userRoutes = require('./users.js');
