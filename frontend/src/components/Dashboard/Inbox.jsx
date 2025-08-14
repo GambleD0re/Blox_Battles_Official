@@ -1,4 +1,3 @@
---- START OF FILE Inbox.jsx ---
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
