@@ -6,7 +6,7 @@ import PlayerHeader from '../components/Dashboard/PlayerHeader';
 import ChallengePlayer from '../components/Dashboard/ChallengePlayer';
 import Inbox from '../components/Dashboard/Inbox';
 import SidebarMenu from '../components/Dashboard/SidebarMenu';
-import { ChallengeModal, DuelDetailsModal, ConfirmationModal, TranscriptModal, PostDuelModal } from '../components/Dashboard/Modals';
+import { ChallengeModal, DuelDetailsModal, ConfirmationModal, TranscriptModal, PostDuelModal, Modal } from '../components/Dashboard/Modals';
 import LiveFeed from '../components/Dashboard/LiveFeed';
 import RandomQueue from '../components/Dashboard/RandomQueue';
 
@@ -21,6 +21,7 @@ const Dashboard = () => {
     const [message, setMessage] = useState({ text: '', type: '' });
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isChallengeModalOpen, setChallengeModalOpen] = useState(false);
+    const [isQueueModalOpen, setQueueModalOpen] = useState(false);
     const [isDetailsModalOpen, setDetailsModalOpen] = useState(false);
     const [isActiveDetailsModalOpen, setActiveDetailsModalOpen] = useState(false);
     const [isForfeitModalOpen, setForfeitModalOpen] = useState(false);
@@ -200,7 +201,13 @@ const Dashboard = () => {
             <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
                 <div className="space-y-6">
                     <ChallengePlayer token={token} onChallenge={handleChallengePlayer} />
-                    <RandomQueue gameData={gameData} token={token} showMessage={showMessage} />
+                    <div className="widget">
+                        <h2 className="widget-title">Quick Match</h2>
+                        <p className="text-gray-400 mb-4">Enter a queue to be automatically matched against another player with a similar wager.</p>
+                        <button onClick={() => setQueueModalOpen(true)} className="btn btn-primary w-full">
+                            Join Random Queue
+                        </button>
+                    </div>
                 </div>
                 <div className="flex">
                     <Inbox 
@@ -217,6 +224,15 @@ const Dashboard = () => {
                     />
                 </div>
             </main>
+
+            <Modal isOpen={isQueueModalOpen} onClose={() => setQueueModalOpen(false)} title="Random Queue">
+                <RandomQueue 
+                    gameData={gameData} 
+                    token={token} 
+                    showMessage={showMessage} 
+                    onQueueJoined={() => setQueueModalOpen(false)}
+                />
+            </Modal>
 
             <ChallengeModal 
                 isOpen={isChallengeModalOpen} 
