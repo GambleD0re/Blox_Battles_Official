@@ -1,4 +1,3 @@
---- START OF FILE api.js ---
 const API_BASE_URL = '/api';
 
 const apiRequest = async (endpoint, method = 'GET', body = null, token = null) => {
