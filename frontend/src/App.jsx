@@ -1,4 +1,5 @@
-import React, { Suspense, lazy } from 'react';
+--- START OF FILE App.jsx ---
+import React, { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
@@ -62,7 +63,40 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 };
 
 const App = () => {
-    const { user, systemStatus, isLoading } = useAuth();
+    const { user, systemStatus, isLoading, token } = useAuth();
+
+    useEffect(() => {
+        const wsUrl = `wss://${window.location.host}`;
+        const ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            console.log('[WebSocket] Connected to main server.');
+            if (token) {
+                ws.send(JSON.stringify({ type: 'auth', token: token }));
+            }
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'match_found') {
+                    console.log('[WebSocket] Match found! Opening server link.');
+                    window.open(data.payload.serverLink, '_blank');
+                }
+            } catch (error) {
+                console.error('[WebSocket] Error processing message:', error);
+            }
+        };
+        
+        ws.onclose = () => {
+            console.log('[WebSocket] Disconnected from main server.');
+        };
+
+        return () => {
+            ws.close();
+        };
+
+    }, [token]);
 
     if (isLoading) {
         return <Loader fullScreen />;
