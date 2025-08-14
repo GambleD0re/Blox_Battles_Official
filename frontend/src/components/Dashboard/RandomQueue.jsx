@@ -1,3 +1,4 @@
+--- START OF FILE RandomQueue.jsx ---
 import React, { useState, useEffect } from 'react';
 import * as api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -20,7 +21,7 @@ const Timer = ({ startTime }) => {
     return <span className="font-mono">{minutes}:{seconds}</span>;
 };
 
-const RandomQueue = ({ gameData, token, showMessage }) => {
+const RandomQueue = ({ gameData, token, showMessage, onQueueJoined }) => {
     const { user } = useAuth();
     const [queueStatus, setQueueStatus] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -35,6 +36,7 @@ const RandomQueue = ({ gameData, token, showMessage }) => {
 
     useEffect(() => {
         const fetchStatus = async () => {
+            setIsLoading(true);
             try {
                 const status = await api.getQueueStatus(token);
                 setQueueStatus(status);
@@ -68,6 +70,8 @@ const RandomQueue = ({ gameData, token, showMessage }) => {
             await api.joinQueue({ wager, region, banned_map: bannedMap, banned_weapons: bannedWeapons }, token);
             const status = await api.getQueueStatus(token);
             setQueueStatus(status);
+            onQueueJoined(); // Close the modal on success
+            showMessage('You have joined the queue! Waiting for a match.', 'success');
         } catch (error) {
             showMessage(error.message, 'error');
         } finally {
@@ -87,15 +91,12 @@ const RandomQueue = ({ gameData, token, showMessage }) => {
             setIsSubmitting(false);
         }
     };
-
-    if (isLoading) {
-        return <div className="text-center p-8">Loading Queue...</div>;
-    }
-
-    if (queueStatus) {
+    
+    // This part is now rendered outside the modal, directly on the dashboard if needed.
+    if (queueStatus && !isLoading) {
         return (
-            <div className="text-center">
-                <h3 className="widget-title">Searching for Match...</h3>
+            <div className="widget text-center">
+                <h2 className="widget-title">Searching for Match...</h2>
                 <div className="flex items-center justify-center gap-4 my-4">
                     <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     <div className="text-3xl font-bold text-white"><Timer startTime={queueStatus.created_at} /></div>
@@ -105,7 +106,11 @@ const RandomQueue = ({ gameData, token, showMessage }) => {
                     {isSubmitting ? 'Leaving...' : 'Leave Queue'}
                 </button>
             </div>
-        );
+        )
+    }
+
+    if (isLoading) {
+        return <div className="text-center p-8">Loading...</div>;
     }
     
     return (
@@ -144,9 +149,11 @@ const RandomQueue = ({ gameData, token, showMessage }) => {
                     ))}
                 </div>
             </div>
-            <button onClick={handleJoinQueue} disabled={isSubmitting || user.gems < wager} className="btn btn-primary w-full">
-                {isSubmitting ? 'Joining...' : `Join Queue (${wager} Gems)`}
-            </button>
+            <div className="modal-actions">
+                <button onClick={handleJoinQueue} disabled={isSubmitting || user.gems < wager} className="btn btn-primary w-full">
+                    {isSubmitting ? 'Joining...' : `Join Queue (${wager} Gems)`}
+                </button>
+            </div>
         </div>
     );
 };
