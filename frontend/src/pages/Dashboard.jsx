@@ -1,3 +1,4 @@
+--- START OF FILE Dashboard.jsx ---
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../services/api';
@@ -8,6 +9,7 @@ import Inbox from '../components/Dashboard/Inbox';
 import SidebarMenu from '../components/Dashboard/SidebarMenu';
 import { ChallengeModal, DuelDetailsModal, ConfirmationModal, TranscriptModal, PostDuelModal } from '../components/Dashboard/Modals';
 import LiveFeed from '../components/Dashboard/LiveFeed';
+import RandomQueue from '../components/Dashboard/RandomQueue';
 
 const Dashboard = () => {
     const { user, token, refreshUser } = useAuth();
@@ -196,11 +198,12 @@ const Dashboard = () => {
             
             <PlayerHeader user={user} onMenuClick={() => setIsMenuOpen(true)} />
 
-            <main className="dashboard-grid mt-8">
-                <div className="space-y-6">
+            <main className="grid grid-cols-1 lg:grid-cols-5 gap-8 mt-8">
+                <div className="lg:col-span-2 space-y-6">
                     <ChallengePlayer token={token} onChallenge={handleChallengePlayer} />
+                    <RandomQueue gameData={gameData} token={token} showMessage={showMessage} />
                 </div>
-                <div className="space-y-6">
+                <div className="lg:col-span-3">
                     <Inbox 
                         notifications={inboxNotifications}
                         onViewDuel={handleViewDuel}
