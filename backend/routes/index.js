@@ -1,3 +1,4 @@
+--- START OF FILE index.js ---
 const express = require('express');
 const authRoutes = require('./auth.js');
 const userRoutes = require('./users.js');
@@ -16,6 +17,7 @@ const tournamentRoutes = require('./tournaments.js');
 const transcriptRoutes = require('./transcripts.js');
 const discordRoutes = require('./discord.js');
 const ticketRoutes = require('./tickets.js');
+const queueRoutes = require('./queue.js');
 
 const router = express.Router();
 
@@ -35,6 +37,7 @@ router.use('/tournaments', tournamentRoutes);
 router.use('/discord', discordRoutes);
 router.use('/tickets', ticketRoutes);
 router.use('/transcripts', transcriptRoutes);
+router.use('/queue', queueRoutes);
 
 router.use('/', userRoutes);
 
