@@ -1,7 +1,8 @@
+--- START OF FILE schema.sql.txt ---
 -- This script defines the PostgreSQL-compatible structure of the database.
 
 -- Drop tables if they exist to ensure a clean slate. The CASCADE keyword will also drop dependent objects.
-DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status, tickets, ticket_messages, ticket_transcripts, reaction_roles CASCADE;
+DROP TABLE IF EXISTS users, duels, tasks, game_servers, disputes, gem_purchases, transaction_history, payout_requests, crypto_deposits, inbox_messages, tournaments, tournament_participants, tournament_matches, system_status, tickets, ticket_messages, ticket_transcripts, reaction_roles, random_queue_entries CASCADE;
 
 -- Table to manage the on/off status of site features.
 CREATE TABLE system_status (
@@ -40,7 +41,8 @@ CREATE TABLE users (
     is_email_verified BOOLEAN DEFAULT FALSE,
     email_verification_token TEXT,
     password_reset_token TEXT,
-    password_reset_expires TIMESTAMP WITH TIME ZONE
+    password_reset_expires TIMESTAMP WITH TIME ZONE,
+    last_queue_leave_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Use NUMERIC for financial values and JSONB for JSON data.
@@ -117,6 +119,7 @@ CREATE TABLE duels (
     banned_weapons JSONB,
     map TEXT,
     region TEXT,
+    type VARCHAR(50) NOT NULL DEFAULT 'direct' CHECK (type IN ('direct', 'random')),
     status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'started', 'in_progress', 'completed_unseen', 'under_review', 'completed', 'canceled', 'declined', 'cheater_forfeit')),
     winner_id UUID REFERENCES users(id) ON DELETE SET NULL,
     challenger_seen_result BOOLEAN DEFAULT FALSE,
@@ -130,6 +133,16 @@ CREATE TABLE duels (
     bot_duel_id VARCHAR(255) UNIQUE,
     transcript JSONB,
     player_loadouts JSONB
+);
+
+CREATE TABLE random_queue_entries (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    region TEXT NOT NULL,
+    wager BIGINT NOT NULL,
+    banned_map TEXT NOT NULL,
+    banned_weapons JSONB NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'waiting' CHECK(status IN ('waiting')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Deprecated but kept for transition period. New disputes will be handled by the tickets system.
