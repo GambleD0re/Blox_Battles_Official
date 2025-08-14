@@ -1,3 +1,4 @@
+--- START OF FILE server.js ---
 require('dotenv').config();
 
 const express = require('express');
@@ -116,6 +117,6 @@ server.listen(PORT, () => {
     
     startTransactionListener();
     startConfirmationService();
-    startGhostFeed(wss);
+    startGhostFeed();
     startMatchmakingService();
 });
