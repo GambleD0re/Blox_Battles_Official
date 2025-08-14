@@ -1,3 +1,4 @@
+--- START OF FILE Inbox.jsx ---
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -236,9 +237,9 @@ const Inbox = ({ notifications, onViewDuel, onCancelDuel, onStartDuel, onForfeit
     };
 
     return (
-        <div className="widget">
-            <h2 className="widget-title">Inbox</h2>
-            <div className="space-y-3">
+        <div className="widget flex-grow flex flex-col">
+            <h2 className="widget-title flex-shrink-0">Inbox</h2>
+            <div className="space-y-3 overflow-y-auto">
                 {notifications && notifications.length > 0 ? (
                     notifications.map(renderNotification)
                 ) : (
