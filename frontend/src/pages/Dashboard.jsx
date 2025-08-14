@@ -1,4 +1,3 @@
---- START OF FILE Dashboard.jsx ---
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../services/api';
