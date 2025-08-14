@@ -12,7 +12,6 @@ const DuelCard = ({ duel }) => {
 
     return (
         <div className="flex-shrink-0 w-full h-20 bg-gray-900/60 border border-gray-700 rounded-lg p-2 flex items-center justify-between gap-2">
-            {/* Winner Group */}
             <div className="flex items-center gap-3 flex-1 min-w-0">
                 <img 
                     src={winner.avatarUrl || `https://ui-avatars.com/api/?name=${winner.username.charAt(0)}&background=2d3748&color=e2e8f0`} 
@@ -21,14 +20,10 @@ const DuelCard = ({ duel }) => {
                 />
                 <span className="font-bold text-white text-lg truncate">{winner.username}</span>
             </div>
-
-            {/* Score Group */}
             <div className="text-center flex-shrink-0 mx-4">
                 <div className="font-black text-2xl text-white">{score ? `${score[Object.keys(score)[0]]} - ${score[Object.keys(score)[1]]}` : 'N/A'}</div>
                 <div className="font-bold text-sm text-green-400" title={`Pot: ${pot}`}>{formatGems(pot)} Gems</div>
             </div>
-
-            {/* Loser Group */}
             <div className="flex items-center justify-end gap-3 flex-1 min-w-0">
                 <span className="font-bold text-white text-lg truncate text-right">{loser.username}</span>
                 <img 
@@ -41,18 +36,13 @@ const DuelCard = ({ duel }) => {
     );
 };
 
-const LiveFeed = () => {
+const LiveFeed = ({ token, onMatchFound }) => {
     const [duels, setDuels] = useState([]);
     const ws = useRef(null);
     const timeouts = useRef([]);
 
     const onNewDuel = (duelData) => {
-        const newDuel = {
-            key: `duel-${duelData.id}-${Date.now()}`,
-            position: 'enter',
-            data: duelData,
-        };
-
+        const newDuel = { key: `duel-${duelData.id}-${Date.now()}`, position: 'enter', data: duelData };
         setDuels(currentDuels => {
             const updatedDuels = currentDuels.map(d => {
                 if (d.position === 'slot1') return { ...d, position: 'slot2' };
@@ -64,26 +54,31 @@ const LiveFeed = () => {
     };
 
     useEffect(() => {
+        if (!token) return;
+
         const connect = () => {
-            const wsUrl = `wss://${window.location.host}`;
+            const backendHttpUrl = import.meta.env.VITE_API_BASE_URL;
+            if (!backendHttpUrl) return;
+            const wsUrl = backendHttpUrl.replace(/^http/, 'ws');
             ws.current = new WebSocket(wsUrl);
 
-            ws.current.onopen = () => console.log('[WebSocket] Live Feed connected.');
+            ws.current.onopen = () => {
+                console.log('[WebSocket] Live Feed connected.');
+                ws.current.send(JSON.stringify({ type: 'auth', token: token }));
+            };
             
             ws.current.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    
                     if (data.type === 'live_feed_history') {
-                        console.log('[WebSocket] Received duel history:', data.payload);
                         const historyDuels = data.payload.map((duelData, index) => ({
-                            key: `hist-${duelData.id}`,
-                            position: index === 0 ? 'slot1' : 'slot2',
-                            data: duelData
+                            key: `hist-${duelData.id}`, position: index === 0 ? 'slot1' : 'slot2', data: duelData
                         }));
                         setDuels(historyDuels);
                     } else if (data.type === 'live_feed_update') {
                         onNewDuel(data.payload);
+                    } else if (data.type === 'match_found') {
+                        onMatchFound(data.payload.serverLink);
                     }
                 } catch (error) {
                     console.error('[WebSocket] Error parsing message:', error);
@@ -101,9 +96,11 @@ const LiveFeed = () => {
 
         return () => {
             timeouts.current.forEach(clearTimeout);
-            if (ws.current) ws.current.close();
+            if (ws.current) {
+                ws.current.close();
+            }
         };
-    }, []);
+    }, [token, onMatchFound]);
 
     useEffect(() => {
         if (duels.some(d => d.position === 'enter')) {
