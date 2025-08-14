@@ -1,3 +1,4 @@
+--- START OF FILE server.js ---
 require('dotenv').config();
 
 const express = require('express');
@@ -13,6 +14,7 @@ const { botLogger } = require('./middleware/botLogger');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { initializeWebSocket } = require('./webSocketManager');
 const { startGhostFeed } = require('./services/ghostFeedService');
+const { startMatchmakingService } = require('./services/matchmakingService');
 
 const { startTransactionListener } = require('./services/transactionListenerService');
 const { startConfirmationService } = require('./services/transactionConfirmationService');
@@ -108,7 +110,6 @@ passport.use(new GoogleStrategy({
 const apiRoutes = require('./routes');
 app.use('/api', botLogger, apiRoutes);
 
-// 1. Initialize the WebSocket Server and get the instance
 const wss = initializeWebSocket(server);
 
 server.listen(PORT, () => {
@@ -116,6 +117,6 @@ server.listen(PORT, () => {
     
     startTransactionListener();
     startConfirmationService();
-    // 2. Start the ghost feed and pass it the wss instance
     startGhostFeed(wss);
+    startMatchmakingService();
 });
