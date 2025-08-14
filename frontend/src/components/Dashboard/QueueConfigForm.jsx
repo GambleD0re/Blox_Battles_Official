@@ -1,29 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import * as api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
-const Timer = ({ startTime }) => {
-    const [elapsed, setElapsed] = useState(0);
-
-    useEffect(() => {
-        const start = new Date(startTime).getTime();
-        const interval = setInterval(() => {
-            setElapsed(Date.now() - start);
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [startTime]);
-
-    const totalSeconds = Math.floor(elapsed / 1000);
-    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-
-    return <span className="font-mono">{minutes}:{seconds}</span>;
-};
-
-const RandomQueue = ({ gameData, token, showMessage, onQueueJoined }) => {
+const QueueConfigForm = ({ gameData, token, showMessage, onQueueJoined }) => {
     const { user } = useAuth();
-    const [queueStatus, setQueueStatus] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [wager, setWager] = useState(100);
@@ -32,21 +12,6 @@ const RandomQueue = ({ gameData, token, showMessage, onQueueJoined }) => {
     const [bannedWeapons, setBannedWeapons] = useState([]);
 
     const wagerOptions = [50, 100, 200, 500, 1000];
-
-    useEffect(() => {
-        const fetchStatus = async () => {
-            setIsLoading(true);
-            try {
-                const status = await api.getQueueStatus(token);
-                setQueueStatus(status);
-            } catch (error) {
-                showMessage('Could not fetch queue status.', 'error');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchStatus();
-    }, [token, showMessage]);
 
     const handleWeaponToggle = (weaponId) => {
         setBannedWeapons(prev => {
@@ -67,50 +32,14 @@ const RandomQueue = ({ gameData, token, showMessage, onQueueJoined }) => {
         setIsSubmitting(true);
         try {
             await api.joinQueue({ wager, region, banned_map: bannedMap, banned_weapons: bannedWeapons }, token);
-            const status = await api.getQueueStatus(token);
-            setQueueStatus(status);
-            onQueueJoined(); // Close the modal on success
             showMessage('You have joined the queue! Waiting for a match.', 'success');
+            onQueueJoined();
         } catch (error) {
             showMessage(error.message, 'error');
         } finally {
             setIsSubmitting(false);
         }
     };
-
-    const handleLeaveQueue = async () => {
-        setIsSubmitting(true);
-        try {
-            await api.leaveQueue(token);
-            setQueueStatus(null);
-            showMessage('You have left the queue.', 'success');
-        } catch (error) {
-            showMessage(error.message, 'error');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-    
-    // This part is now rendered outside the modal, directly on the dashboard if needed.
-    if (queueStatus && !isLoading) {
-        return (
-            <div className="widget text-center">
-                <h2 className="widget-title">Searching for Match...</h2>
-                <div className="flex items-center justify-center gap-4 my-4">
-                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                    <div className="text-3xl font-bold text-white"><Timer startTime={queueStatus.created_at} /></div>
-                </div>
-                <p className="text-gray-400">Wager: {queueStatus.wager} Gems | Region: {queueStatus.region}</p>
-                <button onClick={handleLeaveQueue} disabled={isSubmitting} className="btn btn-danger w-full mt-4">
-                    {isSubmitting ? 'Leaving...' : 'Leave Queue'}
-                </button>
-            </div>
-        )
-    }
-
-    if (isLoading) {
-        return <div className="text-center p-8">Loading...</div>;
-    }
     
     return (
         <div className="space-y-4">
@@ -157,4 +86,4 @@ const RandomQueue = ({ gameData, token, showMessage, onQueueJoined }) => {
     );
 };
 
-export default RandomQueue;
+export default QueueConfigForm;
