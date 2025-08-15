@@ -1,4 +1,4 @@
-// backend/middleware/auth.js
+// START OF FILE backend/middleware/auth.js ---
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const db = require('../database/database');
@@ -9,11 +9,8 @@ if (!jwtSecret) {
 }
 
 const ADMIN_TEST_KEY = process.env.ADMIN_TEST_API_KEY;
-const MASTER_ADMIN_EMAIL = 'scriptmail00@gmail.com'; // The master admin user
+const MASTER_ADMIN_EMAIL = process.env.MASTER_ADMIN_EMAIL || 'scriptmail00@gmail.com';
 
-/**
- * Middleware to authenticate a user's JWT token or a special admin test key.
- */
 const authenticateToken = (req, res, next) => {
     const testKey = req.headers['x-admin-test-key'];
     if (ADMIN_TEST_KEY && testKey === ADMIN_TEST_KEY) {
@@ -42,9 +39,6 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-/**
- * Middleware to authenticate the bot via its API key.
- */
 const authenticateBot = (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
     if (!process.env.BOT_API_KEY) {
@@ -58,10 +52,6 @@ const authenticateBot = (req, res, next) => {
     next();
 };
 
-
-/**
- * Middleware to handle validation errors from express-validator.
- */
 const handleValidationErrors = (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -71,9 +61,6 @@ const handleValidationErrors = (req, res, next) => {
     next();
 };
 
-/**
- * Validates the password against the defined policy.
- */
 const validatePassword = (password) => {
     const minLength = 8;
     const hasNumber = /\d/;
@@ -90,10 +77,6 @@ const validatePassword = (password) => {
     return { valid: true };
 };
 
-/**
- * Middleware to check if the authenticated user is an administrator.
- * [REFACTORED FOR PG]
- */
 const isAdmin = async (req, res, next) => {
     if (req.user && req.user.isAdmin) {
         return next();
@@ -117,7 +100,6 @@ const isAdmin = async (req, res, next) => {
     }
 };
 
-// [NEW] Middleware to check if the user is the master admin.
 const isMasterAdmin = async (req, res, next) => {
     try {
         if (!req.user || !req.user.userId) {
@@ -145,5 +127,5 @@ module.exports = {
     isAdmin,
     authenticateBot,
     isMasterAdmin,
-    MASTER_ADMIN_EMAIL, // [MODIFIED] Export the constant
+    MASTER_ADMIN_EMAIL,
 };
