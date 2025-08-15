@@ -1,4 +1,3 @@
---- START OF FILE render.yaml ---
 databases:
   - name: blox-battles-db
     plan: basic-256mb
