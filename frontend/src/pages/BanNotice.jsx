@@ -1,16 +1,14 @@
+// START OF FILE frontend/pages/BanNotice.jsx ---
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 
-// --- Main Ban Notice Component ---
 const BanNotice = () => {
-    const { user, logout } = useAuth();
+    const { user, logout, appConfig } = useAuth();
 
-    // Determine if the ban is permanent or temporary
     const isPermanent = !user.ban_expires_at;
     const banExpiresDate = user.ban_expires_at ? new Date(user.ban_expires_at) : null;
     const now = new Date();
 
-    // A simple function to calculate the difference in days
     const daysRemaining = (d1, d2) => {
         if (!d1 || !d2) return 0;
         const diffTime = d1.getTime() - d2.getTime();
@@ -53,7 +51,7 @@ const BanNotice = () => {
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                     <a 
-                        href="https://discord.gg/your-invite-link" // Replace with your actual Discord invite link
+                        href={appConfig?.discordInviteUrl || '#'}
                         target="_blank" 
                         rel="noopener noreferrer" 
                         className="w-full sm:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition"
