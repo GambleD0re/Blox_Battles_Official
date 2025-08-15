@@ -116,6 +116,6 @@ server.listen(PORT, () => {
     
     startTransactionListener();
     startConfirmationService();
-    startGhostFeed();
+    startGhostFeed(wss);
     startMatchmakingService();
 });
