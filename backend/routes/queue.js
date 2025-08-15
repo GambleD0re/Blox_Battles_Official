@@ -1,4 +1,4 @@
-// backend/routes/queue.js
+// START OF FILE backend/routes/queue.js ---
 const express = require('express');
 const { body } = require('express-validator');
 const db = require('../database/database');
@@ -7,9 +7,8 @@ const GAME_DATA = require('../game-data-store');
 
 const router = express.Router();
 
-const QUEUE_LEAVE_COOLDOWN_SECONDS = 60;
+const QUEUE_LEAVE_COOLDOWN_SECONDS = parseInt(process.env.QUEUE_LEAVE_COOLDOWN_SECONDS || '60', 10);
 
-// GET /api/queue/status - Check if the user is currently in the queue
 router.get('/status', authenticateToken, async (req, res) => {
     try {
         const { rows: [queueEntry] } = await db.query(
@@ -23,7 +22,6 @@ router.get('/status', authenticateToken, async (req, res) => {
     }
 });
 
-// POST /api/queue/join - Enter the random matchmaking queue
 router.post('/join',
     authenticateToken,
     [
@@ -81,7 +79,6 @@ router.post('/join',
     }
 );
 
-// POST /api/queue/leave - Exit the random matchmaking queue
 router.post('/leave', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     const client = await db.getPool().connect();
