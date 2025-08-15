@@ -17,6 +17,7 @@ const transcriptRoutes = require('./transcripts.js');
 const discordRoutes = require('./discord.js');
 const ticketRoutes = require('./tickets.js');
 const queueRoutes = require('./queue.js');
+const configRoutes = require('./config.js');
 
 const router = express.Router();
 
@@ -37,6 +38,7 @@ router.use('/discord', discordRoutes);
 router.use('/tickets', ticketRoutes);
 router.use('/transcripts', transcriptRoutes);
 router.use('/queue', queueRoutes);
+router.use('/config', configRoutes);
 
 router.use('/', userRoutes);
 
