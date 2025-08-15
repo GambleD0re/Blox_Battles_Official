@@ -1,4 +1,3 @@
---- START OF FILE server.js ---
 require('dotenv').config();
 
 const express = require('express');
