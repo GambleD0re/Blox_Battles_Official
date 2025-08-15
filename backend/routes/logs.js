@@ -71,11 +71,8 @@ router.post('/',
                                         duelId: duel.id,
                                         winner: { username: winnerUser.linked_roblox_username, robloxId: winnerUser.linked_roblox_id, avatarUrl: winnerUser.avatar_url },
                                         loser: { username: loserUser.linked_roblox_username, robloxId: loserUser.linked_roblox_id, avatarUrl: loserUser.avatar_url },
-                                        wager: fullDuelData.wager,
                                         pot: fullDuelData.pot,
-                                        mapName: fullDuelData.map,
-                                        finalScores: event.data.finalScores,
-                                        playerLoadouts: fullDuelData.player_loadouts,
+                                        finalScores: event.data.finalScores
                                     };
                                     await client.query("INSERT INTO tasks (task_type, payload) VALUES ('POST_DUEL_RESULT_TO_DISCORD', $1)", [JSON.stringify(discordTaskPayload)]);
                                     
