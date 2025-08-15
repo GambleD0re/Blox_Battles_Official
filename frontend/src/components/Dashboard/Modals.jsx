@@ -1,3 +1,4 @@
+--- START OF FILE Modals.jsx ---
 import React, { useState, useEffect } from 'react';
 import * as api from '../../services/api';
 
@@ -13,6 +14,21 @@ export const Modal = ({ children, isOpen, onClose, title }) => {
                     {onClose && <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors"><CloseIcon /></button>}
                 </header>
                 <div className="p-6 overflow-y-auto">{children}</div>
+            </div>
+        </div>
+    );
+};
+
+export const MatchReadyModal = ({ isOpen, onJoin }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+            <div className="widget w-full max-w-md text-center">
+                <h2 className="text-4xl font-black text-green-400 mb-4">Match Found!</h2>
+                <p className="text-gray-300 mb-6">Your duel is ready to begin. Click the button below to join the server immediately.</p>
+                <button onClick={onJoin} className="btn btn-primary w-full text-lg animate-pulse">
+                    Join Now
+                </button>
             </div>
         </div>
     );
