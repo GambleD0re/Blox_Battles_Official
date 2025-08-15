@@ -1,104 +1,106 @@
-require('dotenv').config();
-const { REST, Routes, ApplicationCommandOptionType } = require('discord.js');
+--- START OF FILE discord-bot/commands/reactionrole.js ---
+const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField } = require('discord.js');
+const { apiClient } = require('../utils/apiClient');
 
-const { DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, DISCORD_GUILD_ID } = process.env;
+const MANAGE_ROLES_PERMISSION = PermissionsBitField.Flags.ManageRoles;
 
-if (!DISCORD_BOT_TOKEN || !DISCORD_CLIENT_ID || !DISCORD_GUILD_ID) {
-    console.error("FATAL: Missing required Discord environment variables (TOKEN, CLIENT_ID, GUILD_ID) for command deployment.");
-    process.exit(1);
-}
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('reactionrole')
+        .setDescription('Manage reaction roles for the server.')
+        .setDefaultMemberPermissions(MANAGE_ROLES_PERMISSION)
+        .setDMPermission(false)
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('setup')
+                .setDescription('Creates a new message for reaction roles.')
+                .addChannelOption(option => option.setName('channel').setDescription('The channel for the message.').setRequired(true))
+                .addStringOption(option => option.setName('title').setDescription('The title of the embed.').setRequired(true))
+                .addStringOption(option => option.setName('description').setDescription('The message content. Use "\\n" for new lines.').setRequired(true))
+                .addStringOption(option => option.setName('color').setDescription('A hex color code (e.g., #58a6ff).'))
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('add')
+                .setDescription('Adds a role-to-emoji mapping to a message.')
+                .addStringOption(option => option.setName('message_id').setDescription('The ID of the message to add the role to.').setRequired(true))
+                .addStringOption(option => option.setName('emoji').setDescription('The emoji to use for the reaction.').setRequired(true))
+                .addRoleOption(option => option.setName('role').setDescription('The role to assign.').setRequired(true))
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('remove')
+                .setDescription('Removes a role-to-emoji mapping from a message.')
+                .addStringOption(option => option.setName('message_id').setDescription('The ID of the message to remove the role from.').setRequired(true))
+                .addStringOption(option => option.setName('emoji').setDescription('The emoji of the rule to remove.').setRequired(true))
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('list')
+                .setDescription('Lists all configured reaction roles for a message.')
+                .addStringOption(option => option.setName('message_id').setDescription('The ID of the message to list roles for.').setRequired(true))
+        ),
 
-const commands = [
-    {
-        name: 'link',
-        description: 'Link your Discord account to your Blox Battles account.',
-    },
-    {
-        name: 'unlink',
-        description: 'Unlink your Discord account from your Blox Battles account.',
-    },
-    {
-        name: 'challenge',
-        description: 'Challenge another player to a duel using an interactive builder.',
-        options: [
-            {
-                name: 'opponent',
-                type: ApplicationCommandOptionType.User,
-                description: 'The user you want to challenge',
-                required: true,
-            },
-        ],
-    },
-    {
-        name: 'ticket',
-        description: 'Create a new support ticket or appeal.',
-    },
-    {
-        name: 'reactionrole',
-        description: 'Manage reaction roles for the server.',
-        // We change this from Administrator to ManageRoles, a more fitting default.
-        // The true permission check will be done via role ID in the command's code.
-        default_member_permissions: String(1 << 28), // Manage Roles permission bit
-        dm_permission: false,
-        options: [
-            {
-                name: 'setup',
-                description: 'Creates a new message/embed for reaction roles.',
-                type: ApplicationCommandOptionType.Subcommand,
-                options: [
-                    { name: 'channel', description: 'The channel to send the reaction role message to.', type: ApplicationCommandOptionType.Channel, required: true },
-                    { name: 'title', description: 'The title of the embed message.', type: ApplicationCommandOptionType.String, required: true },
-                    { name: 'description', description: 'The main text of the embed message. Use "\\n" for new lines.', type: ApplicationCommandOptionType.String, required: true },
-                    { name: 'color', description: 'A hex color code for the embed (e.g., #58a6ff).', type: ApplicationCommandOptionType.String, required: false },
-                ]
-            },
-            {
-                name: 'add',
-                description: 'Adds a role-to-emoji mapping to a reaction role message.',
-                type: ApplicationCommandOptionType.Subcommand,
-                options: [
-                    { name: 'message_id', description: 'The message ID of the reaction role embed.', type: ApplicationCommandOptionType.String, required: true },
-                    { name: 'emoji', description: 'The emoji to react with (can be a custom emoji).', type: ApplicationCommandOptionType.String, required: true },
-                    { name: 'role', description: 'The role to assign when the user reacts.', type: ApplicationCommandOptionType.Role, required: true },
-                ]
-            },
-            {
-                name: 'remove',
-                description: 'Removes a role-to-emoji mapping from a reaction role message.',
-                type: ApplicationCommandOptionType.Subcommand,
-                options: [
-                    { name: 'message_id', description: 'The message ID of the reaction role embed.', type: ApplicationCommandOptionType.String, required: true },
-                    { name: 'emoji', description: 'The emoji of the rule to remove.', type: ApplicationCommandOptionType.String, required: true },
-                ]
-            },
-            {
-                name: 'list',
-                description: 'Lists all configured reaction roles for a specific message.',
-                type: ApplicationCommandOptionType.Subcommand,
-                options: [
-                    { name: 'message_id', description: 'The message ID of the reaction role embed.', type: ApplicationCommandOptionType.String, required: true },
-                ]
+    async execute(interaction) {
+        if (!interaction.member.permissions.has(MANAGE_ROLES_PERMISSION)) {
+            return interaction.reply({ content: 'You do not have permission to manage roles.', ephemeral: true });
+        }
+
+        const subcommand = interaction.options.getSubcommand();
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+            if (subcommand === 'setup') {
+                const channel = interaction.options.getChannel('channel');
+                const title = interaction.options.getString('title');
+                const description = interaction.options.getString('description').replace(/\\n/g, '\n');
+                const color = interaction.options.getString('color') || '#58a6ff';
+
+                const embed = new EmbedBuilder().setColor(color).setTitle(title).setDescription(description);
+                const message = await channel.send({ embeds: [embed] });
+
+                await interaction.editReply(`✅ Reaction role message created in ${channel}! Message ID: \`${message.id}\``);
+            } 
+            else if (subcommand === 'add') {
+                const messageId = interaction.options.getString('message_id');
+                const emoji = interaction.options.getString('emoji');
+                const role = interaction.options.getRole('role');
+
+                const customEmojiRegex = /<a?:_:.+?:\d{18}>/;
+                const emojiId = customEmojiRegex.test(emoji) ? emoji.match(/\d{18}/)[0] : emoji;
+                
+                await apiClient.post('/discord/reaction-roles', { messageId, emojiId, roleId: role.id });
+
+                const targetMessage = await interaction.channel.messages.fetch(messageId).catch(() => null);
+                if (targetMessage) {
+                    await targetMessage.react(emoji);
+                }
+
+                await interaction.editReply(`✅ Rule added: Reacting with ${emoji} will now grant the **${role.name}** role.`);
+            } 
+            else if (subcommand === 'remove') {
+                const messageId = interaction.options.getString('message_id');
+                const emoji = interaction.options.getString('emoji');
+                const emojiId = /<a?:_:.+?:\d{18}>/.test(emoji) ? emoji.match(/\d{18}/)[0] : emoji;
+                
+                await apiClient.delete('/discord/reaction-roles', { data: { messageId, emojiId } });
+
+                await interaction.editReply(`✅ Rule removed for emoji ${emoji}.`);
+            } 
+            else if (subcommand === 'list') {
+                const messageId = interaction.options.getString('message_id');
+                const { data: rules } = await apiClient.get(`/discord/reaction-roles/bymessage/${messageId}`);
+
+                if (rules.length === 0) {
+                    return interaction.editReply('No reaction roles found for that message.');
+                }
+                const description = rules.map(rule => `- ${interaction.guild.emojis.cache.get(rule.emoji_id) || rule.emoji_id}: <@&${rule.role_id}>`).join('\n');
+                const embed = new EmbedBuilder().setTitle(`Reaction Roles for Message ${messageId}`).setDescription(description);
+                await interaction.editReply({ embeds: [embed] });
             }
-        ]
+        } catch (error) {
+            const errorMessage = error.response?.data?.message || 'An error occurred.';
+            await interaction.editReply(`❌ **Error:** ${errorMessage}`);
+        }
     },
-];
-
-const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
-
-(async () => {
-    try {
-        console.log(`Started refreshing ${commands.length} application (/) commands for the specified guild.`);
-        console.log("This process will overwrite all existing commands in this guild with the set defined in this script.");
-
-        const data = await rest.put(
-            Routes.applicationGuildCommands(DISCORD_CLIENT_ID, DISCORD_GUILD_ID),
-            { body: commands },
-        );
-
-        console.log(`Successfully reloaded ${data.length} application (/) commands for the guild.`);
-        console.log("Changes should be visible in your Discord server immediately.");
-
-    } catch (error) {
-        console.error("An error occurred while deploying commands:", error);
-    }
-})();
+};
