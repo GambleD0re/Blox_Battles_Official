@@ -1,9 +1,10 @@
-// backend/services/matchmakingService.js
+// START OF FILE backend/services/matchmakingService.js ---
 const db = require('../database/database');
 const GAME_DATA = require('../game-data-store');
 const { sendToUser } = require('../webSocketManager');
 
-const MATCHMAKING_INTERVAL_SECONDS = 5;
+const MATCHMAKING_INTERVAL_SECONDS = parseInt(process.env.MATCHMAKING_INTERVAL_SECONDS || '5', 10);
+const TAX_RATE_RANDOM = parseFloat(process.env.TAX_RATE_RANDOM || '0.01');
 
 const findAndProcessMatches = async () => {
     const pool = db.getPool();
@@ -59,7 +60,7 @@ const findAndProcessMatches = async () => {
                 const selectedMap = availableMaps[Math.floor(Math.random() * availableMaps.length)];
                 
                 const totalPot = player1.wager * 2;
-                const taxCollected = Math.ceil(totalPot * 0.01);
+                const taxCollected = Math.ceil(totalPot * TAX_RATE_RANDOM);
                 const finalPot = totalPot - taxCollected;
 
                 const { rows: [newDuel] } = await client.query(
