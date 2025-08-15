@@ -45,7 +45,7 @@ async function generateGhostDuel() {
         const loser = winner === player1 ? player2 : player1;
         
         const wager = WAGERS[Math.floor(Math.random() * WAGERS.length)];
-        const pot = wager * 2 - Math.ceil(wager * 2 * 0.04);
+        const pot = wager * 2 - Math.ceil(wager * 2 * 0.01);
         const loserScore = Math.floor(Math.random() * 5);
 
         const ghostDuelPayload = {
@@ -57,7 +57,7 @@ async function generateGhostDuel() {
             pot: pot,
         };
 
-        broadcast(wssInstance, {
+        broadcast({
             type: 'live_feed_update',
             payload: ghostDuelPayload
         });
@@ -67,8 +67,6 @@ async function generateGhostDuel() {
     } catch (error) {
         console.error('[GhostFeed] Failed to generate ghost duel:', error);
     } finally {
-        // This line was missing. It ensures that after a ghost duel is generated
-        // (or fails to generate), a new timer is always set for the next one.
         resetGhostFeedTimer();
     }
 }
