@@ -1,42 +1,40 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { getGameData } = require('../utils/gameData');
 const { DUEL_RESULTS_CHANNEL_ID, FRONTEND_URL, DUELER_ROLE_ID } = process.env;
 
 async function handleDuelResult(client, task) {
-    const { duelId, winner, loser, wager, pot, mapName, finalScores, playerLoadouts } = task.payload;
-    const gameData = getGameData();
-
-    const winnerLoadout = playerLoadouts?.[winner.username]?.map(wId => gameData.weapons.find(w => w.name === wId)?.name || wId).join(', ') || 'N/A';
-    const loserLoadout = playerLoadouts?.[loser.username]?.map(wId => gameData.weapons.find(w => w.name === wId)?.name || wId).join(', ') || 'N/A';
+    const { duelId, winner, loser, pot, finalScores } = task.payload;
+    const isGhostDuel = duelId.toString().startsWith('ghost-');
 
     const embed = new EmbedBuilder()
         .setColor(0x3fb950)
-        .setTitle(`⚔️ Duel Result: ${winner.username} vs. ${loser.username}`)
-        .setURL(`${FRONTEND_URL}/transcripts/${duelId}`)
+        .setTitle(`⚔️ ${winner.username} vs. ${loser.username}`)
         .setThumbnail(winner.avatarUrl || `https://www.roblox.com/headshot-thumbnail/image?userId=${winner.robloxId}&width=150&height=150&format=png`)
         .addFields(
-            { name: '🏆 Winner', value: `**${winner.username}**\n💰 **+${pot.toLocaleString()}** Gems`, inline: true },
-            { name: '💔 Loser', value: `**${loser.username}**\n💸 **-${wager.toLocaleString()}** Gems`, inline: true },
-            { name: '📊 Score & Map', value: `\`${finalScores ? Object.values(finalScores).join(' - ') : 'N/A'}\` on **${mapName}**`, inline: false },
-            { name: `${winner.username}'s Loadout`, value: `\`\`\`${winnerLoadout}\`\`\``, inline: true },
-            { name: `${loser.username}'s Loadout`, value: `\`\`\`${loserLoadout}\`\`\``, inline: true }
+            { name: '🏆 Winner', value: `**${winner.username}**`, inline: true },
+            { name: '💰 Pot', value: `**${pot.toLocaleString()}** Gems`, inline: true },
+            { name: '📊 Score', value: `\`${finalScores ? Object.values(finalScores).join(' - ') : 'N/A'}\``, inline: true }
         )
         .setTimestamp()
         .setFooter({ text: `Duel ID: ${duelId}` });
 
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setLabel('View Full Transcript')
-            .setStyle(ButtonStyle.Link)
-            .setURL(`${FRONTEND_URL}/transcripts/${duelId}`)
-    );
-
+    const components = [];
+    if (!isGhostDuel) {
+        embed.setURL(`${FRONTEND_URL}/transcripts/${duelId}`);
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setLabel('View Full Transcript')
+                .setStyle(ButtonStyle.Link)
+                .setURL(`${FRONTEND_URL}/transcripts/${duelId}`)
+        );
+        components.push(row);
+    }
+    
     const channel = await client.channels.fetch(DUEL_RESULTS_CHANNEL_ID).catch(() => null);
     if (!channel) {
         throw new Error(`Duel results channel with ID ${DUEL_RESULTS_CHANNEL_ID} not found.`);
     }
 
-    await channel.send({ embeds: [embed], components: [row] });
+    await channel.send({ embeds: [embed], components: components });
 }
 
 async function handleDmNotification(client, task, type) {
