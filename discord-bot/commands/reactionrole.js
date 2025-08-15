@@ -1,4 +1,4 @@
---- START OF FILE discord-bot/commands/reactionrole.js ---
+// START OF FILE discord-bot/commands/reactionrole.js ---
 const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField } = require('discord.js');
 const { apiClient } = require('../utils/apiClient');
 
