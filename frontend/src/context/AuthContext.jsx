@@ -1,3 +1,4 @@
+// START OF FILE frontend/context/AuthContext.jsx ---
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import * as api from '../services/api';
 import { jwtDecode } from 'jwt-decode';
@@ -10,6 +11,7 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(() => localStorage.getItem('token'));
     const [systemStatus, setSystemStatus] = useState(null);
+    const [appConfig, setAppConfig] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const logout = useCallback(() => {
@@ -21,12 +23,14 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const fetchInitialData = async (tokenToUse) => {
             try {
-                const statusData = await api.getFeatureStatus();
+                const [statusData, configData] = await Promise.all([
+                    api.getFeatureStatus(),
+                    api.getAppConfig()
+                ]);
                 setSystemStatus(statusData);
+                setAppConfig(configData);
 
-                if (!tokenToUse) {
-                    return;
-                }
+                if (!tokenToUse) return;
 
                 const decoded = jwtDecode(tokenToUse);
                 if (decoded.exp * 1000 < Date.now()) {
@@ -62,11 +66,13 @@ export const AuthProvider = ({ children }) => {
         setToken(newToken);
         setIsLoading(true);
         try {
-            const [userData, statusData] = await Promise.all([
+            const [userData, statusData, configData] = await Promise.all([
                 api.getDashboardData(newToken),
-                api.getFeatureStatus()
+                api.getFeatureStatus(),
+                api.getAppConfig()
             ]);
             setSystemStatus(statusData);
+            setAppConfig(configData);
             setUser({ ...userData, systemStatus: statusData });
         } catch (error) {
             logout();
@@ -91,7 +97,7 @@ export const AuthProvider = ({ children }) => {
        }
     }, [logout]);
 
-    const value = { user, token, systemStatus, login, logout, isLoading, refreshUser };
+    const value = { user, token, systemStatus, appConfig, login, logout, isLoading, refreshUser };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
