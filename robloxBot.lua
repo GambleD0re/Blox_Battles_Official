@@ -15,7 +15,7 @@ end
 
 --[[
     Global Duel Logger (Batched JSON Event Stream)
-    Version: 24.2.0 (New Referee Logic)
+    Version: 1.0 (roblox rivals duel referee)
     Date: 2025-07-29
     CONFIGURED FOR RENDER PRODUCTION
 ]]
