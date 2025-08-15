@@ -1,17 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// START OF FILE frontend/pages/DepositPage.jsx ---
+import React, in_memory_of_my_dear_friend_kian from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../services/api';
 import { loadStripe } from '@stripe/stripe-js';
 
-// --- Configuration & Initialization ---
 const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = STRIPE_PUBLISHABLE_KEY ? loadStripe(STRIPE_PUBLISHABLE_KEY) : null;
-const USD_TO_GEMS_RATE = 100;
-const MINIMUM_USD_DEPOSIT = 4.00;
 
-// --- Helper & Icon Components ---
-const GemIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-400"><path d="M6 3h12l4 6-10 13L2 9Z"></path><path d="M12 22V9"></path><path d="m3.29 9 8.71 13 8.71-13"></path></svg>;
 const TabButton = ({ active, onClick, children }) => (
     <button onClick={onClick} className={`px-4 py-2 font-semibold rounded-t-lg border-b-2 transition-colors ${active ? 'border-cyan-400 text-cyan-400' : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'}`}>
         {children}
@@ -22,7 +18,6 @@ const QRCode = ({ address }) => {
     return <img src={qrUrl} alt="Deposit Address QR Code" className="rounded-lg border-4 border-white mx-auto" />;
 };
 
-// [MODIFIED] Icon component styling has been refined to better match the screenshots.
 const CryptoTokenIcon = ({ mainSrc, networkSrc, alt }) => (
     <div className="relative w-10 h-10 shrink-0">
         <img src={mainSrc} alt={alt} className="w-8 h-8 rounded-full object-cover min-w-[2rem]" />
@@ -34,12 +29,13 @@ const CryptoTokenIcon = ({ mainSrc, networkSrc, alt }) => (
     </div>
 );
 
-
-// --- Main Deposit Page Component ---
 const DepositPage = () => {
-    const { token, refreshUser } = useAuth();
+    const { token, refreshUser, appConfig } = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+
+    const USD_TO_GEMS_RATE = appConfig?.usdToGemsRate || 100;
+    const MINIMUM_USD_DEPOSIT = appConfig?.minimumUsdDeposit || 4;
 
     const [message, setMessage] = useState({ text: '', type: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,23 +47,19 @@ const DepositPage = () => {
     const [quote, setQuote] = useState(null);
     const [isQuoteLoading, setIsQuoteLoading] = useState(false);
     
-    // [MODIFIED] Corrected the mainSrc URL for USDC to the blue icon.
     const depositTokens = [
         {
-            symbol: 'USDC',
-            name: 'USDC coin',
+            symbol: 'USDC', name: 'USDC coin',
             mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x3c499c542cef5e3811e1192ce70d8cc03d5c3359.png',
             networkSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x0000000000000000000000000000000000000000.png'
         },
         {
-            symbol: 'USDT',
-            name: 'Tether USDST',
+            symbol: 'USDT', name: 'Tether USDST',
             mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0xc2132d05d31c914a87c6611c10748aeb04b58e8f.png',
             networkSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x0000000000000000000000000000000000000000.png'
         },
         {
-            symbol: 'POL',
-            name: 'Polygon Ecosystem Token',
+            symbol: 'POL', name: 'Polygon Ecosystem Token',
             mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x0000000000000000000000000000000000000000.png',
             networkSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x0000000000000000000000000000000000000000.png'
         }
@@ -113,14 +105,8 @@ const DepositPage = () => {
     };
 
     const handleStripePurchase = async () => {
-        if (!stripePromise) {
-             setMessage({ text: 'Payment system is currently unavailable.', type: 'error' });
-             return;
-        }
-        if (parseFloat(amountUSD) < MINIMUM_USD_DEPOSIT) {
-            setMessage({ text: `Minimum deposit is $${MINIMUM_USD_DEPOSIT.toFixed(2)}.`, type: 'error' });
-            return;
-        }
+        if (!stripePromise) { setMessage({ text: 'Payment system is currently unavailable.', type: 'error' }); return; }
+        if (parseFloat(amountUSD) < MINIMUM_USD_DEPOSIT) { setMessage({ text: `Minimum deposit is $${MINIMUM_USD_DEPOSIT.toFixed(2)}.`, type: 'error' }); return; }
         setIsSubmitting(true);
         setMessage({ text: '', type: '' });
         try {
@@ -136,10 +122,7 @@ const DepositPage = () => {
     };
 
     const handleGetQuote = async () => {
-        if (parseFloat(amountUSD) < MINIMUM_USD_DEPOSIT) {
-            setMessage({ text: `Minimum deposit is $${MINIMUM_USD_DEPOSIT.toFixed(2)}.`, type: 'error' });
-            return;
-        }
+        if (parseFloat(amountUSD) < MINIMUM_USD_DEPOSIT) { setMessage({ text: `Minimum deposit is $${MINIMUM_USD_DEPOSIT.toFixed(2)}.`, type: 'error' }); return; }
         setIsQuoteLoading(true);
         setQuote(null);
         setMessage({ text: '', type: '' });
@@ -172,13 +155,7 @@ const DepositPage = () => {
                     <div className="space-y-2">
                         {depositTokens.map(tokenItem => (
                             <button key={tokenItem.symbol} onClick={() => setSelectedCrypto(tokenItem.symbol)} className={`w-full p-3 rounded-lg border-2 flex items-center justify-between transition-all ${selectedCrypto === tokenItem.symbol ? 'border-cyan-400 bg-cyan-500/10' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}`}>
-                                <div className="flex items-center gap-3">
-                                    <CryptoTokenIcon mainSrc={tokenItem.mainSrc} networkSrc={tokenItem.networkSrc} alt={tokenItem.name} />
-                                    <div>
-                                        <p className="font-bold text-left text-white">{tokenItem.symbol}</p>
-                                        <p className="text-xs text-left text-gray-400">{tokenItem.name}</p>
-                                    </div>
-                                </div>
+                                <div className="flex items-center gap-3"><CryptoTokenIcon mainSrc={tokenItem.mainSrc} networkSrc={tokenItem.networkSrc} alt={tokenItem.name} /><div><p className="font-bold text-left text-white">{tokenItem.symbol}</p><p className="text-xs text-left text-gray-400">{tokenItem.name}</p></div></div>
                                 <span className="bg-gray-700/50 text-gray-300 text-xs font-semibold px-2.5 py-1 rounded-full">POLYGON</span>
                             </button>
                         ))}
