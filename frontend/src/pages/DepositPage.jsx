@@ -14,7 +14,7 @@ const TabButton = ({ active, onClick, children }) => (
     </button>
 );
 const QRCode = ({ address }) => {
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${address}`;
+    const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${address}";
     return <img src={qrUrl} alt="Deposit Address QR Code" className="rounded-lg border-4 border-white mx-auto" />;
 };
 
