@@ -63,7 +63,7 @@ const initializeWebSocket = (server) => {
     return wss;
 };
 
-const broadcast = (wss, data) => {
+const broadcast = (data) => {
     if (!wss) {
         console.error('[WebSocket] Broadcast failed: WebSocket server not initialized.');
         return;
