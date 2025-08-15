@@ -135,7 +135,7 @@ const LiveFeed = ({ token, onMatchFound }) => {
         <div className={`fixed bottom-0 left-0 right-0 z-40 transition-transform duration-300 ease-in-out ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}>
             <button 
                 onClick={toggleVisibility}
-                className="absolute left-1/2 -translate-x-1/2 -top-6 w-12 h-6 bg-gray-800/80 backdrop-blur-md border-t border-l border-r border-gray-700 rounded-t-lg flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                className="absolute left-4 -top-6 w-12 h-6 bg-gray-800/80 backdrop-blur-md border-t border-l border-r border-gray-700 rounded-t-lg flex items-center justify-center text-gray-400 hover:text-white transition-colors"
                 title={isVisible ? 'Hide Feed' : 'Show Feed'}
             >
                 {isVisible ? <ChevronDownIcon /> : <ChevronUpIcon />}
