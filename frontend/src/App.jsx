@@ -11,6 +11,7 @@ import SignInPage from './pages/SignInPage.jsx';
 import SignUpPage from './pages/SignUpPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import VerificationNoticePage from './pages/VerificationNoticePage.jsx';
+import NotFoundPage from './pages/NotFoundPage.jsx';
 
 const DepositPage = lazy(() => import('./pages/DepositPage.jsx'));
 const WithdrawPage = lazy(() => import('./pages/WithdrawPage.jsx'));
@@ -124,7 +125,7 @@ const App = () => {
                         <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
                         <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><FeatureGuard featureName="tournaments"><AdminTournamentCreatePage /></FeatureGuard></ProtectedRoute>} />
 
-                        <Route path="*" element={<Navigate to={user ? "/dashboard" : "/signin"} />} />
+                        <Route path="*" element={<NotFoundPage />} />
                     </Routes>
                 </Suspense>
              </ErrorBoundary>
