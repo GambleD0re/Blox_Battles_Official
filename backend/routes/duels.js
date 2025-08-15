@@ -1,4 +1,4 @@
-// backend/routes/duels.js
+// START OF FILE backend/routes/duels.js ---
 const express = require('express');
 const { body, query, param } = require('express-validator');
 const db = require('../database/database');
@@ -7,7 +7,6 @@ const GAME_DATA = require('../game-data-store');
 
 const router = express.Router();
 
-// A helper function to decrement a server's player count.
 const decrementPlayerCount = async (client, duelId) => {
     try {
         const { rows: [duel] } = await client.query('SELECT assigned_server_id FROM duels WHERE id = $1', [duelId]);
@@ -20,7 +19,6 @@ const decrementPlayerCount = async (client, duelId) => {
     }
 };
 
-// --- Dispute System Endpoints ---
 router.get('/unseen-results', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
@@ -165,9 +163,6 @@ router.post('/disputes/:id/continue-to-discord', authenticateToken, param('id').
         client.release();
     }
 });
-
-
-// --- Existing Duel Routes ---
 
 router.get('/find-player', authenticateToken, query('roblox_username').trim().escape().notEmpty(), handleValidationErrors, async (req, res) => {
     try {
@@ -442,10 +437,8 @@ router.post('/respond', authenticateToken, body('duel_id').isInt(), body('respon
         await client.query('UPDATE users SET gems = gems - $1 WHERE id = $2', [duel.wager, duel.challenger_id]);
         
         const totalPot = parseInt(duel.wager) * 2;
-        let taxCollected = 0;
-        if (totalPot > 100) {
-            taxCollected = Math.ceil(totalPot * 0.01);
-        }
+        const TAX_RATE_DIRECT = parseFloat(process.env.TAX_RATE_DIRECT || '0.01');
+        let taxCollected = Math.ceil(totalPot * TAX_RATE_DIRECT);
         const finalPot = totalPot - taxCollected;
         
         await client.query('UPDATE duels SET status = $1, accepted_at = NOW(), pot = $2, tax_collected = $3 WHERE id = $4', ['accepted', finalPot, taxCollected, duel_id]);
