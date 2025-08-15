@@ -1,3 +1,4 @@
+// START OF FILE frontend/services/api.js ---
 const API_BASE_URL = '/api';
 
 const apiRequest = async (endpoint, method = 'GET', body = null, token = null) => {
@@ -40,6 +41,8 @@ const apiRequest = async (endpoint, method = 'GET', body = null, token = null) =
         throw error;
     }
 };
+
+export const getAppConfig = () => apiRequest('/config');
 
 export const loginUser = (credentials) => apiRequest('/auth/login', 'POST', credentials);
 export const registerUser = (userData) => apiRequest('/auth/register', 'POST', userData);
