@@ -1,3 +1,4 @@
+// START OF FILE discord-bot/tasks/duelTasks.js ---
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { DUEL_RESULTS_CHANNEL_ID, FRONTEND_URL, DUELER_ROLE_ID } = process.env;
 
@@ -40,6 +41,8 @@ async function handleDuelResult(client, task) {
 async function handleDmNotification(client, task, type) {
     const { payload } = task;
     let recipientId, embed, row;
+    const DISCORD_INVITE_URL = process.env.DISCORD_INVITE_URL || '#';
+
 
     switch (type) {
         case 'link_success':
