@@ -1,8 +1,9 @@
+// START OF FILE discord-bot/tasks/taskProcessor.js ---
 const { apiClient } = require('../utils/apiClient');
 const { handleCreateTicketChannel } = require('./ticketTasks');
 const { handleDuelResult, handleDmNotification } = require('./duelTasks');
 
-const TASK_FETCH_INTERVAL_MS = process.env.UPDATE_INTERVAL_SECONDS ? parseInt(process.env.UPDATE_INTERVAL_SECONDS, 10) * 1000 : 15000;
+const TASK_FETCH_INTERVAL_MS = (process.env.UPDATE_INTERVAL_SECONDS ? parseInt(process.env.UPDATE_INTERVAL_SECONDS, 10) : 15) * 1000;
 
 const taskHandlers = {
     'CREATE_TICKET_CHANNEL': handleCreateTicketChannel,
@@ -18,11 +19,9 @@ async function processTasks(client) {
     try {
         const response = await apiClient.get('/tasks/bot/discord');
         const tasks = response.data;
-        if (tasks.length === 0) {
-            return;
+        if (tasks.length > 0) {
+            console.log(`[TASKS] Fetched ${tasks.length} tasks to process.`);
         }
-
-        console.log(`[TASKS] Fetched ${tasks.length} tasks to process.`);
 
         for (const task of tasks) {
             const handler = taskHandlers[task.task_type];
@@ -32,7 +31,7 @@ async function processTasks(client) {
                     await apiClient.post(`/tasks/${task.id}/complete`);
                     console.log(`[TASKS] Successfully processed and completed task ${task.id} (${task.task_type}).`);
                 } catch (taskError) {
-                    console.error(`[TASKS] Error processing task ${task.id} (${task.task_type}):`, taskError);
+                    console.error(`[TASKS] Error processing task ${task.id} (${task.task_type}):`, taskError.message);
                 }
             } else {
                 console.warn(`[TASKS] No handler found for task type: ${task.task_type}`);
@@ -48,8 +47,12 @@ async function processTasks(client) {
 }
 
 function startTaskProcessor(client) {
-    console.log(`[TASKS] Task processor started. Fetching every ${TASK_FETCH_INTERVAL_MS / 1000} seconds.`);
+    console.log(`[TASKS] Task processor starting. Fetching every ${TASK_FETCH_INTERVAL_MS / 1000} seconds.`);
+    
+    // Initial run
     processTasks(client);
+    
+    // Set interval to run periodically
     setInterval(() => processTasks(client), TASK_FETCH_INTERVAL_MS);
 }
 
