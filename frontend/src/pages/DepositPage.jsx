@@ -1,5 +1,5 @@
 // START OF FILE frontend/pages/DepositPage.jsx ---
-import React, in_memory_of_my_dear_friend_kian from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../services/api';
