@@ -1,3 +1,4 @@
+// START OF FILE frontend/components/Dashboard/LiveFeed.jsx ---
 import React, { useState, useEffect, useRef } from 'react';
 
 const formatGems = (amount) => {
@@ -36,10 +37,20 @@ const DuelCard = ({ duel }) => {
     );
 };
 
+const ChevronDownIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>;
+const ChevronUpIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>;
+
 const LiveFeed = ({ token, onMatchFound }) => {
     const [duels, setDuels] = useState([]);
+    const [isVisible, setIsVisible] = useState(() => localStorage.getItem('liveFeedVisible') !== 'false');
     const ws = useRef(null);
     const timeouts = useRef([]);
+
+    const toggleVisibility = () => {
+        const newVisibility = !isVisible;
+        setIsVisible(newVisibility);
+        localStorage.setItem('liveFeedVisible', newVisibility);
+    };
 
     const onNewDuel = (duelData) => {
         const newDuel = { key: `duel-${duelData.id}-${Date.now()}`, position: 'enter', data: duelData };
@@ -121,23 +132,32 @@ const LiveFeed = ({ token, onMatchFound }) => {
     }, [duels]);
     
     return (
-        <div className="fixed bottom-0 left-0 right-0 h-28 bg-black/60 backdrop-blur-md border-t-2 border-gray-800 flex items-center overflow-hidden z-40 rounded-t-lg">
-            <div className="flex-shrink-0 w-12 flex items-center justify-center">
-                <span className="text-purple-400 font-black text-2xl tracking-tighter" style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}>LIVE</span>
-            </div>
-            
-            <div className="flex-grow h-full">
-                <div className="live-feed-cards-container">
-                    {duels.map(duel => (
-                        <div key={duel.key} className={`duel-card-wrapper pos-${duel.position}`}>
-                            <DuelCard duel={duel.data} />
-                        </div>
-                    ))}
+        <div className={`fixed bottom-0 left-0 right-0 z-40 transition-transform duration-300 ease-in-out ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}>
+            <button 
+                onClick={toggleVisibility}
+                className="absolute left-1/2 -translate-x-1/2 -top-6 w-12 h-6 bg-gray-800/80 backdrop-blur-md border-t border-l border-r border-gray-700 rounded-t-lg flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                title={isVisible ? 'Hide Feed' : 'Show Feed'}
+            >
+                {isVisible ? <ChevronDownIcon /> : <ChevronUpIcon />}
+            </button>
+            <div className="h-28 bg-black/60 backdrop-blur-md border-t-2 border-gray-800 flex items-center overflow-hidden">
+                <div className="flex-shrink-0 w-12 flex items-center justify-center">
+                    <span className="text-purple-400 font-black text-2xl tracking-tighter" style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}>LIVE</span>
                 </div>
-            </div>
+                
+                <div className="flex-grow h-full">
+                    <div className="live-feed-cards-container">
+                        {duels.map(duel => (
+                            <div key={duel.key} className={`duel-card-wrapper pos-${duel.position}`}>
+                                <DuelCard duel={duel.data} />
+                            </div>
+                        ))}
+                    </div>
+                </div>
 
-            <div className="flex-shrink-0 w-12 flex items-center justify-center">
-                <span className="text-yellow-300 font-black text-2xl tracking-tighter" style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}>FEED</span>
+                <div className="flex-shrink-0 w-12 flex items-center justify-center">
+                    <span className="text-yellow-300 font-black text-2xl tracking-tighter" style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}>FEED</span>
+                </div>
             </div>
         </div>
     );
