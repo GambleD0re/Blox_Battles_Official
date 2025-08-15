@@ -20,18 +20,18 @@ const initializeWebSocket = (server) => {
                     const decoded = jwt.verify(data.token, process.env.JWT_SECRET);
                     const userId = decoded.userId;
                     clients.set(userId, ws);
-                    ws.userId = userId; // Associate userId with the connection
+                    ws.userId = userId;
                     console.log(`[WebSocket] Authenticated client for user: ${userId}`);
+                    
+                    if (recentDuels.length > 0) {
+                        ws.send(JSON.stringify({ type: 'live_feed_history', payload: recentDuels }));
+                    }
                 }
             } catch (err) {
                 console.warn('[WebSocket] Failed to authenticate client:', err.message);
                 ws.terminate();
             }
         });
-
-        if (recentDuels.length > 0) {
-            ws.send(JSON.stringify({ type: 'live_feed_history', payload: recentDuels }));
-        }
 
         ws.on('close', () => {
             if (ws.userId) {
