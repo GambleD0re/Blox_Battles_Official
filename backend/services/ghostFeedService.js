@@ -3,7 +3,6 @@ const { broadcast } = require('../webSocketManager');
 
 const GHOST_FEED_INTERVAL = 60000;
 let ghostFeedTimer = null;
-let wssInstance = null; 
 
 const WAGERS = [100, 250, 500, 1000, 2500];
 
@@ -78,8 +77,7 @@ const resetGhostFeedTimer = () => {
     ghostFeedTimer = setTimeout(generateGhostDuel, GHOST_FEED_INTERVAL);
 };
 
-const startGhostFeed = (wss) => {
-    wssInstance = wss;
+const startGhostFeed = () => {
     console.log('[GhostFeed] Service started. Initializing first timer.');
     resetGhostFeedTimer();
 };
