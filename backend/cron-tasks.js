@@ -22,7 +22,7 @@ async function runScheduledTasks() {
     const DUEL_FORFEIT_MINUTES_RANDOM = parseInt(process.env.DUEL_FORFEIT_MINUTES_RANDOM || '3', 10);
     const RESULT_CONFIRMATION_MINUTES = parseInt(process.env.RESULT_CONFIRMATION_MINUTES || '2', 10);
     const SERVER_CRASH_THRESHOLD_SECONDS = parseInt(process.env.SERVER_CRASH_THRESHOLD_SECONDS || '50', 10);
-    const TOURNAMENT_DISPUTE_HOURS = 1; // This can be converted if needed later
+    const TOURNAMENT_DISPUTE_HOURS = 1;
 
     // --- Task 1: Handle Tournament State Transitions ---
     const tournamentClient = await pool.connect();
@@ -176,15 +176,35 @@ async function runScheduledTasks() {
                     console.log(`[CRON] Duel ID ${duel.id} forfeited by ${challenger.linked_roblox_username}.`);
                 }
                 else {
-                    let adjustedTax = parseInt(duel.tax_collected);
-                    if (adjustedTax % 2 !== 0) { adjustedTax++; }
-                    await txClient.query('UPDATE duels SET tax_collected = $1 WHERE id = $2', [adjustedTax, duel.id]);
-                    const refundAmount = parseInt(duel.wager) - (adjustedTax / 2);
-                    await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.challenger_id]);
-                    await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.opponent_id]);
-                    await txClient.query("UPDATE duels SET status = 'canceled', winner_id = NULL WHERE id = $1", [duel.id]);
-                    await decrementPlayerCount(txClient, duel.id);
-                    console.log(`[CRON] Duel ID ${duel.id} timed out after both players joined but never started. Voiding with tax.`);
+                    console.log(`[CRON] Standoff detected for duel ${duel.id}. Analyzing transcript for ready declarations...`);
+                    
+                    const readyEvents = transcript.filter(event => event.eventType === 'PLAYER_DECLARED_READY_ON_PAD');
+                    const challengerReady = readyEvents.some(event => event.data?.playerName === challenger.linked_roblox_username);
+                    const opponentReady = readyEvents.some(event => event.data?.playerName === opponent.linked_roblox_username);
+
+                    if (challengerReady && !opponentReady) {
+                        await txClient.query('UPDATE users SET gems = gems + $1, wins = wins + 1 WHERE id = $2', [duel.pot, duel.challenger_id]);
+                        await txClient.query('UPDATE users SET losses = losses + 1 WHERE id = $1', [duel.opponent_id]);
+                        await txClient.query("UPDATE duels SET status = 'completed', winner_id = $1 WHERE id = $2", [duel.challenger_id, duel.id]);
+                        await decrementPlayerCount(txClient, duel.id);
+                        console.log(`[CRON] Duel ID ${duel.id} forfeited by ${opponent.linked_roblox_username} (failed to ready up).`);
+                    } else if (!challengerReady && opponentReady) {
+                        await txClient.query('UPDATE users SET gems = gems + $1, wins = wins + 1 WHERE id = $2', [duel.pot, duel.opponent_id]);
+                        await txClient.query('UPDATE users SET losses = losses + 1 WHERE id = $1', [duel.challenger_id]);
+                        await txClient.query("UPDATE duels SET status = 'completed', winner_id = $1 WHERE id = $2", [duel.opponent_id, duel.id]);
+                        await decrementPlayerCount(txClient, duel.id);
+                        console.log(`[CRON] Duel ID ${duel.id} forfeited by ${challenger.linked_roblox_username} (failed to ready up).`);
+                    } else {
+                        let adjustedTax = parseInt(duel.tax_collected);
+                        if (adjustedTax % 2 !== 0) { adjustedTax++; }
+                        await txClient.query('UPDATE duels SET tax_collected = $1 WHERE id = $2', [adjustedTax, duel.id]);
+                        const refundAmount = parseInt(duel.wager) - (adjustedTax / 2);
+                        await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.challenger_id]);
+                        await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [refundAmount, duel.opponent_id]);
+                        await txClient.query("UPDATE duels SET status = 'canceled', winner_id = NULL WHERE id = $1", [duel.id]);
+                        await decrementPlayerCount(txClient, duel.id);
+                        console.log(`[CRON] Duel ID ${duel.id} voided due to mutual inaction. Tax applied, wagers refunded.`);
+                    }
                 }
                 await txClient.query('COMMIT');
             } catch (err) {
