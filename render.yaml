@@ -1,6 +1,4 @@
-# render.yaml - A Render Blueprint for the Blox Battles Application
-# This version adds the new Discord Bot worker service and all required environment variables.
-
+--- START OF FILE render.yaml ---
 databases:
   - name: blox-battles-db
     plan: basic-256mb
@@ -26,10 +24,9 @@ services:
           name: blox-battles-db
           property: connectionString
       - key: SERVER_URL
-        value: https://blox-battles-frontend.onrender.com
+        sync: false
       - key: BACKEND_URL
-        value: https://blox-battles-backend.onrender.com
-      # --- SECRETS (sync: false) ---
+        sync: false
       - key: DEFAULT_ADMIN_PASSWORD
         sync: false
       - key: JWT_SECRET
@@ -54,10 +51,6 @@ services:
         sync: false
       - key: PAYOUT_WALLET_PRIVATE_KEY
         sync: false
-      - key: VAPID_PUBLIC_KEY
-        sync: false
-      - key: VAPID_PRIVATE_KEY
-        sync: false
       - key: EMAIL_HOST
         sync: false
       - key: EMAIL_PORT
@@ -67,6 +60,38 @@ services:
       - key: EMAIL_PASS
         sync: false
       - key: EMAIL_FROM
+        sync: false
+      - key: MASTER_ADMIN_EMAIL
+        sync: false
+      - key: TAX_RATE_DIRECT
+        sync: false
+      - key: TAX_RATE_RANDOM
+        sync: false
+      - key: USD_TO_GEMS_RATE
+        sync: false
+      - key: GEM_TO_USD_CONVERSION_RATE
+        sync: false
+      - key: MINIMUM_USD_DEPOSIT
+        sync: false
+      - key: MINIMUM_GEM_WITHDRAWAL
+        sync: false
+      - key: QUEUE_WAGERS
+        sync: false
+      - key: DUEL_EXPIRATION_HOURS
+        sync: false
+      - key: DUEL_FORFEIT_MINUTES_DIRECT
+        sync: false
+      - key: DUEL_FORFEIT_MINUTES_RANDOM
+        sync: false
+      - key: RESULT_CONFIRMATION_MINUTES
+        sync: false
+      - key: SERVER_CRASH_THRESHOLD_SECONDS
+        sync: false
+      - key: QUEUE_LEAVE_COOLDOWN_SECONDS
+        sync: false
+      - key: MATCHMAKING_INTERVAL_SECONDS
+        sync: false
+      - key: DISCORD_INVITE_URL
         sync: false
 
   # ---------------------
@@ -89,7 +114,7 @@ services:
       - key: VITE_STRIPE_PUBLISHABLE_KEY
         sync: false
       - key: VITE_API_BASE_URL
-        value: https://blox-battles-backend.onrender.com
+        sync: false
 
   # ---------------------
   # 3. The Cron Job
@@ -107,6 +132,16 @@ services:
         fromDatabase:
           name: blox-battles-db
           property: connectionString
+      - key: DUEL_EXPIRATION_HOURS
+        sync: false
+      - key: DUEL_FORFEIT_MINUTES_DIRECT
+        sync: false
+      - key: DUEL_FORFEIT_MINUTES_RANDOM
+        sync: false
+      - key: RESULT_CONFIRMATION_MINUTES
+        sync: false
+      - key: SERVER_CRASH_THRESHOLD_SECONDS
+        sync: false
           
   # ---------------------
   # 4. The Discord Bot Worker
@@ -122,15 +157,23 @@ services:
     envVars:
       - key: DISCORD_BOT_TOKEN
         sync: false
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_GUILD_ID
+        sync: false
       - key: BOT_API_KEY
         sync: false
       - key: BACKEND_API_URL
-        value: https://blox-battles-backend.onrender.com
+        sync: false
       - key: FRONTEND_URL
-        value: https://blox-battles-frontend.onrender.com
+        sync: false
+      - key: DISCORD_INVITE_URL
+        sync: false
       - key: UPDATE_INTERVAL_SECONDS
-        value: 15
+        sync: false
       - key: DUEL_RESULTS_CHANNEL_ID
+        sync: false
+      - key: DUELER_ROLE_ID
         sync: false
       - key: NA_EAST_VC_ID
         sync: false
