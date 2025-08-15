@@ -1,3 +1,4 @@
+// START OF FILE discord-bot/events/ready.js ---
 const { Events, ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { cacheGameData } = require('../utils/gameData');
 const { startTaskProcessor } = require('../tasks/taskProcessor');
