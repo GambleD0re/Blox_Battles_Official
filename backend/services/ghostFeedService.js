@@ -1,7 +1,8 @@
 const fetch = require('node-fetch');
 const { broadcast } = require('../webSocketManager');
+const db = require('../database/database');
 
-const GHOST_FEED_INTERVAL = 60000;
+const GHOST_FEED_INTERVAL = 4000;
 let ghostFeedTimer = null;
 
 const WAGERS = [100, 250, 500, 1000, 2500];
@@ -27,6 +28,7 @@ async function getRandomRobloxUser() {
             return {
                 username: userData.name,
                 avatarUrl: avatarUrl,
+                robloxId: randomId
             };
 
         } catch (error) {
@@ -46,9 +48,10 @@ async function generateGhostDuel() {
         const wager = WAGERS[Math.floor(Math.random() * WAGERS.length)];
         const pot = wager * 2 - Math.ceil(wager * 2 * 0.01);
         const loserScore = Math.floor(Math.random() * 5);
+        const duelId = `ghost-${Date.now()}`;
 
-        const ghostDuelPayload = {
-            id: `ghost-${Date.now()}`,
+        const duelPayload = {
+            id: duelId,
             winner: winner,
             loser: loser,
             score: { winnerScore: 5, loserScore: loserScore },
@@ -58,10 +61,20 @@ async function generateGhostDuel() {
 
         broadcast({
             type: 'live_feed_update',
-            payload: ghostDuelPayload
+            payload: duelPayload
         });
 
-        console.log(`[GhostFeed] Broadcasted ghost duel: ${winner.username} vs ${loser.username}`);
+        const discordTaskPayload = {
+            duelId: duelId,
+            winner: { username: winner.username, robloxId: winner.robloxId, avatarUrl: winner.avatarUrl },
+            loser: { username: loser.username, robloxId: loser.robloxId, avatarUrl: loser.avatarUrl },
+            pot: pot,
+            finalScores: { [winner.username]: 5, [loser.username]: loserScore }
+        };
+
+        await db.query("INSERT INTO tasks (task_type, payload) VALUES ('POST_DUEL_RESULT_TO_DISCORD', $1)", [JSON.stringify(discordTaskPayload)]);
+        
+        console.log(`[GhostFeed] Broadcasted ghost duel and created Discord task for: ${winner.username} vs ${loser.username}`);
 
     } catch (error) {
         console.error('[GhostFeed] Failed to generate ghost duel:', error);
