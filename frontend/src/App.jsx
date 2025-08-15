@@ -12,6 +12,7 @@ import SignUpPage from './pages/SignUpPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import VerificationNoticePage from './pages/VerificationNoticePage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
+import ForbiddenPage from './pages/ForbiddenPage.jsx';
 
 const DepositPage = lazy(() => import('./pages/DepositPage.jsx'));
 const WithdrawPage = lazy(() => import('./pages/WithdrawPage.jsx'));
@@ -42,7 +43,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     }
 
     if (adminOnly && !user.is_admin) {
-        return <Navigate to="/dashboard" />;
+        return <Navigate to="/forbidden" />;
     }
 
     if (user.password_hash && !user.is_email_verified) {
@@ -110,6 +111,7 @@ const App = () => {
                         <Route path="/verify-email" element={<VerifyEmailPage />} />
                         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                         <Route path="/reset-password" element={<ResetPasswordPage />} />
+                        <Route path="/forbidden" element={<ForbiddenPage />} />
                         
 
                         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
