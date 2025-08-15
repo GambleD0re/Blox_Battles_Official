@@ -2,7 +2,7 @@ const fetch = require('node-fetch');
 const { broadcast } = require('../webSocketManager');
 const db = require('../database/database');
 
-const GHOST_FEED_INTERVAL = 10000;
+const GHOST_FEED_INTERVAL = 60000;
 let ghostFeedTimer = null;
 
 const WAGERS = [100, 250, 500, 1000, 2500];
