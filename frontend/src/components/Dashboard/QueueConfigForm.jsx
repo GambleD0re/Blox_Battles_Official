@@ -1,17 +1,18 @@
+// START OF FILE frontend/components/Dashboard/QueueConfigForm.jsx ---
 import React, { useState } from 'react';
 import * as api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const QueueConfigForm = ({ gameData, token, showMessage, onQueueJoined }) => {
-    const { user } = useAuth();
+    const { user, appConfig } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const [wager, setWager] = useState(100);
+    const wagerOptions = appConfig?.queueWagers || [50, 100, 200, 500, 1000];
+
+    const [wager, setWager] = useState(wagerOptions[1] || wagerOptions[0]);
     const [region, setRegion] = useState('NA-East');
     const [bannedMap, setBannedMap] = useState('');
     const [bannedWeapons, setBannedWeapons] = useState([]);
-
-    const wagerOptions = [50, 100, 200, 500, 1000];
 
     const handleWeaponToggle = (weaponId) => {
         setBannedWeapons(prev => {
