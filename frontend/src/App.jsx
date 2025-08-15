@@ -1,3 +1,4 @@
+// START OF FILE frontend/App.jsx ---
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
@@ -27,7 +28,7 @@ const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage.jsx'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage.jsx'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage.jsx'));
 
-const MASTER_ADMIN_EMAIL = 'scriptmail00@gmail.com';
+const MASTER_ADMIN_EMAIL = process.env.MASTER_ADMIN_EMAIL || 'scriptmail00@gmail.com';
 
 const Loader = ({ fullScreen = false }) => (
     <div className={`flex items-center justify-center ${fullScreen ? 'fixed inset-0 bg-black bg-opacity-70 z-50' : ''}`}>
