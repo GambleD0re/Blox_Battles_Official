@@ -1,9 +1,9 @@
+// START OF FILE frontend/pages/WithdrawPage.jsx ---
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../services/api';
 
-// --- Helper & Icon Components ---
 const Loader = ({ inline = false }) => (
     <div className={`flex items-center justify-center ${inline ? '' : 'p-8'}`}>
         <div className="w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -28,11 +28,12 @@ const CryptoTokenIcon = ({ mainSrc, networkSrc, alt }) => (
     </div>
 );
 
-
-// --- Main Withdraw Page Component ---
 const WithdrawPage = () => {
-    const { user, token, refreshUser } = useAuth();
+    const { user, token, refreshUser, appConfig } = useAuth();
     const navigate = useNavigate();
+
+    const GEM_TO_USD_CONVERSION_RATE = appConfig?.gemToUsdConversionRate || 110;
+    const MINIMUM_GEM_WITHDRAWAL = appConfig?.minimumGemWithdrawal || 11;
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [message, setMessage] = useState({ text: '', type: '' });
@@ -41,21 +42,14 @@ const WithdrawPage = () => {
     const [recipientAddress, setRecipientAddress] = useState('');
     const [selectedToken, setSelectedToken] = useState('USDC');
 
-    const GEM_TO_USD_CONVERSION_RATE = 110;
-    const MINIMUM_GEM_WITHDRAWAL = 11;
-
     const supportedWithdrawalTokens = [
         {
-            symbol: 'USDC',
-            name: 'USDCoin',
-            network: 'Polygon Mainnet',
+            symbol: 'USDC', name: 'USDCoin', network: 'Polygon Mainnet',
             mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x3c499c542cef5e3811e1192ce70d8cc03d5c3359.png',
             networkSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x0000000000000000000000000000000000000000.png'
         },
         {
-            symbol: 'USDT',
-            name: 'Tether USD',
-            network: 'Polygon Mainnet',
+            symbol: 'USDT', name: 'Tether USD', network: 'Polygon Mainnet',
             mainSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0xc2132d05d31c914a87c6611c10748aeb04b58e8f.png',
             networkSrc: 'https://static.cx.metamask.io/api/v1/tokenIcons/137/0x0000000000000000000000000000000000000000.png'
         }
@@ -97,7 +91,7 @@ const WithdrawPage = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="widget text-center"><p className="text-sm text-gray-400">Current Balance</p><p className="text-3xl font-bold text-cyan-400">{user?.gems.toLocaleString() || 0} Gems</p></div>
-                <div className="widget text-center"><p className="text-sm text-gray-400">Conversion Rate</p><p className="text-lg font-semibold text-white">110 Gems = $1.00 USD</p></div>
+                <div className="widget text-center"><p className="text-sm text-gray-400">Conversion Rate</p><p className="text-lg font-semibold text-white">{GEM_TO_USD_CONVERSION_RATE} Gems = $1.00 USD</p></div>
                 <div className="widget text-center"><p className="text-sm text-gray-400">Withdrawable Value</p><p className="text-3xl font-bold text-green-400">${((user?.gems || 0) / GEM_TO_USD_CONVERSION_RATE).toFixed(2)}</p></div>
             </div>
 
