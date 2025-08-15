@@ -1,4 +1,4 @@
-// backend/routes/payments.js
+// START OF FILE backend/routes/payments.js ---
 const express = require('express');
 const { body } = require('express-validator');
 const { authenticateToken, handleValidationErrors } = require('../middleware/auth');
@@ -10,23 +10,17 @@ const { addAddressToMonitor } = require('../services/transactionListenerService'
 
 const router = express.Router();
 
-// --- CONSTANTS ---
-const USD_TO_GEMS_RATE = 100; // 100 gems per $1
-const MINIMUM_USD_DEPOSIT = 4; // $4.00 minimum
+const USD_TO_GEMS_RATE = parseInt(process.env.USD_TO_GEMS_RATE || '100', 10);
+const MINIMUM_USD_DEPOSIT = parseFloat(process.env.MINIMUM_USD_DEPOSIT || '4');
 
-// Create a Stripe Checkout session for a custom amount
 router.post('/create-checkout-session',
     authenticateToken,
-    // [MODIFIED] Validate 'amount' instead of 'packageId'
     body('amount').isFloat({ gt: MINIMUM_USD_DEPOSIT - 0.01 }).withMessage(`Minimum deposit is $${MINIMUM_USD_DEPOSIT.toFixed(2)}.`),
     handleValidationErrors,
     async (req, res) => {
         try {
-            // [MODIFIED] Use 'amount' from the body
             const { amount } = req.body;
             const user = req.user;
-
-            // Calculate gem amount based on the rate
             const gemAmount = Math.floor(amount * USD_TO_GEMS_RATE);
             const amountInCents = Math.round(amount * 100);
 
@@ -36,14 +30,14 @@ router.post('/create-checkout-session',
                     price_data: {
                         currency: 'usd',
                         product_data: { name: `${gemAmount.toLocaleString()} Gems` },
-                        unit_amount: amountInCents, // Amount must be in cents
+                        unit_amount: amountInCents,
                     },
                     quantity: 1,
                 }],
                 mode: 'payment',
                 metadata: {
                     userId: user.userId,
-                    gemAmount: gemAmount, // Store the calculated gem amount
+                    gemAmount: gemAmount,
                 },
                 success_url: `${process.env.SERVER_URL}/deposit?success=true`,
                 cancel_url: `${process.env.SERVER_URL}/deposit?canceled=true`,
@@ -58,7 +52,6 @@ router.post('/create-checkout-session',
     }
 );
 
-// Get or generate a unique crypto deposit address for a user.
 router.get('/crypto-address', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     try {
@@ -85,22 +78,18 @@ router.get('/crypto-address', authenticateToken, async (req, res) => {
     }
 });
 
-// Get a real-time quote for a crypto deposit for a custom amount.
 router.post('/crypto-quote',
     authenticateToken,
     [
-        // [MODIFIED] Validate 'amount' instead of 'packageId'
         body('amount').isFloat({ gt: MINIMUM_USD_DEPOSIT - 0.01 }).withMessage(`Minimum deposit is $${MINIMUM_USD_DEPOSIT.toFixed(2)}.`),
         body('tokenType').isIn(['USDC', 'USDT', 'POL']).withMessage('Invalid token type.')
     ],
     handleValidationErrors,
     async (req, res) => {
-        // [MODIFIED] Use 'amount' from the body
         const { amount, tokenType } = req.body;
         try {
             const packageUsdValue = parseFloat(amount);
             const gemAmount = Math.floor(packageUsdValue * USD_TO_GEMS_RATE);
-
             const priceSymbol = `${tokenType}_USD`;
             const currentPrice = await getLatestPrice(priceSymbol);
 
@@ -111,11 +100,10 @@ router.post('/crypto-quote',
             const cryptoAmount = packageUsdValue / currentPrice;
 
             res.status(200).json({
-                // [MODIFIED] Return data based on custom amount
                 gemAmount: gemAmount,
                 tokenType: tokenType,
                 usdValue: packageUsdValue,
-                cryptoAmount: cryptoAmount.toFixed(6), // Keep precision for crypto
+                cryptoAmount: cryptoAmount.toFixed(6),
                 quoteExpiration: Date.now() + 15 * 60 * 1000
             });
 
