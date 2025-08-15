@@ -1,4 +1,4 @@
-// backend/routes/payouts.js
+// START OF FILE backend/routes/payouts.js ---
 const express = require('express');
 const { body } = require('express-validator');
 const db = require('../database/database');
@@ -8,10 +8,9 @@ const { sendCryptoPayout } = require('../services/cryptoPayoutService');
 
 const router = express.Router();
 
-const GEM_TO_USD_CONVERSION_RATE = 105;
-const MINIMUM_GEM_WITHDRAWAL = 11;
+const GEM_TO_USD_CONVERSION_RATE = parseInt(process.env.GEM_TO_USD_CONVERSION_RATE || '110', 10);
+const MINIMUM_GEM_WITHDRAWAL = parseInt(process.env.MINIMUM_GEM_WITHDRAWAL || '11', 10);
 
-// --- CRYPTO WITHDRAWAL REQUEST (MANUAL REVIEW) ---
 router.post('/request-crypto',
     authenticateToken,
     [
@@ -62,7 +61,6 @@ router.post('/request-crypto',
     }
 );
 
-// --- CANCEL A PENDING WITHDRAWAL ---
 router.post('/cancel-request/:id', authenticateToken, async (req, res) => {
     const requestId = req.params.id;
     const userId = req.user.userId;
@@ -96,7 +94,6 @@ router.post('/cancel-request/:id', authenticateToken, async (req, res) => {
 });
 
 
-// --- UPDATE AN APPROVED WITHDRAWAL ---
 router.put('/update-request/:id', authenticateToken,
     [
         body('recipientAddress').optional().isEthereumAddress().withMessage('A valid recipient wallet address is required.'),
