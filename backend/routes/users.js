@@ -1,4 +1,4 @@
-// backend/routes/users.js
+// START OF FILE backend/routes/users.js ---
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -13,9 +13,18 @@ const saltRounds = 10;
 const jwtSecret = process.env.JWT_SECRET;
 
 const generateUniquePhrase = () => {
-    const words = ['Apple', 'City', 'Run', 'Plane', 'Rock', 'Sky', 'Blue', 'Tree', 'Water', 'Fire', 'Sun', 'Moon', 'Star', 'Gold', 'King'];
+    const words = [
+        'Lion', 'Tiger', 'Bear', 'Eagle', 'Dolphin', 'Shark', 'Falcon', 'Wolf', 'Fox', 'Deer', 
+        'River', 'Mountain', 'Forest', 'Ocean', 'Desert', 'Meadow', 'Glacier', 'Volcano', 'Canyon', 'Island',
+        'Crimson', 'Indigo', 'Amber', 'Emerald', 'Sapphire', 'Violet', 'Golden', 'Silver', 'Bronze', 'Azure',
+        'Anchor', 'Compass', 'Lantern', 'Telescope', 'Quill', 'Scroll', 'Shield', 'Sword', 'Hammer', 'Anvil',
+        'Dream', 'Echo', 'Harmony', 'Legacy', 'Memory', 'Quest', 'Riddle', 'Spirit', 'Valor', 'Zenith',
+        'Comet', 'Nebula', 'Orbit', 'Planet', 'Starship', 'Galaxy', 'Asteroid', 'Meteor', 'Supernova', 'Cosmos',
+        'Soaring', 'Leaping', 'Whispering', 'Forging', 'Exploring', 'Discovering', 'Sailing', 'Climbing', 'Wandering', 'Seeking',
+        'Arcane', 'Ancient', 'Silent', 'Hidden', 'Mystic', 'Brave', 'Noble', 'Swift', 'Bright', 'Dark'
+    ];
     const shuffled = words.sort(() => 0.5 - Math.random());
-    return "RR: " + shuffled.slice(0, 5).join(" ");
+    return shuffled.slice(0, 12).join(" ");
 };
 
 async function sendUserResponse(user, res) {
