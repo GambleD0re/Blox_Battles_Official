@@ -1,11 +1,10 @@
+// START OF FILE frontend/pages/SettingsPage.jsx ---
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../services/api';
 import { ConfirmationModal } from '../components/Dashboard/Modals';
-import CreateTicketModal from '../components/Dashboard/CreateTicketModal'; // Import the new modal
-
-// --- Reusable Helper Components for this page ---
+import CreateTicketModal from '../components/Dashboard/CreateTicketModal';
 
 const SettingsRow = ({ label, value }) => (
     <div className="flex justify-between items-center py-3 border-b border-gray-700">
@@ -49,9 +48,8 @@ const DangerZoneCard = ({ title, text, buttonText, onAction }) => (
     </div>
 );
 
-// --- Main Settings Page Component ---
 const SettingsPage = () => {
-    const { user, token, logout, refreshUser } = useAuth();
+    const { user, token, logout, refreshUser, appConfig } = useAuth();
     const navigate = useNavigate();
     
     const [message, setMessage] = useState({ text: '', type: '' });
@@ -104,20 +102,20 @@ const SettingsPage = () => {
             refreshUser();
         } catch (error) {
             showMessage(error.message, 'error');
-            setNotificationsEnabled(!newPreference); // Revert on failure
+            setNotificationsEnabled(!newPreference);
         }
     };
     
     const handleChallengeToggle = async () => {
         const newPreference = !acceptingChallenges;
-        setAcceptingChallenges(newPreference); // Optimistic UI update
+        setAcceptingChallenges(newPreference);
         try {
             await api.updateChallengePreference(newPreference, token);
             showMessage('Challenge preference updated.', 'success');
             refreshUser();
         } catch (error) {
             showMessage(error.message, 'error');
-            setAcceptingChallenges(!newPreference); // Revert on failure
+            setAcceptingChallenges(!newPreference);
         }
     };
 
@@ -231,7 +229,7 @@ const SettingsPage = () => {
                     ) : (
                         <div className="text-center p-4">
                             <p className="text-gray-400 mb-4">Link your Discord account to get notifications when it's time to duel.</p>
-                             <a href="https://discord.gg/your-invite-link" // Replace with your actual Discord invite link
+                             <a href={appConfig?.discordInviteUrl || '#'}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="btn btn-primary inline-flex items-center gap-2"
