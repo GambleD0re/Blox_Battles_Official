@@ -5,7 +5,6 @@ import * as api from '../services/api';
 import UserActionsModal from '../components/Admin/UserActionsModal';
 import { ConfirmationModal, TranscriptModal } from '../components/Dashboard/Modals';
 
-// --- Helper Components ---
 const StatCard = ({ title, value, icon }) => (
     <div className="widget flex items-center p-4 gap-4">
         <div className="text-3xl">{icon}</div>
@@ -125,94 +124,6 @@ const DeclineModal = ({ isOpen, onClose, onSubmit }) => {
     );
 };
 
-// [NEW] System Controls Component for Master Admin
-const SystemControls = ({ token, showMessage }) => {
-    const [status, setStatus] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-
-    const fetchStatus = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            const data = await api.getSystemStatus(token);
-            setStatus(data);
-        } catch (error) {
-            showMessage(error.message, 'error');
-        } finally {
-            setIsLoading(false);
-        }
-    }, [token, showMessage]);
-
-    useEffect(() => {
-        fetchStatus();
-    }, [fetchStatus]);
-
-    const handleUpdate = async (feature) => {
-        try {
-            await api.updateSystemStatus(feature, token);
-            showMessage(`${feature.feature_name} status updated.`, 'success');
-            fetchStatus();
-        } catch (error) {
-            showMessage(error.message, 'error');
-        }
-    };
-
-    const handleToggle = (feature_name) => {
-        const feature = status.find(s => s.feature_name === feature_name);
-        if (feature) {
-            handleUpdate({ ...feature, is_enabled: !feature.is_enabled });
-        }
-    };
-
-    const handleMessageChange = (feature_name, new_message) => {
-        setStatus(prevStatus => prevStatus.map(s => s.feature_name === feature_name ? { ...s, disabled_message: new_message } : s));
-    };
-
-    const handleMessageSave = (feature_name) => {
-        const feature = status.find(s => s.feature_name === feature_name);
-        if (feature) {
-            handleUpdate(feature);
-        }
-    };
-
-    if (isLoading) {
-        return <div className="widget text-center p-8">Loading System Controls...</div>;
-    }
-
-    return (
-        <div className="widget mt-8">
-            <h2 className="widget-title">Master System Controls</h2>
-            <div className="space-y-6">
-                {status.map(feature => (
-                    <div key={feature.feature_name} className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <h4 className="font-bold text-lg text-white">{feature.feature_name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
-                                <p className={`text-sm font-semibold ${feature.is_enabled ? 'text-green-400' : 'text-red-400'}`}>
-                                    {feature.is_enabled ? 'ENABLED' : 'DISABLED'}
-                                </p>
-                            </div>
-                            <button onClick={() => handleToggle(feature.feature_name)} className={`px-4 py-2 rounded-md font-bold text-white ${feature.is_enabled ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>
-                                {feature.is_enabled ? 'Disable' : 'Enable'}
-                            </button>
-                        </div>
-                        {!feature.is_enabled && (
-                            <div className="mt-4 flex items-end gap-2">
-                                <div className="flex-grow">
-                                    <label className="text-xs text-gray-400">Disabled Message</label>
-                                    <input type="text" value={feature.disabled_message || ''} onChange={(e) => handleMessageChange(feature.feature_name, e.target.value)} className="form-input"/>
-                                </div>
-                                <button onClick={() => handleMessageSave(feature.feature_name)} className="btn btn-secondary !mt-0">Save Message</button>
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-
-// --- Main Admin Dashboard Component ---
 const AdminDashboard = () => {
     const { user, token } = useAuth();
     const navigate = useNavigate();
@@ -271,13 +182,22 @@ const AdminDashboard = () => {
     const handleDeclinePayoutClick = (request) => { setSelectedPayoutRequest(request); setIsPayoutDetailModalOpen(false); setIsDeclineModalOpen(true); };
     const handleConfirmDecline = async (reason) => { try { const r = await api.declinePayoutRequest(selectedPayoutRequest.id, reason, token); showMessage(r.message, 'success'); setIsDeclineModalOpen(false); setSelectedPayoutRequest(null); fetchData(); } catch (e) { showMessage(e.message, 'error'); } };
 
-    // [NEW] Check if the current user is the master admin.
     const isMasterAdmin = user?.email === 'scriptmail00@gmail.com';
 
     return (
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
             {message.text && <div className={`fixed top-5 right-5 p-4 rounded-lg text-white font-bold shadow-lg z-50 ${message.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{message.text}</div>}
-            <header className="flex justify-between items-center mb-8"><h1 className="text-4xl font-bold text-white">Admin Dashboard</h1><button onClick={() => navigate('/dashboard')} className="btn btn-secondary !mt-0">Back to Dashboard</button></header>
+            <header className="flex justify-between items-center mb-8">
+                <h1 className="text-4xl font-bold text-white">Admin Dashboard</h1>
+                <div className="flex items-center gap-4">
+                    {isMasterAdmin && (
+                        <button onClick={() => navigate('/admin/system-controls')} className="btn bg-yellow-600 hover:bg-yellow-700 text-white !mt-0">
+                            System Controls
+                        </button>
+                    )}
+                    <button onClick={() => navigate('/dashboard')} className="btn btn-secondary !mt-0">Back to Dashboard</button>
+                </div>
+            </header>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
                 <StatCard title="Total Users" value={stats.totalUsers} icon="👥" /><StatCard title="Gems in Circulation" value={stats.gemsInCirculation.toLocaleString()} icon="💎" /><StatCard title="Pending Disputes" value={stats.pendingDisputes} icon="⚖️" /><StatCard title="Pending Payouts" value={stats.pendingPayouts} icon="💸" /><StatCard title="Total Tax Collected" value={stats.taxCollected.toLocaleString()} icon="📈" />
@@ -381,7 +301,7 @@ const AdminDashboard = () => {
                             <tbody>
                                 {servers.length > 0 ? servers.map(server => {
                                     const lastBeat = new Date(server.last_heartbeat);
-                                    const isOnline = (new Date() - lastBeat) < 60000; // 60 seconds threshold
+                                    const isOnline = (new Date() - lastBeat) < 60000;
                                     return (
                                         <tr key={server.server_id} className="border-t border-gray-800">
                                             <td className="p-2 font-mono font-semibold">{server.server_id}</td>
@@ -401,9 +321,6 @@ const AdminDashboard = () => {
                     </div>
                 </div>
             </div>
-
-            {/* [NEW] Conditionally render the master controls */}
-            {isMasterAdmin && <SystemControls token={token} showMessage={showMessage} />}
 
             <UserActionsModal isOpen={!!selectedUser} onClose={() => setSelectedUser(null)} user={selectedUser} token={token} onActionComplete={handleActionComplete}/>
             <DisputeResolutionModal isOpen={!!selectedDispute} onClose={() => setSelectedDispute(null)} dispute={selectedDispute} onResolve={handleResolveDispute} onViewTranscript={handleViewTranscript} />
