@@ -24,7 +24,6 @@ async function runScheduledTasks() {
     const SERVER_CRASH_THRESHOLD_SECONDS = parseInt(process.env.SERVER_CRASH_THRESHOLD_SECONDS || '50', 10);
     const TOURNAMENT_DISPUTE_HOURS = 1;
 
-    // --- Task 1: Handle Tournament State Transitions ---
     const tournamentClient = await pool.connect();
     try {
         const openRegSql = `UPDATE tournaments SET status = 'registration_open' WHERE status = 'scheduled' AND registration_opens_at <= NOW() RETURNING id`;
