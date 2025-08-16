@@ -1,4 +1,3 @@
-// START OF FILE frontend/App.jsx ---
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
@@ -96,6 +95,7 @@ const App = () => {
              <ErrorBoundary>
                 <Suspense fallback={<Loader fullScreen />}>
                     <Routes>
+                        <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Navigate to="/signin" />} />
                         <Route path="/signin" element={!user ? <SignInPage /> : <Navigate to="/dashboard" />} />
                         <Route path="/signup" element={
                             !user ? (
@@ -114,7 +114,6 @@ const App = () => {
                         <Route path="/reset-password" element={<ResetPasswordPage />} />
                         <Route path="/forbidden" element={<ForbiddenPage />} />
                         
-
                         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                         <Route path="/link-account" element={<ProtectedRoute><FeatureGuard featureName="roblox_linking"><LinkingView /></FeatureGuard></ProtectedRoute>} />
                         <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
