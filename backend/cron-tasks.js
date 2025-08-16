@@ -1,3 +1,4 @@
+--- START OF FILE backend/cron-tasks.js ---
 require('dotenv').config({ path: require('path').resolve(__dirname, './.env') });
 const db = require('./database/database');
 
@@ -175,8 +176,6 @@ async function runScheduledTasks() {
                     console.log(`[CRON] Duel ID ${duel.id} forfeited by ${challenger.linked_roblox_username}.`);
                 }
                 else {
-                    console.log(`[CRON] Standoff detected for duel ${duel.id}. Analyzing transcript for ready declarations...`);
-                    
                     const readyEvents = transcript.filter(event => event.eventType === 'PLAYER_DECLARED_READY_ON_PAD');
                     const challengerReady = readyEvents.some(event => event.data?.playerName === challenger.linked_roblox_username);
                     const opponentReady = readyEvents.some(event => event.data?.playerName === opponent.linked_roblox_username);
@@ -302,36 +301,4 @@ async function runScheduledTasks() {
         `;
         const { rows: forfeitableDisputes } = await disputeForfeitClient.query(disputeSql);
         for (const dispute of forfeitableDisputes) {
-            const txClient = await pool.connect();
-            try {
-                await txClient.query('BEGIN');
-                console.log(`[CRON][DISPUTE] Forfeiting dispute ${dispute.id} due to user inaction.`);
-                await txClient.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [dispute.pot, dispute.reported_id]);
-                await txClient.query("UPDATE duels SET status = 'completed' WHERE id = $1", [dispute.duel_id]);
-                const resolutionText = "Forfeited by reporter due to inaction after 24 hours.";
-                await txClient.query("UPDATE disputes SET status = 'resolved', resolution = $1, resolved_at = NOW() WHERE id = $2", [resolutionText, dispute.id]);
-                await txClient.query("DELETE FROM inbox_messages WHERE type = 'dispute_discord_link_prompt' AND reference_id = $1", [dispute.id.toString()]);
-                await txClient.query('COMMIT');
-            } catch (txError) {
-                await txClient.query('ROLLBACK');
-                console.error(`[CRON][DISPUTE] Error forfeiting dispute ${dispute.id}:`, txError);
-            } finally {
-                txClient.release();
-            }
-        }
-    } catch (error) {
-        console.error('[CRON][DISPUTE] Error querying for expired dispute prompts:', error);
-    } finally {
-        disputeForfeitClient.release();
-    }
-}
-
-runScheduledTasks()
-    .then(() => {
-        console.log("[CRON] Scheduled tasks finished successfully.");
-        process.exit(0);
-    })
-    .catch(err => {
-        console.error("[CRON] Scheduled tasks failed:", err);
-        process.exit(1);
-    });
+            const txClient 
