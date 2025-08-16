@@ -21,6 +21,7 @@ const BanNotice = lazy(() => import('./pages/BanNotice.jsx'));
 const DuelHistoryPage = lazy(() => import('./pages/DuelHistoryPage.jsx'));
 const TournamentsPage = lazy(() => import('./pages/TournamentsPage.jsx'));
 const AdminTournamentCreatePage = lazy(() => import('./pages/AdminTournamentCreatePage.jsx'));
+const AdminSystemControlsPage = lazy(() => import('./pages/AdminSystemControlsPage.jsx'));
 const TranscriptViewerPage = lazy(() => import('./pages/TranscriptViewerPage.jsx'));
 const TicketTranscriptViewerPage = lazy(() => import('./pages/TicketTranscriptViewerPage.jsx'));
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage.jsx'));
@@ -126,6 +127,7 @@ const App = () => {
                         
                         <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
                         <Route path="/admin/tournaments/create" element={<ProtectedRoute adminOnly={true}><FeatureGuard featureName="tournaments"><AdminTournamentCreatePage /></FeatureGuard></ProtectedRoute>} />
+                        <Route path="/admin/system-controls" element={<ProtectedRoute adminOnly={true}><AdminSystemControlsPage /></ProtectedRoute>} />
 
                         <Route path="*" element={<NotFoundPage />} />
                     </Routes>
